@@ -1,0 +1,34 @@
+# Render Blueprint — deploys AutoList AI with a persistent disk + auto HTTPS.
+# Render → New → Blueprint → connect this repo. Secrets are auto-generated (never entered by hand).
+services:
+  - type: web
+    name: autolist-ai
+    runtime: node
+    plan: starter                 # persistent disk requires a paid instance (Starter)
+    buildCommand: npm ci --omit=dev
+    startCommand: node --experimental-sqlite src/server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"               # node:sqlite needs Node 22+
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true       # Render generates + stores it; never shown in chat
+      - key: DATA_KEY
+        generateValue: true
+      - key: AUTOLIST_DB
+        value: /var/data/autolist.db
+      - key: FILE_STORE_DIR
+        value: /var/data/files
+      - key: PUBLIC_URL
+        value: https://autolist.ai
+      # Optional — add later in the Render dashboard when you have them:
+      # ANTHROPIC_API_KEY, IMAGE_API_KEY,
+      # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
+      # SMTP_URL, EMAIL_FROM
+    disk:
+      name: autolist-data         # persists the SQLite DB + uploaded files across deploys
+      mountPath: /var/data
+      sizeGB: 1
