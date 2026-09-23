@@ -1,0 +1,22 @@
+# systemd unit — copy to /etc/systemd/system/autolist.service
+# Runs AutoList AI directly with Node (no Docker). Reads secrets from .env.
+[Unit]
+Description=AutoList AI
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/autolist-ai
+# Node 22+ required for node:sqlite. Adjust the node path if you use nvm (run: which node).
+ExecStart=/usr/bin/node --experimental-sqlite src/server.js
+EnvironmentFile=/var/www/autolist-ai/.env
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+# writable data dir for SQLite + uploads
+ReadWritePaths=/var/www/autolist-ai/data
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

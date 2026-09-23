@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# runtime data — NEVER commit (contains the SQLite DB with user accounts + private uploaded files)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# logs & OS junk
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# editor / tooling
+.vscode/
+.idea/
+scratchpad/
+
+# proprietary — our own product IP; keep OUT of the public repo (not used by the server runtime)
+templates/
+engine/

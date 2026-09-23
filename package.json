@@ -1,0 +1,22 @@
+{
+  "name": "autolist-ai",
+  "version": "1.0.0",
+  "description": "AutoList AI — AI commerce listing automation for sellers (Amazon, Flipkart, Meesho, Shopify).",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --experimental-sqlite src/server.js",
+    "dev": "node --experimental-sqlite --watch src/server.js",
+    "test": "node --experimental-sqlite test/phase1.test.js && node --experimental-sqlite test/phase2.test.js && node --experimental-sqlite test/phase3.test.js && node --experimental-sqlite test/phase4.test.js && node --experimental-sqlite test/phase5.test.js && node --experimental-sqlite test/phase6.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "jimp": "^0.22.12",
+    "jszip": "^3.10.1",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  }
+}
