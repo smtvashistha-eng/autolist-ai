@@ -6,6 +6,7 @@ const audit = require("../audit");
 const storage = require("../storage");
 const ft = require("../filetypes");
 const { getImageProvider, canGenerate, applyEdit } = require("../ai/imageAIProvider");
+const meter = require("../usagemeter");
 const { db, nowISO, rid } = require("../db");
 
 const router = express.Router();
@@ -72,10 +73,12 @@ router.post("/images/edit", auth.requireAuth, async (req, res) => {
   try {
     const biz = req.user.business_id, body = req.body || {};
     if (!body.operation) return res.status(400).json({ error: "operation is required." });
+    try { meter.enforce(biz, "images"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
     const src = resolveSource(biz, body);
     const provider = getImageProvider();
     const out = await applyEdit(body.operation, src.buffer, body.params || {});
     const gi = saveVersion(biz, req.user.id, out, { ...src, operation: body.operation, provider: provider.name, model: provider.model, prompt: body.prompt, negativePrompt: body.negativePrompt, metadata: body.params });
+    meter.record(biz, "images", 1, { operation: body.operation });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.edit", resourceType: "image", resourceId: gi.id, metadata: { operation: body.operation, version: gi.version }, ip: audit.ipOf(req) });
     res.status(201).json({ image: shape(gi) });
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -90,10 +93,12 @@ router.post("/images/bulk-job", auth.requireAuth, async (req, res) => {
   if (items.length > 30) return res.status(413).json({ error: "Max 30 images per bulk request here; larger batches use a background job (Phase 5)." });
   const provider = getImageProvider(), results = [];
   for (const it of items) {
+    if (!meter.canUse(biz, "images")) { results.push({ ok: false, error: "Plan image limit reached.", item: it }); continue; }
     try {
       const src = resolveSource(biz, it);
       const out = await applyEdit(body.operation, src.buffer, body.params || {});
       const gi = saveVersion(biz, req.user.id, out, { ...src, operation: body.operation, provider: provider.name, model: provider.model, metadata: body.params });
+      meter.record(biz, "images", 1, { operation: body.operation, bulk: true });
       results.push({ ok: true, imageId: gi.id, version: gi.version });
     } catch (e) { results.push({ ok: false, error: e.message, item: it }); }
   }

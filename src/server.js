@@ -32,7 +32,7 @@ app.use("/api", (req, res, next) => {
   next();
 });
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "2mb", verify: (req, res, buf) => { req.rawBody = buf; } })); // rawBody for webhook signatures
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(auth.attachUser);
 // Phase 1 JSON REST API (auth, users, businesses)

@@ -4,6 +4,7 @@ const express = require("express");
 const auth = require("../auth");
 const audit = require("../audit");
 const airequests = require("../airequests");
+const meter = require("../usagemeter");
 const { getTextProvider, TITLE_MAX } = require("../ai/textProvider");
 const { validateGenerationResult } = require("../ai/schema");
 const { db, nowISO, rid } = require("../db");
@@ -48,6 +49,7 @@ function persist(draft, result, provider, onlyFields) {
 async function run(req, res, type, onlyFields) {
   const draft = ownDraft(req, (req.body || {}).draftId);
   if (!draft) return res.status(404).json({ error: "Draft not found." });
+  try { meter.enforce(draft.business_id, "listings"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
   const provider = getTextProvider();
   const marketplace = (draft.marketplace || "amazon").toLowerCase();
   const input = {
@@ -63,6 +65,7 @@ async function run(req, res, type, onlyFields) {
     const check = validateGenerationResult(result);
     if (!check.ok) { airequests.fail(reqId, "schema: " + check.errors.join("; ")); return res.status(502).json({ error: "The AI returned output we couldn't validate. Please try again.", requestId: reqId }); }
     const { content, summary } = persist(draft, result, provider, onlyFields);
+    meter.record(draft.business_id, "listings", 1, { type, provider: provider.name });
     airequests.complete(reqId, { tokensIn: result._usage?.input ?? null, tokensOut: result._usage?.output ?? null, model: provider.model, output: result });
     audit.record({ businessId: draft.business_id, userId: req.user.id, action: "ai." + type, resourceType: "draft", resourceId: draft.id, metadata: { provider: provider.name, fallback: !!result._fallback }, ip: audit.ipOf(req) });
     res.json({ requestId: reqId, provider: provider.name, model: provider.model, result, content, summary });

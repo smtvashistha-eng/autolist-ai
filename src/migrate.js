@@ -332,6 +332,48 @@ const MIGRATIONS = [
       db.exec(`CREATE INDEX IF NOT EXISTS ix_presets_biz ON mapping_presets(business_id, marketplace)`);
     },
   },
+  // ---- Phase 7 ----
+  {
+    v: 21, name: "subscriptions",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS subscriptions(
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL REFERENCES businesses(id),
+        provider TEXT, provider_customer_id TEXT, provider_subscription_id TEXT,
+        plan_key TEXT, status TEXT DEFAULT 'inactive',
+        current_period_start TEXT, current_period_end TEXT,
+        cancel_at_period_end INTEGER DEFAULT 0,
+        created_at TEXT, updated_at TEXT
+      )`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_subs_biz ON subscriptions(business_id)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_subs_provider ON subscriptions(provider_subscription_id)`);
+    },
+  },
+  {
+    v: 22, name: "usage_records",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS usage_records(
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL REFERENCES businesses(id),
+        type TEXT, quantity INTEGER DEFAULT 1, unit_cost REAL,
+        metadata_json TEXT, created_at TEXT
+      )`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_usage_biz ON usage_records(business_id, created_at)`);
+    },
+  },
+  {
+    v: 23, name: "invoices",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS invoices(
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL REFERENCES businesses(id),
+        provider TEXT, provider_invoice_id TEXT,
+        amount REAL, currency TEXT, status TEXT, plan_key TEXT,
+        period_start TEXT, period_end TEXT, created_at TEXT
+      )`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_invoices_biz ON invoices(business_id, created_at)`);
+    },
+  },
 ];
 
 function run(db) {
