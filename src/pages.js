@@ -13,7 +13,7 @@ function appMock() {
   // A faithful in-browser mock of the real /app dashboard — animated, crisp, no binary asset.
   return `<div class="appshot" id="appshot">
     <div class="win-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-      <span class="win-url">app.autolist.ai/app</span></div>
+      <span class="win-url">autolistai.in/app</span></div>
     <div class="win-body">
       <aside class="ms-side">
         <div class="ms-logo"><span class="mark" style="width:20px;height:20px"></span> AutoList AI</div>
