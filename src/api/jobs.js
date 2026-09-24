@@ -24,9 +24,10 @@ router.post("/jobs", auth.requireAuth, (req, res) => {
   const { type, input, idempotencyKey, maxRetries } = req.body || {};
   if (!TYPES.includes(type)) return res.status(400).json({ error: `Unknown job type. Allowed: ${TYPES.join(", ")}.` });
   // validate the input references belong to this business
-  if (type === "product_import") {
+  if (type === "product_import" || type === "bulk_pipeline") {
     const f = db.prepare("SELECT 1 FROM files WHERE id=? AND business_id=? AND status='stored'").get((input || {}).fileId, req.user.business_id);
-    if (!f) return res.status(400).json({ error: "product_import needs a stored fileId you own." });
+    if (!f) return res.status(400).json({ error: type + " needs a stored fileId you own." });
+    if (type === "bulk_pipeline" && !(input || {}).marketplace) return res.status(400).json({ error: "bulk_pipeline needs input.marketplace." });
   }
   if (type === "bulk_generate" && !(Array.isArray((input || {}).productIds) && input.productIds.length))
     return res.status(400).json({ error: "bulk_generate needs input.productIds[]." });

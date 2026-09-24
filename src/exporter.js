@@ -44,7 +44,7 @@ function validateDrafts(biz, draftIds, marketplace, schemaFields) {
     const others = siblingSkus.filter(s => s !== (product && product.sku));
     const res = validator.validate({ content: JSON.parse(d.content_json || "null"), marketplace, product: product || {}, siblingSkus: others, images, schemaFields });
     const sku = product && product.sku;
-    if (sku && seenSku[sku]) { res.blockingErrors.push({ code: "DUPLICATE_SKU_IN_BATCH", severity: "blocking", field: "sku", message: `SKU "${sku}" appears more than once in this export.`, resolved: false }); res.valid = false; }
+    if (sku && seenSku[sku]) { res.blockingErrors.push({ code: "DUPLICATE_SKU_IN_BATCH", severity: "blocking", field: "sku", message: `Duplicate SKU "${sku}" appears more than once in this export.`, resolved: false }); res.valid = false; }
     if (sku) seenSku[sku] = 1;
     if (!res.valid) blocking++;
     items.push({ draftId: id, sku, valid: res.valid, blockingErrors: res.blockingErrors, warnings: res.warnings, suggestions: res.suggestions });
