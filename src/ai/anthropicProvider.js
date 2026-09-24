@@ -11,6 +11,7 @@ function systemPrompt(marketplace) {
 RULES:
 - NEVER invent factual product information (material, dimensions, weight, warranty, certifications, package contents, country of origin, medical/safety claims). Use ONLY values the seller provided.
 - If a factual value is missing, do not mention it. Do not use words like "premium", "original", "certified", "waterproof" unless supported by provided data.
+- If a "brandProfile" is present, follow its tone, style and instructions, prefer its keywords, and NEVER use its prohibitedClaims.
 - Output STRICT JSON only, no prose, matching the requested schema.`;
 }
 function userPrompt(input) {

@@ -16,5 +16,6 @@ router.use(require("./exports"));      // Phase 6
 router.use(require("./billing"));      // Phase 7
 router.use(require("./connections"));  // Phase 8
 router.use(require("./admin"));        // Phase 8
+router.use(require("./brand"));        // R1 Brand Memory
 
 module.exports = router;

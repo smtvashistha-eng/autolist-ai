@@ -32,7 +32,9 @@ async function generate(bizId, id) {
   const row = get(bizId, id);
   if (!row) return null;
   const provider = getTextProvider();
-  const result = await provider.generateListing(row.data.input, row.data.marketplace);
+  const brand = require("./brand");
+  const input = { ...brand.enrichInput(bizId, row.data.input), brandProfile: brand.promptContext(bizId) };
+  const result = brand.applySSR(await provider.generateListing(input, row.data.marketplace), bizId);
   return save(bizId, id, d => { d.result = result; });
 }
 function list(bizId) {

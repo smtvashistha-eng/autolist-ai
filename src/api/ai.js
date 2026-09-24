@@ -53,7 +53,8 @@ async function run(req, res, type, onlyFields) {
   const provider = getTextProvider();
   const marketplace = (draft.marketplace || "amazon").toLowerCase();
   const input = {
-    product: confirmedFor(draft, req.body || {}),
+    product: require("../brand").enrichInput(draft.business_id, confirmedFor(draft, req.body || {})),
+    brandProfile: require("../brand").promptContext(draft.business_id),
     marketplace, category: (req.body.confirmedData || {}).category,
     limits: { title: TITLE_MAX[marketplace] || 200 },
     userInstructions: (req.body || {}).userInstructions || null,
@@ -61,7 +62,7 @@ async function run(req, res, type, onlyFields) {
   };
   const reqId = airequests.create({ businessId: draft.business_id, userId: req.user.id, draftId: draft.id, type, provider: provider.name, model: provider.model, promptVersion: provider.promptVersion, meta: { marketplace } });
   try {
-    const result = await provider.generateListing(input);
+    const result = require("../brand").applyREST(await provider.generateListing(input), draft.business_id);
     const check = validateGenerationResult(result);
     if (!check.ok) { airequests.fail(reqId, "schema: " + check.errors.join("; ")); return res.status(502).json({ error: "The AI returned output we couldn't validate. Please try again.", requestId: reqId }); }
     const { content, summary } = persist(draft, result, provider, onlyFields);

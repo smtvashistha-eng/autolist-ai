@@ -69,14 +69,15 @@ const anthropicProvider = {
     const key = process.env.ANTHROPIC_API_KEY;
     const sys = "You write e-commerce listings. Return ONLY JSON matching {fields:[{name,value,sourceType,confidence,needsConfirmation}],warnings:[],missingFields:[]}. " +
       "sourceType is one of provided|generated_from_confirmed_data|ai_generated|missing. NEVER invent factual fields (" + FACTUAL.join(", ") + "); if not provided, set value \"\", sourceType \"missing\", needsConfirmation true and add to missingFields.";
-    const user = JSON.stringify({ product: input.product, marketplace: input.marketplace, category: input.category, limits: input.limits, userInstructions: input.userInstructions || null, doNotInvent: FACTUAL });
+    const sysBrand = input.brandProfile ? " Follow the seller's brandProfile: write in its tone, match its style (bullet style/count, example title), prefer its keywords, obey its instructions, and NEVER use any of its prohibitedClaims." : "";
+    const user = JSON.stringify({ product: input.product, marketplace: input.marketplace, category: input.category, limits: input.limits, brandProfile: input.brandProfile || null, userInstructions: input.userInstructions || null, doNotInvent: FACTUAL });
     let lastErr = "";
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: this.model, max_tokens: 1500, system: sys, messages: [{ role: "user", content: user }] }),
+          body: JSON.stringify({ model: this.model, max_tokens: 1500, system: sys + sysBrand, messages: [{ role: "user", content: user }] }),
         });
         if (!res.ok) throw new Error("anthropic http " + res.status);
         const data = await res.json();

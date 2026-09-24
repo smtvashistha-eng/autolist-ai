@@ -50,7 +50,7 @@ app.get("/login", (req, res) => req.user ? res.redirect("/app") : res.send(pages
 app.get("/signup", (req, res) => req.user ? res.redirect("/app") : res.send(pages.authPage("signup")));
 
 app.post("/signup", (req, res) => {
-  try { const t = auth.signup(req.body); auth.setCookie(res, t); res.redirect("/app"); }
+  try { const t = auth.signup(req.body); auth.setCookie(res, t); res.redirect("/app/onboarding"); }
   catch (e) { res.status(400).send(pages.authPage("signup", e.message)); }
 });
 app.post("/login", (req, res) => {
@@ -73,6 +73,7 @@ app.get("/app", (req, res) => {
   const recentJobs = safe(() => db.prepare("SELECT * FROM jobs WHERE business_id=? ORDER BY updated_at DESC, created_at DESC LIMIT 5").all(biz), []);
   const stats = {
     usage: usageStat,
+    onboarded: require("./brand").isOnboarded(biz),
     products: cnt("SELECT COUNT(*) c FROM listings WHERE business_id=?"),
     drafts: db.prepare("SELECT COUNT(*) c FROM listings WHERE business_id=? AND status='draft'").get(biz).c,
     review: db.prepare("SELECT COUNT(*) c FROM listings WHERE business_id=? AND status='review'").get(biz).c,
@@ -301,6 +302,23 @@ app.post("/api/images/bulk", upload.array("files", 60), async (req, res, next) =
   } catch (e) { next(e); }
 });
 app.get("/app/help", (req, res) => res.send(pages.helpPage(req.user)));
+// ---- R1: Brand Memory (per-seller AI memory) ----
+const brandMem = require("./brand");
+app.get("/app/onboarding", (req, res) => res.send(pages.onboardingPage(req.user, brandMem.getProfile(req.user.business_id))));
+app.post("/app/onboarding", (req, res) => { brandMem.saveProfile(req.user.business_id, req.body || {}); res.redirect("/app"); });
+app.get("/app/brand", (req, res) => {
+  const listings = db.prepare("SELECT id, product_name, sku, category, status FROM listings WHERE business_id=? ORDER BY updated_at DESC LIMIT 10").all(req.user.business_id);
+  res.send(pages.brandPage(req.user, brandMem.getProfile(req.user.business_id), listings, req.query.ok));
+});
+app.post("/app/brand", (req, res) => { brandMem.saveProfile(req.user.business_id, req.body || {}); res.redirect("/app/brand?ok=" + encodeURIComponent("Brand Memory saved. Every new listing will use it.")); });
+app.post("/app/brand/learn/:id", (req, res) => {
+  const row = L.get(req.user.business_id, req.params.id);
+  const r = row && row.data && row.data.result;
+  if (!r || !r.fields) return res.redirect("/app/brand?ok=" + encodeURIComponent("Generate that listing first, then teach the AI from it."));
+  brandMem.learnFromSample(req.user.business_id, { title: r.fields.title && r.fields.title.value, bullets: r.fields.bullets && r.fields.bullets.value, keywords: r.fields.keywords && r.fields.keywords.value, description: r.fields.description && r.fields.description.value, category: row.data.input && row.data.input.category });
+  require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "brand.learn", resourceType: "listing", resourceId: req.params.id, ip: require("./audit").ipOf(req) });
+  res.redirect("/app/brand?ok=" + encodeURIComponent("Done — the AI learned your style from “" + (row.product_name || "this listing") + "”."));
+});
 // ---- Admin control panel (gated) ----
 function adminData() {
   const cnt = (t) => { try { return db.prepare(`SELECT COUNT(*) c FROM ${t}`).get().c; } catch { return 0; } };

@@ -5,6 +5,7 @@ const storage = require("./storage");
 const bulk = require("./bulk");
 const exporter = require("./exporter");
 const meter = require("./usagemeter");
+const brand = require("./brand");
 const { getTextProvider, TITLE_MAX } = require("./ai/textProvider");
 const { validateGenerationResult } = require("./ai/schema");
 const { db, nowISO, rid } = require("./db");
@@ -70,7 +71,7 @@ queue.register("bulk_generate", async (job, ctx) => {
         const conf = JSON.parse(p.normalized_data_json || p.source_data_json || "{}") || {};
         if (!conf.productName) conf.productName = p.name;
         if (!conf.brand) conf.brand = p.brand;
-        const result = await provider.generateListing({ product: conf, marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } });
+        const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id);
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
         const now = nowISO(), draftId = rid("d_");
         const fields = {}; for (const fl of result.fields) fields[fl.name] = { value: fl.value, sourceType: fl.sourceType, confidence: fl.confidence, needsConfirmation: fl.needsConfirmation };
@@ -119,7 +120,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
       else {
         const p = db.prepare("SELECT * FROM products WHERE id=?").get(productId);
         const conf = JSON.parse(p.normalized_data_json || "{}");
-        const result = await provider.generateListing({ product: conf, marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } });
+        const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id);
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
         const now = nowISO(), draftId = rid("d_");
         const fields = {}; for (const fl of result.fields) fields[fl.name] = { value: fl.value, sourceType: fl.sourceType, confidence: fl.confidence, needsConfirmation: fl.needsConfirmation };

@@ -384,6 +384,18 @@ const MIGRATIONS = [
       db.exec("UPDATE businesses SET status='active' WHERE status IS NULL");
     },
   },
+  // ---- R1: Brand Memory ----
+  {
+    v: 25, name: "brand_profiles",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS brand_profiles(
+        business_id TEXT PRIMARY KEY REFERENCES businesses(id),
+        sells TEXT, categories TEXT, brands TEXT, tone TEXT, marketplaces TEXT,
+        audience TEXT, prohibited_claims TEXT, instructions TEXT,
+        learned_json TEXT, onboarded_at TEXT, updated_at TEXT
+      )`);
+    },
+  },
 ];
 
 function run(db) {

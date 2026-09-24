@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --experimental-sqlite src/server.js",
     "dev": "node --experimental-sqlite --watch src/server.js",
-    "test": "node --experimental-sqlite test/phase1.test.js && node --experimental-sqlite test/phase2.test.js && node --experimental-sqlite test/phase3.test.js && node --experimental-sqlite test/phase4.test.js && node --experimental-sqlite test/phase5.test.js && node --experimental-sqlite test/phase6.test.js && node --experimental-sqlite test/phase7.test.js && node --experimental-sqlite test/bulk.test.js && node --experimental-sqlite test/phase8.test.js && node --experimental-sqlite test/admin.test.js"
+    "test": "node --experimental-sqlite test/phase1.test.js && node --experimental-sqlite test/phase2.test.js && node --experimental-sqlite test/phase3.test.js && node --experimental-sqlite test/phase4.test.js && node --experimental-sqlite test/phase5.test.js && node --experimental-sqlite test/phase6.test.js && node --experimental-sqlite test/phase7.test.js && node --experimental-sqlite test/bulk.test.js && node --experimental-sqlite test/phase8.test.js && node --experimental-sqlite test/admin.test.js && node --experimental-sqlite test/brand.test.js"
   },
   "engines": {
     "node": ">=22"

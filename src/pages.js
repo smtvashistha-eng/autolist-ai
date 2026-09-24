@@ -190,6 +190,7 @@ const NAV = [
   ["Create Listing", "/app/create", "M12 5v14M5 12h14", 1, "Workspace"],
   ["Bulk Upload", "/app/bulk", "M12 16V4M8 8l4-4 4 4M4 20h16", 1, "Workspace"],
   ["Drafts", "/app/listings", "M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7", 1, "Workspace"],
+  ["Brand Memory", "/app/brand", "M12 2a7 7 0 00-4 12.7V18h8v-3.3A7 7 0 0012 2zM9 22h6", 1, "Workspace"],
   ["Images", "/app/images", "M3 3h18v18H3zM21 15l-5-5L5 21", 1, "Content"],
   ["Templates", "/app/templates", "M4 4h16v16H4zM4 10h16M10 4v16", 1, "Content"],
   ["Exports", "/app/exports", "M12 3v12M8 11l4 4 4-4M4 21h16", 1, "Content"],
@@ -384,6 +385,7 @@ function dashboard(user, stats) {
   const biz = user.business || {};
   const first = (user.name || "there").split(" ")[0];
   const isFresh = stats.products === 0 && stats.recentExports.length === 0 && stats.recentJobs.length === 0;
+  const memBanner = stats.onboarded === false ? alertBox("warn", "Set up your AI memory so every listing matches your brand — takes 1 minute.", { href: "/app/onboarding", label: "Set up now →" }) : "";
 
   // --- recent lists ---
   const draftRows = stats.recentDrafts.length
@@ -433,7 +435,7 @@ function dashboard(user, stats) {
 
   if (isFresh) {
     return shell(user, "/app", `
-      <div style="margin-bottom:16px">${greeting(first)}</div>
+      <div style="margin-bottom:16px">${greeting(first)}</div>${memBanner}
       ${hero}
       ${usage}
       ${toolsCard}
@@ -447,7 +449,7 @@ function dashboard(user, stats) {
   }
 
   return shell(user, "/app", `
-    <div style="margin-bottom:16px">${greeting(first)}</div>
+    <div style="margin-bottom:16px">${greeting(first)}</div>${memBanner}
     ${hero}
     ${usage}
     ${toolsCard}
@@ -824,6 +826,66 @@ function connectionsPage(user, adapters, conns, listings, history, live, notice)
   return shell(user, "/app/market", body);
 }
 
+// ===== R1: Brand Memory (per-seller AI memory) =====
+function memoryForm(p, action, submit) {
+  p = p || {};
+  const v = (x) => esc(Array.isArray(x) ? x.join(", ") : (x || ""));
+  const mk = p.marketplaces || [];
+  const chk = (id, n) => `<label class="seg"><input type="checkbox" name="marketplaces" value="${id}" ${mk.includes(id) ? "checked" : ""}><span>${n}</span></label>`;
+  const tone = (id, n, d) => `<label class="seg"><input type="radio" name="tone" value="${id}" ${(p.tone || "professional") === id ? "checked" : ""}><span title="${d}">${n}</span></label>`;
+  const banned = p.prohibitedClaims && p.prohibitedClaims.length ? p.prohibitedClaims : ["best", "No.1", "100%", "guaranteed", "cheapest"];
+  const f = (name, label, ph, val, hint) => `<div class="field"><label>${label}</label><input name="${name}" value="${val}" placeholder="${ph}">${hint ? `<div style="font-size:12px;color:var(--faint);margin-top:4px">${hint}</div>` : ""}</div>`;
+  return `<form method="POST" action="${action}">
+    <div class="card pad section"><div class="sec-h"><span class="sec-n">1</span><div><b>Your business</b><p>What you sell and under which brand.</p></div></div>
+      ${f("sells", "What do you sell?", "e.g. Screen guards for laptops, tablets and phones", v(p.sells))}
+      <div class="form2">${f("categories", "Product categories", "e.g. Screen Guard, Tablet Accessories", v(p.categories), "Comma-separated")}
+      ${f("brands", "Your brand name(s)", "e.g. TRUSTin, SkrechTech", v(p.brands), "If you have one brand, AI fills it automatically")}</div>
+    </div>
+    <div class="card pad section"><div class="sec-h"><span class="sec-n">2</span><div><b>Where &amp; to whom</b><p>Your marketplaces and buyers.</p></div></div>
+      <label class="cr-optlbl">Where do you sell?</label>
+      <div class="seg-row">${chk("amazon", "Amazon")}${chk("flipkart", "Flipkart")}${chk("meesho", "Meesho")}${chk("shopify", "Shopify")}</div>
+      <div style="margin-top:14px">${f("audience", "Who buys your products?", "e.g. Students and office workers in India", v(p.audience))}</div>
+    </div>
+    <div class="card pad section"><div class="sec-h"><span class="sec-n">3</span><div><b>How the AI should write</b><p>Your tone and your rules.</p></div></div>
+      <label class="cr-optlbl">Writing tone</label>
+      <div class="seg-row">${tone("professional", "Professional", "Clear, factual")}${tone("friendly", "Friendly", "Warm, simple")}${tone("premium", "Premium", "Polished, aspirational")}${tone("simple", "Simple", "Short, direct")}</div>
+      <div style="margin-top:14px">${f("prohibitedClaims", "Words / claims the AI must NEVER use", "e.g. best, No.1, 100%, guaranteed", v(banned), "These are always removed from listings (protects you from marketplace policy issues).")}</div>
+      <div class="field"><label>Anything the AI should always do?</label><textarea name="instructions" rows="3" class="ta" placeholder="e.g. Always mention 9H hardness and bubble-free installation when relevant">${v(p.instructions)}</textarea></div>
+    </div>
+    <div class="create-foot"><span></span><button class="btn pri lg">${submit}</button></div>
+  </form>`;
+}
+function onboardingPage(user, p) {
+  return shell(user, "/app/brand", `
+  <div class="phead"><div><h1>Set up your AI memory</h1><p>Answer a few questions once — AutoList AI will remember your business and write every listing your way.</p></div></div>
+  ${alertBox("info", "This takes about 1 minute. You can change it any time in Brand Memory.")}
+  ${memoryForm(p, "/app/onboarding", "Save &amp; go to my dashboard →")}`);
+}
+function brandPage(user, p, listings, notice) {
+  const L = p && p.learned;
+  const learned = L ? `<div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px">
+      <div><span style="color:var(--soft)">Learned from</span> <b>${L.samples} listing${L.samples > 1 ? "s" : ""}</b></div>
+      <div><span style="color:var(--soft)">Bullet style</span> <b>${esc(L.bulletStyle)}</b> · <b>${L.bulletCount}</b> bullets</div>
+      ${L.sampleTitle ? `<div><span style="color:var(--soft)">Example title</span><br><b>${esc(L.sampleTitle)}</b></div>` : ""}
+      <div><span style="color:var(--soft)">Your keywords</span><br>${(L.keywords || []).map(k => `<span class="badge b-info" style="margin:2px">${esc(k)}</span>`).join("")}</div></div>`
+    : `<p style="color:var(--soft);margin:0">Not trained yet. Pick one of your best listings below and click <b>Teach AI</b>.</p>`;
+  const rows = listings.length ? listings.map(l => `<tr><td><b>${esc(l.product_name || "Untitled")}</b><div style="font-size:11px;color:var(--faint)">${esc(l.sku || l.category || "")}</div></td>
+      <td>${badge(l.status)}</td>
+      <td style="text-align:right">${l.status === "draft" ? `<span style="font-size:12px;color:var(--faint)">Generate it first</span>` : `<form method="POST" action="/app/brand/learn/${esc(l.id)}" style="margin:0"><button class="btn ghost" style="padding:6px 12px;font-size:12px">Teach AI</button></form>`}</td></tr>`).join("")
+    : `<tr><td colspan="3" style="color:var(--soft)">No listings yet. <a href="/app/create" style="color:var(--accent)">Create your sample listing</a> first.</td></tr>`;
+  return shell(user, "/app/brand", `
+  <div class="phead"><div><h1>Brand Memory</h1><p>Your private AI memory — used in every listing AutoList writes for you.</p></div>
+    ${p && p.onboardedAt ? `<span class="badge b-good">ACTIVE</span>` : `<span class="badge b-warn">NOT SET UP</span>`}</div>
+  ${notice ? alertBox("good", notice) : ""}
+  <div class="dash-cols" style="margin-bottom:16px">
+    <div class="card pad"><b>What the AI learned from your listings</b><div style="margin-top:10px">${learned}</div></div>
+    <div class="card"><div class="cardhead"><h3>Teach the AI from a listing</h3></div>
+      <table><tbody>${rows}</tbody></table></div>
+  </div>
+  <h2 style="font-size:16px;margin:8px 0 12px">Your business profile</h2>
+  ${memoryForm(p, "/app/brand", "Save Brand Memory")}`);
+}
+
 // ===== Bulk Listing (USP) — one-click: file -> generate all -> validate -> export =====
 function bulkPro(user) {
   const seg = (v, n) => `<label class="seg"><input type="radio" name="bpmkt" value="${v}" ${v === "amazon" ? "checked" : ""}><span>${n}</span></label>`;
@@ -1109,4 +1171,4 @@ function cropToolPage() {
 ${cropScripts()}` + foot;
 }
 
-module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin, esc, ic, head, foot };
+module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin, esc, ic, head, foot, onboardingPage, brandPage };
