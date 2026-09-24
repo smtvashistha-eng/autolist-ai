@@ -905,8 +905,22 @@ function bulkPro(user) {
     </div>
     <div style="margin-top:16px"><label class="cr-optlbl">Marketplace</label>
       <div class="seg-row">${seg("amazon", "Amazon")}${seg("flipkart", "Flipkart")}${seg("meesho", "Meesho")}${seg("shopify", "Shopify")}</div></div>
-    <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <label style="display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--soft)"><input type="checkbox" id="bp-images"> Include an image ZIP (from image links)</label>
+    <div style="margin-top:18px;border-top:1px solid var(--line2);padding-top:16px">
+      <label class="cr-optlbl">Product images (optional) — upload a ZIP of photos</label>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn ghost" id="bp-zip-pick">${ic("M12 16V4M8 8l4-4 4 4M4 20h16")} Upload images ZIP</button>
+        <span id="bp-zip-status" style="font-size:13px;color:var(--soft)">Name photos by SKU: <b>SK-1_1.jpg, SK-1_2.jpg</b> … or one folder per SKU. We host them and put the links in your file.</span>
+        <input type="file" id="bp-zip" accept=".zip,application/zip" hidden>
+      </div>
+      <div class="ubar" id="bp-zip-bar" style="height:8px;margin-top:10px" hidden><span style="width:0%"></span></div>
+      <div id="bp-zip-result" hidden style="margin-top:12px">
+        <div id="bp-zip-summary" style="font-size:13.5px"></div>
+        <div id="bp-zip-thumbs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:10px"></div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:600;font-size:13.5px"><input type="checkbox" id="bp-links-ok"> Links look right — put them in my marketplace file</label>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <input type="checkbox" id="bp-images" hidden><span></span>
       <button class="btn pri lg" id="bp-go" disabled>${ic("M5 3l14 9-14 9z")} Generate &amp; export everything</button>
     </div>
     <p class="cr-status" id="bp-status" role="status" aria-live="polite">Choose a file to begin.</p>
@@ -965,10 +979,40 @@ function bulkProScript() {
     "   }).catch(function(e){busy=false; setStatus(e.message||'Upload failed.',1);});",
     "}",
     // start job
+    // R2: images ZIP -> hosted links (image_zip job) + "links look right?" confirmation
+    "var imgJobId=null, zpoll=null, zafter=0;",
+    "function zstat(m,err){var s=$('bp-zip-status');s.textContent=m;s.style.color=err?'var(--err)':'var(--soft)';}",
+    "$('bp-zip-pick').onclick=function(){$('bp-zip').click();};",
+    "$('bp-zip').addEventListener('change',function(){if(this.files[0])uploadZip(this.files[0]);});",
+    "function uploadZip(file){",
+    "  if(!/\\.zip$/i.test(file.name)){zstat('Please choose a .zip file of photos.',1);return;}",
+    "  if(file.size>50*1024*1024){zstat('That ZIP is over 50 MB \\u2014 please split it into smaller ZIPs.',1);return;}",
+    "  imgJobId=null; $('bp-zip-result').hidden=true; $('bp-links-ok').checked=false; zstat('Uploading '+file.name+'\\u2026');",
+    "  fetch('/api/files/presign',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fileName:file.name,mime:'application/zip',size:file.size})})",
+    "   .then(function(r){return r.json();}).then(function(p){ if(p.error)throw new Error(p.error);",
+    "     return fetch(p.uploadUrl,{method:'PUT',headers:{'content-type':'application/octet-stream'},body:file})",
+    "      .then(function(){return fetch('/api/files/complete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fileId:p.fileId})});})",
+    "      .then(function(r){return r.json();}).then(function(c){ if(c.error)throw new Error(c.error);",
+    "        return fetch('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'image_zip',input:{fileId:p.fileId}})}); })",
+    "      .then(function(r){return r.json();}).then(function(j){ if(!j.job)throw new Error(j.error||'Could not start image upload.'); zwatch(j.job.id); });",
+    "   }).catch(function(e){zstat(e.message||'Upload failed.',1);});",
+    "}",
+    "function zwatch(id){ zafter=0; $('bp-zip-bar').hidden=false; if(zpoll)clearInterval(zpoll); zpoll=setInterval(function(){",
+    "  fetch('/api/jobs/'+id+'/events?poll=1&after='+zafter).then(function(r){return r.json();}).then(function(d){ zafter=d.lastSeq; var j=d.job;",
+    "   $('bp-zip-bar').firstElementChild.style.width=(j.progressPercent||0)+'%';",
+    "   zstat((j.currentStage||'Working')+' \\u00b7 '+(j.completedItems||0)+' / '+(j.totalItems||0)+(j.failedItems?(' \\u00b7 '+j.failedItems+' failed'):''));",
+    "   if(d.done){ clearInterval(zpoll); zdone(id,j); } }).catch(function(){}); },700); }",
+    "function zdone(id,j){ if(j.status==='FAILED'){zstat('Image upload failed: '+(j.error||'unknown error'),1);return;}",
+    "  fetch('/api/image-assets?jobId='+id).then(function(r){return r.json();}).then(function(a){",
+    "   $('bp-zip-result').hidden=false;",
+    "   $('bp-zip-summary').innerHTML='\\u2705 <b>'+a.total+' images</b> hosted for <b>'+a.skus+' SKUs</b>'+(j.failedItems?(' \\u00b7 \\u26A0 '+j.failedItems+' could not be used'):'')+'. Check the thumbnails, then tick the box.';",
+    "   $('bp-zip-thumbs').innerHTML=a.assets.slice(0,30).map(function(x){return '<a href=\"'+esc(x.url)+'\" target=\"_blank\" rel=\"noopener\" title=\"'+esc(x.filename)+'\" style=\"display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff\"><img src=\"'+esc(x.url)+'\" alt=\"'+esc(x.sku)+'\" loading=\"lazy\" style=\"width:100%;height:80px;object-fit:contain\"><div style=\"font-size:10.5px;padding:3px 6px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">'+esc(x.sku)+(x.position?(' #'+x.position):'')+'</div></a>';}).join('');",
+    "   imgJobId=id; zstat('Images ready ('+a.assets[0].provider+' hosting).'); });",
+    "}",
     "$('bp-go').onclick=function(){ if(!fileId||busy)return;",
     "  var mkt=(document.querySelector('input[name=bpmkt]:checked')||{}).value||'amazon';",
     "  var inc=$('bp-images').checked; busy=true; $('bp-go').disabled=true;",
-    "  fetch('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'bulk_pipeline',input:{fileId:fileId,marketplace:mkt,includeImages:inc}})})",
+    "  fetch('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'bulk_pipeline',input:{fileId:fileId,marketplace:mkt,includeImages:inc,imageJobId:($('bp-links-ok').checked?imgJobId:null)}})})",
     "   .then(function(r){return r.json().then(function(j){return {s:r.status,j:j};});}).then(function(x){ busy=false;",
     "     if(x.s!==202){setStatus((x.j&&x.j.error)||'Could not start.',1);$('bp-go').disabled=false;return;}",
     "     jobId=x.j.job.id; $('bp-prog').hidden=false; $('bp-result').hidden=true; setStatus('Started.'); startPoll();",
@@ -988,12 +1032,13 @@ function bulkProScript() {
     "  if(j.status==='FAILED'){ $('bp-summary').innerHTML='<span style=\"color:var(--err)\">Job failed: '+esc(j.error||'unknown')+'</span>'; return; }",
     "  if(j.status==='CANCELLED'){ $('bp-summary').textContent='Cancelled. '+(r.generated||0)+' generated before stopping.'; }",
     "  else { $('bp-summary').innerHTML='\\u2705 <b>'+(r.ready||0)+' ready</b> and exported'+((r.needsFixCount||0)?(' \\u00b7 \\u26A0 <b>'+r.needsFixCount+' need a fix</b>'):'')+((r.hitLimit)?' \\u00b7 (stopped at plan limit)':''); }",
+    "  if(r.imageMatch){ $('bp-summary').innerHTML+=' \\u00b7 <b>'+r.imageMatch.matched+'</b> products got image links'+(r.imageMatch.unmatchedSkus.length?(' ('+r.imageMatch.unmatchedSkus.length+' photo SKU'+(r.imageMatch.unmatchedSkus.length>1?'s':'')+' matched no row: '+esc(r.imageMatch.unmatchedSkus.slice(0,5).join(', '))+')'):''); }",
     "  if(r.exportId){ fetch('/api/exports/'+r.exportId).then(function(x){return x.json();}).then(function(e){ var ex=e.export||{};",
     "     if(ex.downloadUrl){var a=$('bp-download');a.href=ex.downloadUrl;a.hidden=false;}",
     "     if(ex.imagesUrl){var b=$('bp-images-dl');b.href=ex.imagesUrl;b.hidden=false;} }); }",
     "  var fixes=r.needsFix||[]; if(fixes.length){ $('bp-fixwrap').hidden=false; $('bp-fixes').innerHTML=fixes.map(function(f){return '<tr><td>'+esc(f.sku||'-')+'</td><td style=\"color:var(--soft)\">'+esc((f.errors||[]).join('; '))+'</td></tr>';}).join(''); }",
     "}",
-    "$('bp-again').onclick=function(){ fileId=null;jobId=null; $('bp-file').value=''; $('bp-file-name').textContent='Drag & drop your file here'; $('bp-go').disabled=true; $('bp-prog').hidden=true; $('bp-result').hidden=true; $('bp-fixwrap').hidden=true; $('bp-download').hidden=true; $('bp-images-dl').hidden=true; setStatus('Choose a file to begin.'); };",
+    "$('bp-again').onclick=function(){ fileId=null;jobId=null; $('bp-file').value=''; $('bp-file-name').textContent='Drag & drop your file here'; $('bp-go').disabled=true; $('bp-prog').hidden=true; $('bp-result').hidden=true; $('bp-fixwrap').hidden=true; $('bp-download').hidden=true; $('bp-images-dl').hidden=true; imgJobId=null; $('bp-zip').value=''; $('bp-zip-result').hidden=true; $('bp-zip-bar').hidden=true; $('bp-links-ok').checked=false; zstat('Name photos by SKU: SK-1_1.jpg, SK-1_2.jpg \\u2026 or one folder per SKU.'); setStatus('Choose a file to begin.'); };",
     "})();"
   ].join("\n");
 }

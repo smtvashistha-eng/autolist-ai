@@ -60,6 +60,15 @@ app.post("/login", (req, res) => {
 app.post("/logout", (req, res) => { auth.logout(cookieOf(req)); auth.clearCookie(res); res.redirect("/"); });
 // Public Free PDF Cropper — no auth, no upload; the PDF is processed entirely in the browser.
 app.get("/tools/crop-pdf", (req, res) => res.send(pages.cropToolPage()));
+// R2: public, permanent product-image links (marketplaces fetch these). Strict name validation.
+app.get("/i/:biz/:name", (req, res) => {
+  const ih = require("./imagehost");
+  const p = ih.localPath(req.params.biz, req.params.name);
+  if (!p) return res.status(404).end();
+  res.setHeader("Content-Type", ih.MIME[req.params.name.split(".").pop()] || "application/octet-stream");
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.sendFile(p);
+});
 const cookieOf = (req) => { const c = (req.headers.cookie || "").split(";").map(x => x.trim()).find(x => x.startsWith("sid=")); return c ? decodeURIComponent(c.slice(4)) : null; };
 
 // ---------- authenticated app ----------

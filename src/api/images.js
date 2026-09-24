@@ -106,6 +106,15 @@ router.post("/images/bulk-job", auth.requireAuth, async (req, res) => {
   res.json({ processed: results.length, succeeded: results.filter(r => r.ok).length, results });
 });
 
+// R2: hosted links produced by an image_zip job (for the "links look right?" review)
+router.get("/image-assets", auth.requireAuth, (req, res) => {
+  const job = db.prepare("SELECT id FROM processing_jobs WHERE id=? AND business_id=? AND type='image_zip'").get(req.query.jobId, req.user.business_id);
+  if (!job) return res.status(404).json({ error: "Image upload not found." });
+  const rows = db.prepare("SELECT filename, sku, position, url, provider, width, height FROM image_assets WHERE job_id=? AND business_id=? ORDER BY sku, COALESCE(position,999), filename").all(job.id, req.user.business_id);
+  const bySku = {}; rows.forEach(r => { (bySku[r.sku] = bySku[r.sku] || []).push(r.url); });
+  res.json({ total: rows.length, skus: Object.keys(bySku).length, bySku, assets: rows });
+});
+
 router.get("/images/:id", auth.requireAuth, (req, res) => {
   const gi = genImg(req.user.business_id, req.params.id);
   if (!gi || gi.status === "deleted") return res.status(404).json({ error: "Image not found." });

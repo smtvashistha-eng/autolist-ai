@@ -396,6 +396,21 @@ const MIGRATIONS = [
       )`);
     },
   },
+  // ---- R2: hosted product images from a ZIP ----
+  {
+    v: 26, name: "image_assets",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS image_assets(
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL REFERENCES businesses(id),
+        job_id TEXT, filename TEXT, sku TEXT, position INTEGER,
+        url TEXT, provider TEXT, public_id TEXT,
+        width INTEGER, height INTEGER, bytes INTEGER, created_at TEXT
+      )`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_imgassets_job ON image_assets(job_id, sku)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_imgassets_biz ON image_assets(business_id, created_at)`);
+    },
+  },
 ];
 
 function run(db) {

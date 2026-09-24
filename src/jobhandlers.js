@@ -13,9 +13,14 @@ const { db, nowISO, rid } = require("./db");
 const yield_ = () => new Promise(r => setImmediate(r));
 
 // create a product + draft and generate AI content for one row; returns the draft id (or null)
-function generateOneFromRow(biz, row, map, marketplace, provider) {
+function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
   const input = bulk.rowToInput(row, map);
   if (!input.productName) return null;
+  // R2: attach hosted image links from the uploaded ZIP, matched by SKU (sheet links win)
+  if (imgMap && (!input.images || !input.images.length)) {
+    const k = String(input.sku || "").trim().toLowerCase();
+    if (k && imgMap[k]) { input.images = imgMap[k]; imgMap.__matched.add(k); }
+  }
   const now = nowISO();
   const productId = rid("p_");
   db.prepare(`INSERT INTO products(id,business_id,sku,name,brand,category,status,source_data_json,normalized_data_json,created_at,updated_at)
@@ -93,7 +98,16 @@ queue.register("bulk_generate", async (job, ctx) => {
 
 // ---- bulk_pipeline: the USP. One job: file -> map -> generate all -> validate -> export file ----
 queue.register("bulk_pipeline", async (job, ctx) => {
-  const { fileId, marketplace = "amazon", templateId = null, includeImages = false } = job.input || {};
+  const { fileId, marketplace = "amazon", templateId = null, includeImages = false, imageJobId = null } = job.input || {};
+  // R2: SKU -> [hosted image URLs] from a completed image_zip job
+  let imgMap = null;
+  if (imageJobId) {
+    imgMap = {};
+    for (const a of db.prepare("SELECT sku, url FROM image_assets WHERE job_id=? AND business_id=? ORDER BY sku, COALESCE(position,999), filename").all(imageJobId, job.business_id)) {
+      const k = String(a.sku || "").trim().toLowerCase(); (imgMap[k] = imgMap[k] || []).push(a.url);
+    }
+    Object.defineProperty(imgMap, "__matched", { value: new Set(), enumerable: false });
+  }
   const biz = job.business_id;
   const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get(fileId, biz);
   if (!f) throw new Error("Uploaded file not found or not completed.");
@@ -115,7 +129,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
     if (ctx.cancelled()) break;
     if (!meter.canUse(biz, "listings")) { hitLimit = true; ctx.warn("Plan listing limit reached — stopping generation."); break; }
     try {
-      const productId = generateOneFromRow(biz, rows[i], map, marketplace, provider);
+      const productId = generateOneFromRow(biz, rows[i], map, marketplace, provider, imgMap);
       if (!productId) { ctx.item("row", `row${i + 1}`, "skipped", "no product name"); }
       else {
         const p = db.prepare("SELECT * FROM products WHERE id=?").get(productId);
@@ -151,8 +165,51 @@ queue.register("bulk_pipeline", async (job, ctx) => {
     const exp = await exporter.createExport({ biz, userId: job.user_id, draftIds: readyIds, marketplace, templateId, includeImages });
     if (exp.blocked) exportBlocked = true; else exportId = exp.exportId;
   }
-  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, draftIds };
+  const imageMatch = imgMap ? { skusWithImages: Object.keys(imgMap).length, matched: imgMap.__matched.size, unmatchedSkus: Object.keys(imgMap).filter(k => !imgMap.__matched.has(k)).slice(0, 50) } : null;
+  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, draftIds, imageMatch };
 });
 
-const TYPES = ["product_import", "bulk_generate", "bulk_pipeline"];
+// ---- image_zip (R2): unzip product photos -> validate -> host publicly -> record SKU links ----
+queue.register("image_zip", async (job, ctx) => {
+  const JSZip = require("jszip");
+  const imagehost = require("./imagehost");
+  const ft = require("./filetypes");
+  const biz = job.business_id;
+  const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get((job.input || {}).fileId, biz);
+  if (!f || f.ext !== "zip") throw new Error("Upload a .zip of product images first.");
+  ctx.stage("Unzipping");
+  let zip; try { zip = await JSZip.loadAsync(storage.readBuffer(f.storage_key)); } catch { throw new Error("That ZIP couldn't be opened. Please re-create it and try again."); }
+  const entries = Object.values(zip.files)
+    .filter(e => !e.dir && /\.(jpe?g|png|webp)$/i.test(e.name) && !/(^|\/)(__MACOSX|\.)/.test(e.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  if (!entries.length) throw new Error("No JPG, PNG or WEBP images found in the ZIP.");
+  if (entries.length > 1000) throw new Error("Too many images (max 1000 per ZIP). Split it into smaller ZIPs.");
+  ctx.setTotal(entries.length);
+  ctx.stage("Uploading images (" + imagehost.provider() + ")");
+  const ins = db.prepare(`INSERT INTO image_assets(id,business_id,job_id,filename,sku,position,url,provider,public_id,width,height,bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  let completed = job.completed_items || 0, failed = job.failed_items || 0;
+  for (let i = job.cursor || 0; i < entries.length; i++) {
+    if (ctx.cancelled()) break;
+    const e = entries[i];
+    if (!meter.canUse(biz, "images")) { ctx.warn("Plan image limit reached — stopping."); break; }
+    try {
+      const buf = await e.async("nodebuffer");
+      let ext = e.name.split(".").pop().toLowerCase(); if (ext === "jpeg") ext = "jpg";
+      ft.validateBytes(ext, buf);                     // real image bytes, size cap
+      let width = null, height = null;
+      try { const Jimp = require("jimp"); const im = await Jimp.read(buf); width = im.bitmap.width; height = im.bitmap.height; } catch {}
+      const { sku, position } = imagehost.parseName(e.name);
+      const up = await imagehost.upload(buf, ext, biz, sku);
+      ins.run(rid("ia_"), biz, job.id, e.name.slice(0, 255), sku, position, up.url, up.provider, up.publicId, up.width || width, up.height || height, up.bytes || buf.length, nowISO());
+      meter.record(biz, "images", 1, { zip: true });
+      completed++; ctx.item("image", e.name, "completed", sku);
+    } catch (err) { failed++; ctx.item("image", e.name, "failed", err.message, { message: err.message }); }
+    ctx.advance(i + 1, { completed, failed, stage: "Uploading images" });
+    if (i % 3 === 0) await yield_();
+  }
+  const skus = db.prepare("SELECT COUNT(DISTINCT sku) c FROM image_assets WHERE job_id=?").get(job.id).c;
+  return { uploaded: completed, failed, skus, provider: imagehost.provider() };
+});
+
+const TYPES = ["product_import", "bulk_generate", "bulk_pipeline", "image_zip"];
 module.exports = { TYPES };

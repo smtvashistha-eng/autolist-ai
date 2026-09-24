@@ -21,6 +21,7 @@ function toLegacy(draft, product) {
     color: g("color") || norm.color || "", size: g("size") || norm.size || "",
     material: g("material") || norm.material || "", weight: g("weight") || norm.weight || "",
     countryOfOrigin: g("countryOfOrigin") || norm.countryOfOrigin || "",
+    images: Array.isArray(norm.images) ? norm.images : [],   // R2: hosted links -> template image columns
   };
   const result = { fields: {
     title: { value: g("title") },
