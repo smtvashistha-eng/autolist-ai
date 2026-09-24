@@ -1109,4 +1109,4 @@ function cropToolPage() {
 ${cropScripts()}` + foot;
 }
 
-module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin };
+module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin, esc, ic, head, foot };

@@ -311,17 +311,42 @@ function adminData() {
   const auditRows = safe(() => db.prepare("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 15").all(), []);
   return { overview, businesses, jobs, audit: auditRows, metrics: require("./metrics").snapshot(), plans: plans.list() };
 }
-app.get("/app/admin", (req, res) => {
-  if (!pages.isAdmin(req.user)) return friendly(req, res, 404, "Page not found", "That page doesn't exist.");
-  res.send(pages.adminPage(req.user, adminData()));
+// ---- Admin panel (deny-by-default; server-side gate on every route) ----
+const admin = require("./adminservice");
+const adminUI = require("./adminpages");
+const ipOf = require("./audit").ipOf;
+app.get("/app/admin", (req, res) => res.redirect("/admin"));
+app.use("/admin", auth.requireAuth, auth.requireAdmin);   // all /admin requires admin
+app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity() })));
+app.get("/admin/users", (req, res) => {
+  const limit = 25, offset = Math.max(0, +req.query.offset || 0);
+  res.send(adminUI.users(req.user, admin.listUsers({ q: req.query.q, status: req.query.status, plan: req.query.plan, limit, offset }), req.query));
 });
-app.post("/app/admin/business/:id/plan", (req, res) => {
-  if (!pages.isAdmin(req.user)) return res.status(403).send("Forbidden");
-  const plan = req.body.plan;
-  if (plans.PLANS[plan]) require("./usage").setPlan(req.params.id, plan);
-  require("./audit").record({ businessId: req.params.id, userId: req.user.id, action: "admin.set_plan", resourceType: "business", resourceId: req.params.id, metadata: { plan }, ip: require("./audit").ipOf(req) });
-  res.redirect("/app/admin");
+app.get("/admin/users/:id", (req, res) => res.send(adminUI.userDetail(req.user, admin.userDetail(req.params.id), plans.list())));
+app.post("/admin/users/:id/suspend", (req, res) => {
+  try { const d = admin.userDetail(req.params.id); if (d) admin.suspendBusiness(d.business.id, req.body.reason, req.user, ipOf(req)); } catch (e) {}
+  res.redirect("/admin/users/" + req.params.id);
 });
+app.post("/admin/users/:id/reactivate", (req, res) => {
+  try { const d = admin.userDetail(req.params.id); if (d) admin.reactivateBusiness(d.business.id, req.user, ipOf(req)); } catch (e) {}
+  res.redirect("/admin/users/" + req.params.id);
+});
+app.post("/admin/businesses/:id/change-plan", (req, res) => {
+  try { admin.changePlan(req.params.id, req.body.plan, req.body.reason, req.user, ipOf(req)); } catch (e) {}
+  res.redirect(req.get("Referer") || "/admin/users");
+});
+app.get("/admin/jobs", (req, res) => {
+  const limit = 25, offset = Math.max(0, +req.query.offset || 0);
+  res.send(adminUI.jobs(req.user, admin.listJobs({ status: req.query.status, type: req.query.type, limit, offset }), req.query));
+});
+app.post("/admin/jobs/:id/retry", (req, res) => { try { admin.retryJob(req.params.id, req.user, ipOf(req)); } catch (e) {} res.redirect(req.get("Referer") || "/admin/jobs"); });
+app.get("/admin/billing", (req, res) => res.send(adminUI.billing(req.user, admin.billing())));
+app.get("/admin/marketplaces", (req, res) => res.send(adminUI.marketplaces(req.user, admin.marketplaces())));
+app.get("/admin/audit-log", (req, res) => {
+  const limit = 50, offset = Math.max(0, +req.query.offset || 0);
+  res.send(adminUI.auditPage(req.user, admin.auditLog({ action: req.query.action, limit, offset }), req.query));
+});
+app.get("/admin/health", (req, res) => res.send(adminUI.healthPage(req.user, admin.health())));
 // ---- Phase 9: marketplace connections + publish ----
 const connections = require("./connections");
 const market = require("./marketplace-api");

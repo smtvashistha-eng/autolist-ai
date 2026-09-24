@@ -374,6 +374,16 @@ const MIGRATIONS = [
       db.exec(`CREATE INDEX IF NOT EXISTS ix_invoices_biz ON invoices(business_id, created_at)`);
     },
   },
+  // ---- Admin ----
+  {
+    v: 24, name: "business_status",
+    up(db) {
+      addColumn(db, "businesses", "status", "TEXT DEFAULT 'active'");
+      addColumn(db, "businesses", "suspended_reason", "TEXT");
+      addColumn(db, "businesses", "suspended_at", "TEXT");
+      db.exec("UPDATE businesses SET status='active' WHERE status IS NULL");
+    },
+  },
 ];
 
 function run(db) {

@@ -98,7 +98,25 @@ function login(email, password) {
   email = String(email || "").trim().toLowerCase();
   const u = db.prepare("SELECT * FROM users WHERE email=?").get(email);
   if (!u || !verifyPassword(password, u.pass_hash)) throw new Error("Wrong email or password");
+  const biz = db.prepare("SELECT status FROM businesses WHERE id=?").get(u.business_id);
+  if (biz && biz.status === "suspended") throw new Error("This account is suspended. Please contact support.");
   return startSession(u.id);
+}
+// admin check: DB role or ADMIN_EMAILS allowlist (never from client input)
+function isAdmin(user) {
+  if (!user) return false;
+  const emails = (process.env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  return user.role === "admin" || emails.includes((user.email || "").toLowerCase());
+}
+// deny-by-default admin gate for /admin and /api/admin (server-side, not UI hiding)
+function requireAdmin(req, res, next) {
+  const isApi = (req.originalUrl || req.path).startsWith("/api/");
+  if (!req.user) return isApi ? res.status(401).json({ error: "Not logged in" }) : res.redirect("/login");
+  if (!isAdmin(req.user)) {
+    if (isApi) return res.status(403).json({ error: "Admin access required." });
+    return res.status(403).type("html").send('<!doctype html><meta charset="utf-8"><title>403</title><body style="font-family:Inter,system-ui,sans-serif;display:grid;place-items:center;height:90vh;color:#0f172a"><div style="text-align:center"><h1 style="font-size:48px;margin:0">403</h1><p style="color:#586274">You don’t have access to this page.</p><a href="/app" style="color:#2563eb">Back to app</a></div></body>');
+  }
+  next();
 }
 function startSession(userId) {
   const sid = rid("s_");
@@ -129,10 +147,16 @@ function attachUser(req, res, next) {
   next();
 }
 function requireAuth(req, res, next) {
+  const isApi = (req.originalUrl || req.path).startsWith("/api/");
   if (!req.user) {
     // originalUrl is absolute even inside a mounted router (req.path is relative there)
-    if ((req.originalUrl || req.path).startsWith("/api/")) return res.status(401).json({ error: "Not logged in" });
+    if (isApi) return res.status(401).json({ error: "Not logged in" });
     return res.redirect("/login");
+  }
+  // suspended businesses are blocked everywhere behind auth
+  if (req.user.business && req.user.business.status === "suspended") {
+    if (isApi) return res.status(403).json({ error: "This account is suspended." });
+    return res.redirect("/login?suspended=1");
   }
   next();
 }
@@ -143,5 +167,5 @@ const clearCookie = (res) => res.setHeader("Set-Cookie", "sid=; HttpOnly; Path=/
 module.exports = {
   signup, createAccount, login, logout, startSession, sessionUser,
   issueEmailVerify, consumeEmailVerify, issuePasswordReset, consumePasswordReset,
-  attachUser, requireAuth, setCookie, clearCookie, EMAIL_RE,
+  attachUser, requireAuth, requireAdmin, isAdmin, setCookie, clearCookie, EMAIL_RE,
 };
