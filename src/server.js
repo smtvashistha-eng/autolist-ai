@@ -172,7 +172,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 const bulk = require("./bulk");
 const jobs = require("./jobs");
 
-app.get("/app/bulk", (req, res) => res.send(pages.bulkUpload(req.user)));
+app.get("/app/bulk", (req, res) => res.send(pages.bulkPro(req.user)));
+app.get("/app/bulk-classic", (req, res) => res.send(pages.bulkUpload(req.user)));
 app.post("/app/bulk/upload", upload.single("file"), (req, res) => {
   try {
     if (!req.file) throw new Error("Please choose a file.");

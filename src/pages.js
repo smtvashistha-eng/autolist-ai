@@ -775,6 +775,118 @@ function connectionsPage(user, adapters, conns, listings, history, live, notice)
   return shell(user, "/app/market", body);
 }
 
+// ===== Bulk Listing (USP) — one-click: file -> generate all -> validate -> export =====
+function bulkPro(user) {
+  const seg = (v, n) => `<label class="seg"><input type="radio" name="bpmkt" value="${v}" ${v === "amazon" ? "checked" : ""}><span>${n}</span></label>`;
+  const body = `
+  ${crumbs([{ label: "Dashboard", href: "/app" }, { label: "Bulk Listing" }])}
+  <div class="phead"><div><h1>Bulk Listing</h1><p>Upload one file — AutoList AI generates, validates and exports every listing for you.</p></div></div>
+  ${alertBox("info", "Add product rows (with image links) in an Excel/CSV. We write the listing for each row, flag anything missing, and build your upload-ready marketplace file.")}
+
+  <div class="card pad section" id="bp-step1">
+    <div class="sec-h"><span class="sec-n">1</span><div><b>Upload your product file</b><p>.xlsx, .xls or .csv — up to 25 MB, up to 1000 rows.</p></div></div>
+    <div class="cr-drop" id="bp-drop" tabindex="0" role="button" aria-label="Upload a product file">
+      <div class="cr-drop-ic">${ic("M12 16V4M8 8l4-4 4 4M4 20h16")}</div>
+      <b id="bp-file-name">Drag &amp; drop your file here</b><span>or</span>
+      <button type="button" class="btn pri" id="bp-pick">Choose file</button>
+      <p class="cr-limits">Columns like: name, sku, price, mrp, image_url, features</p>
+      <input type="file" id="bp-file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
+    </div>
+    <div style="margin-top:16px"><label class="cr-optlbl">Marketplace</label>
+      <div class="seg-row">${seg("amazon", "Amazon")}${seg("flipkart", "Flipkart")}${seg("meesho", "Meesho")}${seg("shopify", "Shopify")}</div></div>
+    <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <label style="display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--soft)"><input type="checkbox" id="bp-images"> Include an image ZIP (from image links)</label>
+      <button class="btn pri lg" id="bp-go" disabled>${ic("M5 3l14 9-14 9z")} Generate &amp; export everything</button>
+    </div>
+    <p class="cr-status" id="bp-status" role="status" aria-live="polite">Choose a file to begin.</p>
+  </div>
+
+  <div class="card pad section" id="bp-prog" hidden>
+    <div class="sec-h"><span class="sec-n">2</span><div><b>Working on your listings…</b><p id="bp-stage">Starting…</p></div></div>
+    <div class="ubar" style="height:10px"><span id="bp-bar" style="width:0%"></span></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--soft)">
+      <span id="bp-counts">0 / 0</span>
+      <button class="btn ghost" id="bp-cancel" style="padding:6px 12px;font-size:12px">Cancel</button>
+    </div>
+  </div>
+
+  <div class="card pad section" id="bp-result" hidden>
+    <div class="sec-h"><span class="sec-n">3</span><div><b>Done</b><p id="bp-summary"></p></div></div>
+    <div class="cr-result-actions">
+      <a class="btn pri lg" id="bp-download" hidden>${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} Download marketplace file</a>
+      <a class="btn ghost" id="bp-images-dl" hidden>Download images ZIP</a>
+      <button class="btn ghost" id="bp-again">Start another</button>
+    </div>
+    <div id="bp-fixwrap" hidden style="margin-top:16px">
+      <b style="font-size:14px">Rows that need a fix</b>
+      <table style="margin-top:8px"><thead><tr><th>SKU</th><th>What to fix</th></tr></thead><tbody id="bp-fixes"></tbody></table>
+    </div>
+  </div>
+  <script>${bulkProScript()}</script>`;
+  return shell(user, "/app/bulk", body);
+}
+function bulkProScript() {
+  // plain JS (no template-literals / no ${}) so pages.js does not interpolate it
+  return [
+    "(function(){",
+    "var $=function(id){return document.getElementById(id)};",
+    "var fileId=null, jobId=null, poll=null, after=0, busy=false;",
+    "function setStatus(m,err){var s=$('bp-status');s.textContent=(err?'\\u26A0 '+m:m);s.style.color=err?'var(--err)':'var(--soft)';}",
+    "function esc(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}",
+    // upload
+    "$('bp-pick').onclick=function(){$('bp-file').click();};",
+    "$('bp-drop').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();$('bp-file').click();}});",
+    "['dragenter','dragover'].forEach(function(t){$('bp-drop').addEventListener(t,function(e){e.preventDefault();$('bp-drop').classList.add('dragover');});});",
+    "['dragleave','drop'].forEach(function(t){$('bp-drop').addEventListener(t,function(e){e.preventDefault();$('bp-drop').classList.remove('dragover');});});",
+    "$('bp-drop').addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)upload(f);});",
+    "$('bp-file').addEventListener('change',function(){if(this.files[0])upload(this.files[0]);});",
+    "function upload(file){",
+    "  if(busy)return; var okext=/\\.(xlsx|xls|csv)$/i.test(file.name);",
+    "  if(!okext){setStatus('Please choose an .xlsx, .xls or .csv file.',1);return;}",
+    "  if(file.size>25*1024*1024){setStatus('File is over 25 MB.',1);return;}",
+    "  busy=true; setStatus('Uploading '+file.name+'\\u2026');",
+    "  fetch('/api/files/presign',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fileName:file.name,mime:file.type||'text/csv',size:file.size})})",
+    "   .then(function(r){return r.json();}).then(function(p){ if(p.error)throw new Error(p.error);",
+    "     return fetch(p.uploadUrl,{method:'PUT',headers:{'content-type':'application/octet-stream'},body:file}).then(function(){",
+    "       return fetch('/api/files/complete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fileId:p.fileId})});",
+    "     }).then(function(r){return r.json();}).then(function(c){ if(c.error)throw new Error(c.error);",
+    "       fileId=p.fileId; busy=false; $('bp-file-name').textContent=file.name+' \\u2713'; $('bp-go').disabled=false; setStatus('File ready. Pick a marketplace and generate.'); });",
+    "   }).catch(function(e){busy=false; setStatus(e.message||'Upload failed.',1);});",
+    "}",
+    // start job
+    "$('bp-go').onclick=function(){ if(!fileId||busy)return;",
+    "  var mkt=(document.querySelector('input[name=bpmkt]:checked')||{}).value||'amazon';",
+    "  var inc=$('bp-images').checked; busy=true; $('bp-go').disabled=true;",
+    "  fetch('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'bulk_pipeline',input:{fileId:fileId,marketplace:mkt,includeImages:inc}})})",
+    "   .then(function(r){return r.json().then(function(j){return {s:r.status,j:j};});}).then(function(x){ busy=false;",
+    "     if(x.s!==202){setStatus((x.j&&x.j.error)||'Could not start.',1);$('bp-go').disabled=false;return;}",
+    "     jobId=x.j.job.id; $('bp-prog').hidden=false; $('bp-result').hidden=true; setStatus('Started.'); startPoll();",
+    "   }).catch(function(e){busy=false;$('bp-go').disabled=false;setStatus(e.message,1);});",
+    "};",
+    "function startPoll(){ after=0; if(poll)clearInterval(poll); poll=setInterval(tick,700); tick(); }",
+    "function tick(){ fetch('/api/jobs/'+jobId+'/events?poll=1&after='+after).then(function(r){return r.json();}).then(function(d){",
+    "   after=d.lastSeq; var j=d.job;",
+    "   $('bp-bar').style.width=(j.progressPercent||0)+'%';",
+    "   $('bp-stage').textContent=j.currentStage||'Working\\u2026';",
+    "   var eta=j.estimatedSecondsRemaining!=null?(' \\u00b7 ~'+j.estimatedSecondsRemaining+'s left'):'';",
+    "   $('bp-counts').textContent=(j.completedItems||0)+' / '+(j.totalItems||0)+(j.failedItems?(' \\u00b7 '+j.failedItems+' failed'):'')+eta;",
+    "   if(d.done){ clearInterval(poll); finish(j); }",
+    " }).catch(function(){}); }",
+    "$('bp-cancel').onclick=function(){ if(jobId)fetch('/api/jobs/'+jobId+'/cancel',{method:'POST'}); };",
+    "function finish(j){ $('bp-prog').hidden=true; $('bp-result').hidden=false; var r=j.result||{};",
+    "  if(j.status==='FAILED'){ $('bp-summary').innerHTML='<span style=\"color:var(--err)\">Job failed: '+esc(j.error||'unknown')+'</span>'; return; }",
+    "  if(j.status==='CANCELLED'){ $('bp-summary').textContent='Cancelled. '+(r.generated||0)+' generated before stopping.'; }",
+    "  else { $('bp-summary').innerHTML='\\u2705 <b>'+(r.ready||0)+' ready</b> and exported'+((r.needsFixCount||0)?(' \\u00b7 \\u26A0 <b>'+r.needsFixCount+' need a fix</b>'):'')+((r.hitLimit)?' \\u00b7 (stopped at plan limit)':''); }",
+    "  if(r.exportId){ fetch('/api/exports/'+r.exportId).then(function(x){return x.json();}).then(function(e){ var ex=e.export||{};",
+    "     if(ex.downloadUrl){var a=$('bp-download');a.href=ex.downloadUrl;a.hidden=false;}",
+    "     if(ex.imagesUrl){var b=$('bp-images-dl');b.href=ex.imagesUrl;b.hidden=false;} }); }",
+    "  var fixes=r.needsFix||[]; if(fixes.length){ $('bp-fixwrap').hidden=false; $('bp-fixes').innerHTML=fixes.map(function(f){return '<tr><td>'+esc(f.sku||'-')+'</td><td style=\"color:var(--soft)\">'+esc((f.errors||[]).join('; '))+'</td></tr>';}).join(''); }",
+    "}",
+    "$('bp-again').onclick=function(){ fileId=null;jobId=null; $('bp-file').value=''; $('bp-file-name').textContent='Drag & drop your file here'; $('bp-go').disabled=true; $('bp-prog').hidden=true; $('bp-result').hidden=true; $('bp-fixwrap').hidden=true; $('bp-download').hidden=true; $('bp-images-dl').hidden=true; setStatus('Choose a file to begin.'); };",
+    "})();"
+  ].join("\n");
+}
+
 // ===== Free PDF Cropper (Phase 2) =====
 // Pinned CDN library versions — the ONE place to update pdf.js / pdf-lib.
 const PDF_CDN = {
@@ -948,4 +1060,4 @@ function cropToolPage() {
 ${cropScripts()}` + foot;
 }
 
-module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts };
+module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro };
