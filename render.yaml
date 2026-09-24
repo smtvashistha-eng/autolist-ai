@@ -23,7 +23,7 @@ services:
       - key: FILE_STORE_DIR
         value: /var/data/files
       - key: PUBLIC_URL
-        value: https://autolist.ai
+        value: https://autolistai.in
       # Optional — add later in the Render dashboard when you have them:
       # ANTHROPIC_API_KEY, IMAGE_API_KEY,
       # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
