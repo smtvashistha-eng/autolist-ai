@@ -192,6 +192,7 @@ function healthPage(user, h) {
   <div class="card pad" style="max-width:560px">
     ${row("Application", HS(h.app))}${row("Database", HS(h.database))}${row("Job worker", HS(h.worker))}${row("Storage", HS(h.storage))}
     ${row("Environment", `<b>${esc(h.env)}</b>`)}${row("Schema version", `<b>v${esc(h.migration)}</b>`)}
+    ${row("AI text provider", `<b>${esc(h.aiProvider)}</b>`)}${row("Image provider", `<b>${esc(h.imageProvider)}</b>`)}
     ${row("Uptime", `<b>${Math.floor(h.uptimeSec / 3600)}h ${Math.floor((h.uptimeSec % 3600) / 60)}m</b>`)}
     ${row("API requests", `<b>${fmt(h.requests)}</b>`)}${row("Server errors", `<b style="color:${h.errors ? "var(--err)" : "var(--good)"}">${fmt(h.errors)}</b>`)}
   </div>`);

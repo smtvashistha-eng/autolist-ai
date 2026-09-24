@@ -44,6 +44,8 @@ function health() {
     storage: s(storageOk),
     worker: stuck > 0 ? "warning" : "healthy",
     env: process.env.NODE_ENV || "development",
+    aiProvider: (process.env.ANTHROPIC_API_KEY && process.env.AI_PROVIDER !== "template") ? "Anthropic (claude-sonnet-5)" : "Built-in (deterministic)",
+    imageProvider: (process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY) ? "External" : "Local edits only",
     migration, uptimeSec: m.uptimeSec, requests: m.requests, errors: m.errors,
     checkedAt: nowISO(),
   };
