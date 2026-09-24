@@ -271,6 +271,7 @@ function shell(user, activePath, body) {
           <div class="umenu-pop" id="mePop">
             <div class="um-head"><b>${esc(user.name || "Account")}</b><span>${esc(user.email || "")}</span>
               <span class="um-biz">${esc(biz.name || "")}</span></div>
+            ${isAdmin(user) ? `<a class="um-i" href="/app/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin</a>` : ""}
             <a class="um-i" href="/app/billing">${ic("M2 5h20v14H2z")} Billing &amp; plan</a>
             <a class="um-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help</a>
             <form method="POST" action="/logout" style="margin:0"><button class="um-i um-out" type="submit">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9")} Log out</button></form>
@@ -299,6 +300,54 @@ function shell(user, activePath, body) {
   });
 })();
 </script>` + foot;
+}
+function isAdmin(user) {
+  if (!user) return false;
+  const emails = (process.env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  return user.role === "admin" || emails.includes((user.email || "").toLowerCase());
+}
+function adminPage(user, d) {
+  const o = d.overview, fmt = (n) => (n || 0).toLocaleString("en-IN");
+  const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${fmt(v)}</div>${sub ? `<div class="d">${sub}</div>` : ""}</div>`;
+  const planOpts = (cur) => d.plans.map(p => `<option value="${p.id}" ${p.id === cur ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  const bizRows = d.businesses.map(b => `<tr>
+      <td><b>${esc(b.name || "-")}</b><div style="font-size:11px;color:var(--faint)">${esc(b.id)}</div></td>
+      <td style="text-align:center">${b.users}</td><td style="text-align:center">${b.products}</td>
+      <td style="text-align:center">${b.listings_used || 0}</td>
+      <td><form method="POST" action="/app/admin/business/${esc(b.id)}/plan" style="margin:0;display:flex;gap:6px">
+        <select name="plan" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:12px">${planOpts(b.plan)}</select>
+        <button class="btn pri" style="padding:5px 10px;font-size:12px">Save</button></form></td>
+      <td style="color:var(--soft);font-size:12px">${b.created_at ? new Date(b.created_at).toLocaleDateString("en-IN") : ""}</td></tr>`).join("");
+  const jobRows = d.jobs.length ? d.jobs.map(j => `<tr><td>${esc(j.type)}</td><td>${badge(j.status)}</td>
+      <td style="text-align:center">${j.completed_items || 0}/${j.total_items || 0}${j.failed_items ? ` <span style="color:var(--err)">(${j.failed_items} failed)</span>` : ""}</td>
+      <td style="color:var(--soft);font-size:12px">${timeAgo(j.updated_at || j.created_at)}</td></tr>`).join("") : `<tr><td colspan="4" style="color:var(--soft)">No jobs yet.</td></tr>`;
+  const auditRows = d.audit.length ? d.audit.map(a => `<tr><td style="font-weight:600">${esc(a.action)}</td>
+      <td style="color:var(--soft)">${esc(a.resource_type || "")} ${esc((a.resource_id || "").slice(0, 14))}</td>
+      <td style="color:var(--faint);font-size:12px">${esc((a.ip_address || "").slice(0, 20))}</td>
+      <td style="color:var(--soft);font-size:12px">${timeAgo(a.created_at)}</td></tr>`).join("") : `<tr><td colspan="4" style="color:var(--soft)">No activity yet.</td></tr>`;
+  const m = d.metrics;
+  const body = `
+  <div class="phead"><div><h1>Admin</h1><p>Platform control — all businesses, jobs, activity and system health.</p></div>
+    <span class="badge b-accent">ADMIN</span></div>
+  ${alertBox("info", "This is the only view that spans every business. Actions here affect real accounts — use with care.")}
+  <div class="statgrid" style="grid-template-columns:repeat(4,1fr)">
+    ${stat("Businesses", o.businesses)}${stat("Users", o.users)}${stat("Products", o.products)}${stat("Drafts", o.drafts)}
+  </div>
+  <div class="statgrid" style="grid-template-columns:repeat(4,1fr)">
+    ${stat("Exports", o.exports)}${stat("Jobs", o.jobs)}${stat("AI requests", o.aiRequests)}${stat("Revenue (paid)", "₹" + fmt(o.revenue))}
+  </div>
+  <div class="card pad" style="margin-bottom:16px;display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--soft)">
+    <span>API requests: <b class="tnum" style="color:var(--ink)">${fmt(m.requests)}</b></span>
+    <span>Server errors: <b class="tnum" style="color:${m.errors ? "var(--err)" : "var(--good)"}">${fmt(m.errors)}</b></span>
+    <span>Uptime: <b class="tnum" style="color:var(--ink)">${Math.floor(m.uptimeSec / 3600)}h ${Math.floor((m.uptimeSec % 3600) / 60)}m</b></span>
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="cardhead"><h3>Businesses (${d.businesses.length})</h3></div>
+    <table><thead><tr><th>Business</th><th style="text-align:center">Users</th><th style="text-align:center">Products</th><th style="text-align:center">Listings used</th><th>Plan</th><th>Created</th></tr></thead><tbody>${bizRows}</tbody></table></div>
+  <div class="dash-cols">
+    <div class="card"><div class="cardhead"><h3>Recent jobs</h3></div><table><thead><tr><th>Type</th><th>Status</th><th style="text-align:center">Items</th><th>When</th></tr></thead><tbody>${jobRows}</tbody></table></div>
+    <div class="card"><div class="cardhead"><h3>Recent activity</h3></div><table><thead><tr><th>Action</th><th>Resource</th><th>IP</th><th>When</th></tr></thead><tbody>${auditRows}</tbody></table></div>
+  </div>`;
+  return shell(user, "/app/admin", body);
 }
 function helpPage(user) {
   const q = (t, d) => `<div class="card pad" style="margin-bottom:12px"><b>${esc(t)}</b><p style="color:var(--soft);margin:6px 0 0">${esc(d)}</p></div>`;
@@ -1060,4 +1109,4 @@ function cropToolPage() {
 ${cropScripts()}` + foot;
 }
 
-module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro };
+module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin };

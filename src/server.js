@@ -301,6 +301,27 @@ app.post("/api/images/bulk", upload.array("files", 60), async (req, res, next) =
   } catch (e) { next(e); }
 });
 app.get("/app/help", (req, res) => res.send(pages.helpPage(req.user)));
+// ---- Admin control panel (gated) ----
+function adminData() {
+  const cnt = (t) => { try { return db.prepare(`SELECT COUNT(*) c FROM ${t}`).get().c; } catch { return 0; } };
+  let revenue = 0; try { revenue = db.prepare("SELECT COALESCE(SUM(amount),0) s FROM invoices WHERE status='paid'").get().s; } catch {}
+  const overview = { businesses: cnt("businesses"), users: cnt("users"), products: cnt("products"), drafts: cnt("listing_drafts"), exports: cnt("marketplace_exports"), jobs: cnt("processing_jobs"), aiRequests: cnt("ai_requests"), revenue };
+  const businesses = safe(() => db.prepare("SELECT b.*, (SELECT COUNT(*) FROM users u WHERE u.business_id=b.id) users, (SELECT COUNT(*) FROM products p WHERE p.business_id=b.id) products FROM businesses b ORDER BY b.created_at DESC LIMIT 100").all(), []);
+  const jobs = safe(() => db.prepare("SELECT * FROM processing_jobs ORDER BY created_at DESC LIMIT 12").all(), []);
+  const auditRows = safe(() => db.prepare("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 15").all(), []);
+  return { overview, businesses, jobs, audit: auditRows, metrics: require("./metrics").snapshot(), plans: plans.list() };
+}
+app.get("/app/admin", (req, res) => {
+  if (!pages.isAdmin(req.user)) return friendly(req, res, 404, "Page not found", "That page doesn't exist.");
+  res.send(pages.adminPage(req.user, adminData()));
+});
+app.post("/app/admin/business/:id/plan", (req, res) => {
+  if (!pages.isAdmin(req.user)) return res.status(403).send("Forbidden");
+  const plan = req.body.plan;
+  if (plans.PLANS[plan]) require("./usage").setPlan(req.params.id, plan);
+  require("./audit").record({ businessId: req.params.id, userId: req.user.id, action: "admin.set_plan", resourceType: "business", resourceId: req.params.id, metadata: { plan }, ip: require("./audit").ipOf(req) });
+  res.redirect("/app/admin");
+});
 // ---- Phase 9: marketplace connections + publish ----
 const connections = require("./connections");
 const market = require("./marketplace-api");
