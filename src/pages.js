@@ -271,7 +271,7 @@ function shell(user, activePath, body) {
           <div class="umenu-pop" id="mePop">
             <div class="um-head"><b>${esc(user.name || "Account")}</b><span>${esc(user.email || "")}</span>
               <span class="um-biz">${esc(biz.name || "")}</span></div>
-            ${isAdmin(user) ? `<a class="um-i" href="/app/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin</a>` : ""}
+            ${isAdmin(user) ? `<a class="um-i" href="/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin</a>` : ""}
             <a class="um-i" href="/app/billing">${ic("M2 5h20v14H2z")} Billing &amp; plan</a>
             <a class="um-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help</a>
             <form method="POST" action="/logout" style="margin:0"><button class="um-i um-out" type="submit">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9")} Log out</button></form>

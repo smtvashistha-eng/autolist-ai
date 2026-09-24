@@ -347,6 +347,15 @@ app.get("/admin/audit-log", (req, res) => {
   res.send(adminUI.auditPage(req.user, admin.auditLog({ action: req.query.action, limit, offset }), req.query));
 });
 app.get("/admin/health", (req, res) => res.send(adminUI.healthPage(req.user, admin.health())));
+// safe operational CSV exports (admin only; no secrets)
+app.get("/admin/export/businesses.csv", (req, res) => {
+  require("./audit").record({ userId: req.user.id, action: "admin.export", resourceType: "businesses", resourceId: "csv", ip: ipOf(req) });
+  res.setHeader("Content-Type", "text/csv"); res.setHeader("Content-Disposition", 'attachment; filename="businesses.csv"'); res.send(admin.exportBusinessesCSV());
+});
+app.get("/admin/export/audit.csv", (req, res) => {
+  require("./audit").record({ userId: req.user.id, action: "admin.export", resourceType: "audit_log", resourceId: "csv", ip: ipOf(req) });
+  res.setHeader("Content-Type", "text/csv"); res.setHeader("Content-Disposition", 'attachment; filename="audit-log.csv"'); res.send(admin.exportAuditCSV());
+});
 // ---- Phase 9: marketplace connections + publish ----
 const connections = require("./connections");
 const market = require("./marketplace-api");

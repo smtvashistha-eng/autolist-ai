@@ -61,6 +61,12 @@ const sid = (sc) => { const m = /sid=([^;]+)/.exec(sc || ""); return m ? "sid=" 
     ok("audit log shows admin actions", audit.includes("admin.suspend") && audit.includes("admin.change_plan"));
     ok("seller blocked from a page route too", (await req("GET", "/admin/users", { cookie: S2 })).status === 403);
 
+    console.log("Safe CSV exports:");
+    const bcsv = await req("GET", "/admin/export/businesses.csv", { cookie: A });
+    ok("businesses CSV (admin) + no secrets", (bcsv.text || "").startsWith("business_id") && !/pass_hash|creds_enc|secret/i.test(bcsv.text));
+    ok("audit CSV (admin)", ((await req("GET", "/admin/export/audit.csv", { cookie: A })).text || "").startsWith("action"));
+    ok("seller cannot export (403)", (await req("GET", "/admin/export/businesses.csv", { cookie: S2 })).status === 403);
+
   } catch (e) { fail++; console.error("Harness error:", e); }
   finally { cleanup(); console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }
 })();

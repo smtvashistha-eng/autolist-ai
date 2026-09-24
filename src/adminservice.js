@@ -184,4 +184,27 @@ function retryJob(jobId, admin, ip) {
   return r;
 }
 
-module.exports = { overview, health, alerts, recentActivity, listUsers, userDetail, listJobs, billing, marketplaces, auditLog, suspendBusiness, reactivateBusiness, changePlan, retryJob };
+// ---- safe operational CSV exports (no secrets) ----
+function csv(rows, cols) {
+  const esc = (v) => { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  return [cols.map(c => c.h).join(","), ...rows.map(r => cols.map(c => esc(c.get(r))).join(","))].join("\r\n") + "\r\n";
+}
+function exportBusinessesCSV() {
+  const rows = safe(() => db.prepare(`SELECT b.id, b.name, b.plan, COALESCE(b.status,'active') status, b.listings_used lu, b.images_used iu, b.created_at,
+      (SELECT COUNT(*) FROM users u WHERE u.business_id=b.id) users, (SELECT COUNT(*) FROM products p WHERE p.business_id=b.id) products
+    FROM businesses b ORDER BY b.created_at DESC`).all(), []);
+  return csv(rows, [
+    { h: "business_id", get: r => r.id }, { h: "name", get: r => r.name }, { h: "plan", get: r => r.plan },
+    { h: "status", get: r => r.status }, { h: "users", get: r => r.users }, { h: "products", get: r => r.products },
+    { h: "listings_used", get: r => r.lu }, { h: "images_used", get: r => r.iu }, { h: "created_at", get: r => r.created_at },
+  ]);
+}
+function exportAuditCSV() {
+  const rows = safe(() => db.prepare("SELECT action, resource_type, resource_id, user_id, ip_address, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 5000").all(), []);
+  return csv(rows, [
+    { h: "action", get: r => r.action }, { h: "resource_type", get: r => r.resource_type }, { h: "resource_id", get: r => r.resource_id },
+    { h: "actor_user_id", get: r => r.user_id }, { h: "ip", get: r => r.ip_address }, { h: "created_at", get: r => r.created_at },
+  ]);
+}
+
+module.exports = { overview, health, alerts, recentActivity, listUsers, userDetail, listJobs, billing, marketplaces, auditLog, suspendBusiness, reactivateBusiness, changePlan, retryJob, exportBusinessesCSV, exportAuditCSV };

@@ -64,7 +64,9 @@ function dashboard(user, d) {
       <table><tbody>${list(ra.signups, s => `<tr><td><b>${esc(s.name || "-")}</b><div style="font-size:11px;color:var(--faint)">${esc(s.email)}</div></td><td style="color:var(--soft)">${esc(s.biz || "")}</td><td style="color:var(--soft);font-size:12px;text-align:right">${when(s.created_at)}</td></tr>`, "No signups.")}</tbody></table></div>
     <div class="card"><div class="cardhead"><h3>Recent failed jobs</h3><a class="viewall" href="/admin/jobs?status=FAILED">All jobs →</a></div>
       <table><tbody>${list(ra.failedJobs, j => `<tr><td>${esc(j.type)}</td><td>${badge("failed")}</td><td style="color:var(--soft);font-size:12px;text-align:right">${when(j.created_at)}</td></tr>`, "No failures.")}</tbody></table></div>
-  </div>`);
+  </div>
+  <div class="card" style="margin-top:16px"><div class="cardhead"><h3>Recent admin actions</h3><a class="viewall" href="/admin/audit-log?action=admin">Full audit log →</a></div>
+    <table><tbody>${list(ra.adminActions, a => `<tr><td style="font-weight:600">${esc(a.action)}</td><td style="color:var(--soft)">${esc((a.resource_id || "").slice(0, 20))}</td><td style="color:var(--soft);font-size:12px;text-align:right">${when(a.created_at)}</td></tr>`, "No admin actions yet.")}</tbody></table></div>`);
 }
 
 function pager(base, total, limit, offset, extra = "") {
@@ -84,7 +86,8 @@ function users(user, data, query) {
     <td style="text-align:center">${fmt(r.listingsUsed)}/${fmt(r.imagesUsed)}</td>
     <td style="color:var(--soft);font-size:12px">${when(r.created_at)}</td></tr>`).join("");
   return layout(user, "/admin/users", `
-  <div class="phead"><div><h1>Users &amp; businesses</h1><p>${data.total} accounts</p></div></div>
+  <div class="phead"><div><h1>Users &amp; businesses</h1><p>${data.total} accounts</p></div>
+    <a class="btn ghost" href="/admin/export/businesses.csv">${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} Export CSV</a></div>
   <form method="GET" action="/admin/users" class="card pad" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
     <input name="q" value="${esc(q)}" placeholder="Search name, email or business" style="flex:1;min-width:220px;border:1px solid var(--line);border-radius:9px;padding:9px 12px">
     <select name="status" style="border:1px solid var(--line);border-radius:9px;padding:9px 12px"><option value="">Any status</option><option value="active" ${query.status === "active" ? "selected" : ""}>Active</option><option value="suspended" ${query.status === "suspended" ? "selected" : ""}>Suspended</option></select>
@@ -175,7 +178,8 @@ function marketplaces(user, m) {
 function auditPage(user, data, query) {
   const rows = data.rows.map(a => `<tr><td style="font-weight:600">${esc(a.action)}</td><td style="color:var(--soft)">${esc(a.resourceType || "")} ${esc((a.resourceId || "").slice(0, 16))}</td><td class="mono" style="font-size:11px">${esc((a.actor || "").slice(0, 12))}</td><td style="color:var(--faint);font-size:12px">${esc((a.ip || "").slice(0, 20))}</td><td style="color:var(--soft);font-size:12px">${when(a.created_at)}</td></tr>`).join("");
   return layout(user, "/admin/audit-log", `
-  <div class="phead"><div><h1>Audit log</h1><p>${data.total} entries</p></div></div>
+  <div class="phead"><div><h1>Audit log</h1><p>${data.total} entries</p></div>
+    <a class="btn ghost" href="/admin/export/audit.csv">${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} Export CSV</a></div>
   <form method="GET" action="/admin/audit-log" class="card pad" style="display:flex;gap:10px;margin-bottom:14px"><input name="action" value="${esc(query.action || "")}" placeholder="Filter by action (e.g. admin.suspend)" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 12px"><button class="btn pri">Filter</button></form>
   <div class="card"><table><thead><tr><th>Action</th><th>Resource</th><th>Actor</th><th>IP</th><th>When</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="color:var(--soft)">No entries.</td></tr>`}</tbody></table></div>
   ${pager("/admin/audit-log", data.total, data.limit, data.offset, query.action ? "&action=" + encodeURIComponent(query.action) : "")}`);

@@ -24,6 +24,8 @@ services:
         value: /var/data/files
       - key: PUBLIC_URL
         value: https://autolistai.in
+      - key: ADMIN_EMAILS
+        value: smtvashistha@gmail.com
       # Optional — add later in the Render dashboard when you have them:
       # ANTHROPIC_API_KEY, IMAGE_API_KEY,
       # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
