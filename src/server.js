@@ -11,12 +11,18 @@ const { providerName } = require("./ai");
 const app = express();
 app.disable("x-powered-by");
 // security headers (baseline) — applied to every response
+const metrics = require("./metrics");
+const { rateLimit } = require("./ratelimit");
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (process.env.NODE_ENV === "production") res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   next();
 });
+app.use(metrics.middleware);
+// global API rate limit (per IP) — auth/password endpoints keep their tighter limits on top
+app.use("/api", rateLimit({ name: "api", max: 300, windowMs: 60000 }));
 // CORS for the JSON API only (configure allowed origins with CORS_ORIGINS, comma-separated)
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
 app.use("/api", (req, res, next) => {
@@ -367,7 +373,11 @@ app.post("/api/webhooks/razorpay", express.raw({ type: "*/*" }), (req, res) => {
 });
 
 // ---------- health ----------
-app.get("/api/health", (req, res) => res.json({ ok: true, users: db.prepare("SELECT COUNT(*) c FROM users").get().c }));
+app.get("/api/health", (req, res) => {
+  let dbOk = true, migration = null, users = 0;
+  try { migration = db.prepare("SELECT MAX(version) v FROM schema_migrations").get().v; users = db.prepare("SELECT COUNT(*) c FROM users").get().c; } catch { dbOk = false; }
+  res.status(dbOk ? 200 : 503).json({ ok: dbOk, db: dbOk, migration, users, uptimeSec: metrics.snapshot().uptimeSec, ts: new Date().toISOString() });
+});
 
 // ---- Phase 6.5: never crash on bad input ----
 function friendly(req, res, code, title, msg) {
