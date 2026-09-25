@@ -27,6 +27,9 @@ router.post("/jobs", auth.requireAuth, (req, res) => {
   if (type === "bulk_pipeline" && (input || {}).imageJobId &&
     !db.prepare("SELECT 1 FROM processing_jobs WHERE id=? AND business_id=? AND type='image_zip'").get(input.imageJobId, req.user.business_id))
     return res.status(400).json({ error: "That image upload was not found." });
+  if (type === "bulk_pipeline" && (input || {}).templateId &&
+    !db.prepare("SELECT 1 FROM marketplace_templates WHERE id=? AND business_id=?").get(input.templateId, req.user.business_id))
+    return res.status(400).json({ error: "That sample file was not found." });
   if (type === "product_import" || type === "bulk_pipeline" || type === "image_zip") {
     const f = db.prepare("SELECT 1 FROM files WHERE id=? AND business_id=? AND status='stored'").get((input || {}).fileId, req.user.business_id);
     if (!f) return res.status(400).json({ error: type + " needs a stored fileId you own." });

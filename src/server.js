@@ -189,6 +189,7 @@ const bulk = require("./bulk");
 const jobs = require("./jobs");
 
 app.get("/app/bulk", (req, res) => res.send(pages.bulkPro(req.user)));
+app.get("/app/wizard", (req, res) => res.send(require("./wizard").wizardPage(req.user)));
 app.get("/app/bulk-classic", (req, res) => res.send(pages.bulkUpload(req.user)));
 app.post("/app/bulk/upload", upload.single("file"), (req, res) => {
   try {
@@ -314,7 +315,7 @@ app.get("/app/help", (req, res) => res.send(pages.helpPage(req.user)));
 // ---- R1: Brand Memory (per-seller AI memory) ----
 const brandMem = require("./brand");
 app.get("/app/onboarding", (req, res) => res.send(pages.onboardingPage(req.user, brandMem.getProfile(req.user.business_id))));
-app.post("/app/onboarding", (req, res) => { brandMem.saveProfile(req.user.business_id, req.body || {}); res.redirect("/app"); });
+app.post("/app/onboarding", (req, res) => { brandMem.saveProfile(req.user.business_id, req.body || {}); res.redirect("/app/wizard"); });
 app.get("/app/brand", (req, res) => {
   const listings = db.prepare("SELECT id, product_name, sku, category, status FROM listings WHERE business_id=? ORDER BY updated_at DESC LIMIT 10").all(req.user.business_id);
   res.send(pages.brandPage(req.user, brandMem.getProfile(req.user.business_id), listings, req.query.ok));

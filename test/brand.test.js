@@ -35,7 +35,7 @@ const field = (r, n) => (r.json.result.fields.find(f => f.name === n) || {}).val
     ok("not onboarded yet", (await req("GET", "/api/brand", { cookie: A })).json.onboarded === false);
     ok("dashboard nudges to set up memory", /Set up your AI memory/.test((await req("GET", "/app", { cookie: A })).text || ""));
     const ob = await req("POST", "/app/onboarding", { cookie: A, form: { sells: "Screen guards", categories: "Screen Guard", brands: "TRUSTin", marketplaces: "flipkart", tone: "friendly", prohibitedClaims: "best, premium", instructions: "Mention 9H hardness" } });
-    ok("onboarding saves + goes to dashboard", ob.status === 302 && ob.location === "/app");
+    ok("onboarding saves + goes to guided wizard", ob.status === 302 && ob.location === "/app/wizard");
     const prof = (await req("GET", "/api/brand", { cookie: A })).json;
     ok("profile stored", prof.onboarded === true && prof.profile.brands[0] === "TRUSTin" && prof.profile.tone === "friendly");
 

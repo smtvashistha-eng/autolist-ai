@@ -188,6 +188,7 @@ function authPage(mode, error) {
 const NAV = [
   ["Dashboard", "/app", "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z", 1, "Workspace"],
   ["Create Listing", "/app/create", "M12 5v14M5 12h14", 1, "Workspace"],
+  ["Guided Bulk", "/app/wizard", "M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3", 1, "Workspace"],
   ["Bulk Upload", "/app/bulk", "M12 16V4M8 8l4-4 4 4M4 20h16", 1, "Workspace"],
   ["Drafts", "/app/listings", "M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7", 1, "Workspace"],
   ["Brand Memory", "/app/brand", "M12 2a7 7 0 00-4 12.7V18h8v-3.3A7 7 0 0012 2zM9 22h6", 1, "Workspace"],
@@ -385,7 +386,7 @@ function dashboard(user, stats) {
   const biz = user.business || {};
   const first = (user.name || "there").split(" ")[0];
   const isFresh = stats.products === 0 && stats.recentExports.length === 0 && stats.recentJobs.length === 0;
-  const memBanner = stats.onboarded === false ? alertBox("warn", "Set up your AI memory so every listing matches your brand — takes 1 minute.", { href: "/app/onboarding", label: "Set up now →" }) : "";
+  const memBanner = stats.onboarded === false ? alertBox("warn", "Set up your AI memory so every listing matches your brand — takes 1 minute.", { href: "/app/onboarding", label: "Set up now →" }) : alertBox("info", "List hundreds of products in 5 guided steps — photos, sample file and AI fill, confirmed at every step.", { href: "/app/wizard", label: "Start guided bulk listing →" });
 
   // --- recent lists ---
   const draftRows = stats.recentDrafts.length
