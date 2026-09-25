@@ -45,7 +45,8 @@ function health() {
     worker: stuck > 0 ? "warning" : "healthy",
     env: process.env.NODE_ENV || "development",
     aiProvider: (process.env.ANTHROPIC_API_KEY && process.env.AI_PROVIDER !== "template") ? "Anthropic (claude-sonnet-5)" : "Built-in (deterministic)",
-    imageProvider: (process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY) ? "External" : "Local edits only",
+    imageProvider: require("./ai/imageAIProvider").describe(),
+    aiSpend: (() => { try { const since = new Date(Date.now() - 30 * 864e5).toISOString(); return db.prepare("SELECT COUNT(*) calls, COALESCE(SUM(cost_usd),0) usd, COALESCE(SUM(ok=0),0) failed FROM ai_cost_log WHERE created_at>=?").get(since); } catch { return { calls: 0, usd: 0, failed: 0 }; } })(),
     migration, uptimeSec: m.uptimeSec, requests: m.requests, errors: m.errors,
     checkedAt: nowISO(),
   };

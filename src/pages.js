@@ -908,6 +908,11 @@ function bulkPro(user) {
     <div style="margin-top:18px;border-top:1px solid var(--line2);padding-top:16px">
       <label class="cr-optlbl">Product images (optional) — upload a ZIP of photos</label>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="bp-prep" class="input" style="width:auto;padding:8px 10px" title="Photo preparation before hosting">
+          <option value="">Use photos as they are</option>
+          <option value="marketplace" selected>White 1000×1000 (free, marketplace-ready)</option>
+          <option value="remove_bg"${require("./ai/imageAIProvider").canRemoveBg() ? "" : " disabled"}>AI background removal${require("./ai/imageAIProvider").canRemoveBg() ? "" : " (needs image AI key)"}</option>
+        </select>
         <button type="button" class="btn ghost" id="bp-zip-pick">${ic("M12 16V4M8 8l4-4 4 4M4 20h16")} Upload images ZIP</button>
         <span id="bp-zip-status" style="font-size:13px;color:var(--soft)">Name photos by SKU: <b>SK-1_1.jpg, SK-1_2.jpg</b> … or one folder per SKU. We host them and put the links in your file.</span>
         <input type="file" id="bp-zip" accept=".zip,application/zip" hidden>
@@ -993,7 +998,7 @@ function bulkProScript() {
     "     return fetch(p.uploadUrl,{method:'PUT',headers:{'content-type':'application/octet-stream'},body:file})",
     "      .then(function(){return fetch('/api/files/complete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fileId:p.fileId})});})",
     "      .then(function(r){return r.json();}).then(function(c){ if(c.error)throw new Error(c.error);",
-    "        return fetch('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'image_zip',input:{fileId:p.fileId}})}); })",
+    "        return fetch('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'image_zip',input:{fileId:p.fileId,prep:($('bp-prep')?$('bp-prep').value:'')}})}); })",
     "      .then(function(r){return r.json();}).then(function(j){ if(!j.job)throw new Error(j.error||'Could not start image upload.'); zwatch(j.job.id); });",
     "   }).catch(function(e){zstat(e.message||'Upload failed.',1);});",
     "}",

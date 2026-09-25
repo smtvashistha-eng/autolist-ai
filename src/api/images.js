@@ -64,8 +64,17 @@ function saveVersion(biz, userId, out, ctx) {
 // text-to-image (gated) — never fakes an image
 router.post("/images/generate", auth.requireAuth, async (req, res) => {
   if (!canGenerate()) return res.status(501).json({ error: "Image generation needs an image API key. Set IMAGE_API_KEY to enable it.", needsProvider: true });
-  try { const p = getImageProvider(); await p.generate({ prompt: (req.body || {}).prompt }); res.status(501).json({ error: "External image generation is not implemented in this build." }); }
-  catch (e) { res.status(501).json({ error: e.message, code: e.code }); }
+  const biz = req.user.business_id, prompt = String((req.body || {}).prompt || "").trim().slice(0, 1000);
+  if (!prompt) return res.status(400).json({ error: "prompt is required." });
+  try { meter.enforce(biz, "images"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
+  try {
+    const p = getImageProvider();
+    const out = await p.generate({ prompt, biz });
+    const gi = saveVersion(biz, req.user.id, out, { operation: "generate", provider: p.name, model: p.model, prompt });
+    meter.record(biz, "images", 1, { operation: "generate" });
+    audit.record({ businessId: biz, userId: req.user.id, action: "image.generate", resourceType: "image", resourceId: gi.id, metadata: { model: p.model }, ip: audit.ipOf(req) });
+    res.status(201).json({ image: shape(gi) });
+  } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ error: e.message, code: e.code }); }
 });
 
 // non-destructive edit → new version
@@ -76,7 +85,7 @@ router.post("/images/edit", auth.requireAuth, async (req, res) => {
     try { meter.enforce(biz, "images"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
     const src = resolveSource(biz, body);
     const provider = getImageProvider();
-    const out = await applyEdit(body.operation, src.buffer, body.params || {});
+    const out = await applyEdit(body.operation, src.buffer, body.params || {}, { biz });
     const gi = saveVersion(biz, req.user.id, out, { ...src, operation: body.operation, provider: provider.name, model: provider.model, prompt: body.prompt, negativePrompt: body.negativePrompt, metadata: body.params });
     meter.record(biz, "images", 1, { operation: body.operation });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.edit", resourceType: "image", resourceId: gi.id, metadata: { operation: body.operation, version: gi.version }, ip: audit.ipOf(req) });
@@ -96,7 +105,7 @@ router.post("/images/bulk-job", auth.requireAuth, async (req, res) => {
     if (!meter.canUse(biz, "images")) { results.push({ ok: false, error: "Plan image limit reached.", item: it }); continue; }
     try {
       const src = resolveSource(biz, it);
-      const out = await applyEdit(body.operation, src.buffer, body.params || {});
+      const out = await applyEdit(body.operation, src.buffer, body.params || {}, { biz });
       const gi = saveVersion(biz, req.user.id, out, { ...src, operation: body.operation, provider: provider.name, model: provider.model, metadata: body.params });
       meter.record(biz, "images", 1, { operation: body.operation, bulk: true });
       results.push({ ok: true, imageId: gi.id, version: gi.version });

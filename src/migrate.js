@@ -411,6 +411,17 @@ const MIGRATIONS = [
       db.exec(`CREATE INDEX IF NOT EXISTS ix_imgassets_biz ON image_assets(business_id, created_at)`);
     },
   },
+  // ---- R3: external AI spend (estimates) for Admin ----
+  {
+    v: 27, name: "ai_cost_log",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS ai_cost_log(
+        id TEXT PRIMARY KEY, business_id TEXT, provider TEXT, operation TEXT,
+        units INTEGER, cost_usd REAL, ok INTEGER, created_at TEXT
+      )`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_aicost_time ON ai_cost_log(created_at)`);
+    },
+  },
 ];
 
 function run(db) {

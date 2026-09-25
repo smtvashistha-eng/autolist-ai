@@ -185,6 +185,10 @@ queue.register("image_zip", async (job, ctx) => {
   if (!entries.length) throw new Error("No JPG, PNG or WEBP images found in the ZIP.");
   if (entries.length > 1000) throw new Error("Too many images (max 1000 per ZIP). Split it into smaller ZIPs.");
   ctx.setTotal(entries.length);
+  // R3 prep: "marketplace" (free white 1000x1000) or "remove_bg" (needs key; falls back to marketplace)
+  const { applyEdit, canRemoveBg } = require("./ai/imageAIProvider");
+  let prep = ["marketplace", "remove_bg"].includes((job.input || {}).prep) ? job.input.prep : null;
+  if (prep === "remove_bg" && !canRemoveBg()) { ctx.warn("Background removal key not set — using free white-background prep instead."); prep = "marketplace"; }
   ctx.stage("Uploading images (" + imagehost.provider() + ")");
   const ins = db.prepare(`INSERT INTO image_assets(id,business_id,job_id,filename,sku,position,url,provider,public_id,width,height,bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   let completed = job.completed_items || 0, failed = job.failed_items || 0;
@@ -199,16 +203,21 @@ queue.register("image_zip", async (job, ctx) => {
       let width = null, height = null;
       try { const Jimp = require("jimp"); const im = await Jimp.read(buf); width = im.bitmap.width; height = im.bitmap.height; } catch {}
       const { sku, position } = imagehost.parseName(e.name);
-      const up = await imagehost.upload(buf, ext, biz, sku);
-      ins.run(rid("ia_"), biz, job.id, e.name.slice(0, 255), sku, position, up.url, up.provider, up.publicId, up.width || width, up.height || height, up.bytes || buf.length, nowISO());
-      meter.record(biz, "images", 1, { zip: true });
+      let hostBuf = buf, hostExt = ext;
+      if (prep) {                                     // R3: marketplace-ready photo before hosting
+        const out = await applyEdit(prep, buf, {}, { biz });
+        hostBuf = out.buffer; hostExt = out.ext; width = out.width; height = out.height;
+      }
+      const up = await imagehost.upload(hostBuf, hostExt, biz, sku);
+      ins.run(rid("ia_"), biz, job.id, e.name.slice(0, 255), sku, position, up.url, up.provider, up.publicId, up.width || width, up.height || height, up.bytes || hostBuf.length, nowISO());
+      meter.record(biz, "images", 1, { zip: true, prep });
       completed++; ctx.item("image", e.name, "completed", sku);
     } catch (err) { failed++; ctx.item("image", e.name, "failed", err.message, { message: err.message }); }
     ctx.advance(i + 1, { completed, failed, stage: "Uploading images" });
     if (i % 3 === 0) await yield_();
   }
   const skus = db.prepare("SELECT COUNT(DISTINCT sku) c FROM image_assets WHERE job_id=?").get(job.id).c;
-  return { uploaded: completed, failed, skus, provider: imagehost.provider() };
+  return { uploaded: completed, failed, skus, provider: imagehost.provider(), prep };
 });
 
 const TYPES = ["product_import", "bulk_generate", "bulk_pipeline", "image_zip"];

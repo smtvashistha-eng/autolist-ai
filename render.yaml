@@ -28,6 +28,10 @@ services:
         value: smtvashistha@gmail.com
       - key: ANTHROPIC_API_KEY   # live Claude AI text; value set in Render dashboard (not in repo)
         sync: false
+      - key: OPENAI_API_KEY      # R3 image AI (studio edits + generate); value set in Render dashboard
+        sync: false
+      - key: REMOVEBG_API_KEY    # R3 background removal; value set in Render dashboard
+        sync: false
       # Optional — add later in the Render dashboard when you have them:
       # IMAGE_API_KEY,
       # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,

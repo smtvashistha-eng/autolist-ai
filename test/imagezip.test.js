@@ -39,7 +39,7 @@ async function waitJob(cookie, id) {
   ok("folder SK-9/front.jpg -> SK-9", parseName("photos/SK-9/front.jpg").sku === "SK-9");
 
   const server = spawn(process.execPath, ["--experimental-sqlite", path.join(__dirname, "..", "src", "server.js")],
-    { env: { ...process.env, PORT: String(PORT), AUTOLIST_DB: DB, FILE_STORE_DIR: STORE, SESSION_SECRET: "test-secret", NODE_ENV: "test", AI_PROVIDER: "template", CLOUDINARY_URL: "", PUBLIC_URL: "" }, stdio: ["ignore", "ignore", "inherit"] });
+    { env: { ...process.env, PORT: String(PORT), AUTOLIST_DB: DB, FILE_STORE_DIR: STORE, SESSION_SECRET: "test-secret", NODE_ENV: "test", AI_PROVIDER: "template", CLOUDINARY_URL: "", PUBLIC_URL: "", OPENAI_API_KEY: "", IMAGE_API_KEY: "", REMOVEBG_API_KEY: "" }, stdio: ["ignore", "ignore", "inherit"] });
   const cleanup = () => { try { server.kill("SIGKILL"); } catch {} for (const f of [DB, DB + "-wal", DB + "-shm"]) { try { fs.unlinkSync(f); } catch {} } try { fs.rmSync(path.dirname(STORE), { recursive: true, force: true }); } catch {} };
   try {
     for (let i = 0; i < 120; i++) { try { if ((await fetch(BASE + "/api/health")).ok) break; } catch {} await new Promise(r => setTimeout(r, 200)); }
@@ -84,10 +84,26 @@ async function waitJob(cookie, id) {
     ok("SK-1 main + 2nd image filled in order", bySku["SK-1"]["Main Image URL"] === assets.json.bySku["SK-1"][0] && bySku["SK-1"]["Other Image URL 1"] === assets.json.bySku["SK-1"][1]);
     ok("SK-3 (no photo) left blank, not invented", bySku["SK-3"]["Main Image URL"] === "");
 
+    console.log("R3 image prep + AI gating:");
+    const z2 = new JSZip(); z2.file("SK-7_1.png", await new Jimp(400, 250, 0x00000000).getBufferAsync(Jimp.MIME_PNG));
+    const z2f = await upload(A, "p2.zip", "application/zip", await z2.generateAsync({ type: "nodebuffer" }));
+    const pj2 = await req("POST", "/api/jobs", { cookie: A, body: { type: "image_zip", input: { fileId: z2f, prep: "marketplace" } } });
+    const pd2 = await waitJob(A, pj2.json.job.id);
+    const a2 = await req("GET", `/api/image-assets?jobId=${pj2.json.job.id}`, { cookie: A });
+    const im2 = await Jimp.read((await req("GET", a2.json.bySku["SK-7"][0], {})).buf);
+    ok("marketplace prep -> 1000x1000 white JPG", pd2.result.prep === "marketplace" && im2.bitmap.width === 1000 && im2.bitmap.height === 1000 && a2.json.bySku["SK-7"][0].endsWith(".jpg") && im2.getPixelColor(5, 5) === 0xffffffff);
+    const z3f = await upload(A, "p3.zip", "application/zip", await z2.generateAsync({ type: "nodebuffer" }));
+    const pj3 = await req("POST", "/api/jobs", { cookie: A, body: { type: "image_zip", input: { fileId: z3f, prep: "remove_bg" } } });
+    const pd3 = await waitJob(A, pj3.json.job.id);
+    ok("remove_bg without key falls back to free prep (no fake AI)", pd3.status === "COMPLETED" && pd3.result.prep === "marketplace");
+    const gen = await req("POST", "/api/images/generate", { cookie: A, body: { prompt: "a phone screen guard" } });
+    ok("generate without key -> honest 501", gen.status === 501 && gen.json.needsProvider === true);
+    ok("unit: remove_bg op refuses without key", await require("../src/ai/imageAIProvider").applyEdit("remove_bg", Buffer.alloc(1)).then(() => false, e => e.code === "NEEDS_PROVIDER"));
+
     console.log("Isolation + usage:");
     ok("B cannot read A's image links", (await req("GET", `/api/image-assets?jobId=${zj.json.job.id}`, { cookie: B })).status === 404);
     ok("B cannot use A's images in a pipeline", (await req("POST", "/api/jobs", { cookie: B, body: { type: "bulk_pipeline", input: { fileId: cfid, marketplace: "amazon", imageJobId: zj.json.job.id } } })).status === 400);
-    ok("images counted against plan", (await req("GET", "/api/billing/usage", { cookie: A })).json.usage.images.used === 3);
+    ok("images counted against plan", (await req("GET", "/api/billing/usage", { cookie: A })).json.usage.images.used === 5);
   } catch (e) { fail++; console.error("Harness error:", e); }
   finally { cleanup(); console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }
 })();
