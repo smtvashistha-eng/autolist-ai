@@ -703,9 +703,9 @@ function bulkProgress(user, job) {
 // ---- Phase 3: AI Image Studio ----
 function imageStudio(user, caps) {
   const PRESETS = [["Amazon Main", 1000, 1000], ["Flipkart Gallery", 1000, 1000], ["Instagram", 1080, 1080], ["Website Hero", 1600, 1200]];
-  const aiChip = (id, label) => `<button class="fchip" data-ai="${id}" style="cursor:pointer">${label}${caps.aiEnabled ? "" : ' <span style="font-size:10px;color:var(--faint)">key</span>'}</button>`;
+  const aiChip = (id, label) => { const on = id === "remove_bg" ? caps.bgEnabled : caps.aiEnabled; return `<button class="fchip" data-ai="${id}" style="cursor:pointer">${label}${on ? "" : ' <span style="font-size:10px;color:var(--faint)">key</span>'}</button>`; };
   return shell(user, "/app/images", `
-  <div class="phead"><div><h1>AI Image Studio</h1><p>Marketplace-perfect images. Resize &amp; white background work now; AI edits need an image key.</p></div>
+  <div class="phead"><div><h1>AI Image Studio</h1><p>Marketplace-perfect images. Resize &amp; white background are free; AI edits and prompt-to-image use ChatGPT${caps.aiEnabled ? " (connected)" : " (needs the OpenAI key)"}.</p></div>
     <a class="btn pri" href="/app/images/bulk">Bulk images →</a></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     <div class="card pad">
@@ -721,6 +721,12 @@ function imageStudio(user, caps) {
         <div class="field" style="margin-top:10px"><input id="prompt" placeholder="Optional prompt e.g. 'on a marble kitchen counter'"></div>
       </div>
       <div id="aimsg" style="font-size:13px;color:var(--warn);margin-top:6px"></div>
+      <div style="margin-top:18px;border-top:1px solid var(--line2);padding-top:14px"><b>Or generate an image from a prompt</b> <span style="color:var(--soft);font-size:12px">ChatGPT · no watermark</span>
+        <div class="field" style="margin-top:8px"><textarea id="genprompt" rows="3" maxlength="800" placeholder="e.g. A clear tempered-glass screen guard on a laptop screen, white background, soft light"></textarea></div>
+        <button class="btn pri" id="genbtn" style="margin-top:8px"${caps.aiEnabled ? "" : " disabled"}>Generate image</button>
+        <span style="font-size:12px;color:var(--soft);margin-left:8px">${caps.aiEnabled ? "Uses 1 image from your plan." : "Needs the OpenAI key on the server."}</span>
+        <p style="font-size:12px;color:var(--soft);margin-top:6px">Tip: use generated images for banners &amp; lifestyle shots. Marketplaces require the main image to be a real photo of your product.</p>
+      </div>
     </div>
     <div class="card pad">
       <b>Preview <span style="color:var(--soft);font-weight:400" id="dim"></span></b>
@@ -737,10 +743,16 @@ function imageStudio(user, caps) {
   document.getElementById('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{img=new Image();img.onload=draw;img.src=r.result;};r.readAsDataURL(f);});
   document.querySelectorAll('[data-w]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-w]').forEach(x=>x.classList.remove('on'));b.classList.add('on');W=+b.dataset.w;H=+b.dataset.h;draw();}));
   document.getElementById('dl').addEventListener('click',()=>{const a=document.createElement('a');a.download='autolist-image-'+W+'x'+H+'.png';a.href=cv.toDataURL('image/png');a.click();});
-  document.querySelectorAll('[data-ai]').forEach(b=>b.addEventListener('click',async()=>{
-    const m=document.getElementById('aimsg');m.textContent='Working…';
-    const r=await fetch('/api/image/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:b.dataset.ai,prompt:document.getElementById('prompt').value})}).then(x=>x.json());
-    m.textContent=r.message||(r.ok?'Done':'Not available');}));
+  async function ai(op,prompt,btn){const m=document.getElementById('aimsg');
+    if(op!=='generate'&&!img){m.textContent='Upload a photo first.';return;}
+    m.textContent=op==='generate'?'Generating with ChatGPT… (about 20–40 s)':'Working…';if(btn)btn.disabled=true;
+    try{const src=op==='generate'?null:(()=>{const c=document.createElement('canvas');const s=Math.min(1,1536/Math.max(img.width,img.height));c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);return c.toDataURL('image/png');})();
+      const r=await fetch('/api/image/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op,prompt,imageBase64:src})}).then(x=>x.json());
+      if(!r.ok){m.textContent=r.message||'Not available';return;}
+      const n=new Image();n.onload=()=>{img=n;draw();m.textContent='Done — preview updated. Download when ready.';};n.src=r.image;
+    }catch(e){m.textContent='Something went wrong. Try again.';}finally{if(btn)btn.disabled=false;}}
+  document.querySelectorAll('[data-ai]').forEach(b=>b.addEventListener('click',()=>ai(b.dataset.ai,document.getElementById('prompt').value,b)));
+  document.getElementById('genbtn').addEventListener('click',e=>ai('generate',document.getElementById('genprompt').value,e.currentTarget));
   </script>`);
 }
 

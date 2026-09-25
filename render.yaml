@@ -32,6 +32,12 @@ services:
         sync: false
       - key: REMOVEBG_API_KEY    # R3 background removal; value set in Render dashboard
         sync: false
+      - key: GEMINI_API_KEY      # Google Gemini — text fallback after Claude (not used for images: SynthID watermark)
+        sync: false
+      - key: SUPABASE_URL        # e.g. https://<project>.supabase.co — photo hosting
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY   # server-only secret; never shown in the browser
+        sync: false
       # Optional — add later in the Render dashboard when you have them:
       # IMAGE_API_KEY,
       # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,

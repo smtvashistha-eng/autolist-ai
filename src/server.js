@@ -38,7 +38,8 @@ app.use("/api", (req, res, next) => {
   next();
 });
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json({ limit: "2mb", verify: (req, res, buf) => { req.rawBody = buf; } })); // rawBody for webhook signatures
+const jsonBody = express.json({ limit: "2mb", verify: (req, res, buf) => { req.rawBody = buf; } }); // rawBody for webhook signatures
+app.use((req, res, next) => (req.path === "/api/image/ai" ? next() : jsonBody(req, res, next)));   // studio photos parse at 15 MB on their route
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(auth.attachUser);
 // Phase 1 JSON REST API (auth, users, businesses)
@@ -284,10 +285,33 @@ app.get("/api/jobs/:id/stream", (req, res) => {
 });
 // ---- Phase 3: AI Image Studio ----
 const imgProvider = require("./ai/imageProvider");
-app.get("/app/images", (req, res) => res.send(pages.imageStudio(req.user, imgProvider.capabilities())));
-app.post("/api/image/ai", async (req, res) => {
-  const r = await imgProvider.aiProcess(req.body.op, req.body.imageBase64, req.body.prompt);
-  res.json(r);
+app.get("/app/images", (req, res) => { const ia = require("./ai/imageAIProvider"); res.send(pages.imageStudio(req.user, { ...imgProvider.capabilities(), aiEnabled: ia.canGenerate(), bgEnabled: ia.canRemoveBg() })); });
+// R3+: studio AI edits + prompt-to-image (ChatGPT gpt-image-1; remove.bg for backgrounds). Session-auth, metered.
+app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), async (req, res) => {
+  const ia = require("./ai/imageAIProvider"), meter = require("./usagemeter"), audit = require("./audit");
+  const biz = req.user.business_id, b = req.body || {};
+  const STYLES = { white_studio: "clean white studio product photo, soft even light, subtle shadow", lifestyle: "realistic lifestyle product photo in a tasteful everyday setting", enhance: "sharper, well-lit, colour-accurate product photo on the same background" };
+  const prompt = String(b.prompt || "").trim().slice(0, 800);
+  if (!["remove_bg", "white_studio", "lifestyle", "enhance", "generate"].includes(b.op)) return res.status(400).json({ ok: false, message: "Unknown AI action." });
+  if (!meter.canUse(biz, "images")) return res.status(402).json({ ok: false, message: "You've used all images in your plan this month." });
+  try {
+    let out;
+    if (b.op === "generate") {
+      if (prompt.length < 3) return res.status(400).json({ ok: false, message: "Describe the image you want." });
+      if (!ia.canGenerate()) return res.status(501).json({ ok: false, message: "Image generation needs the ChatGPT (OpenAI) key on the server." });
+      out = await ia.getImageProvider().generate({ prompt: prompt + ". Photorealistic e-commerce product image. No text, no watermark, no logos of other brands.", biz });
+    } else {
+      const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(String(b.imageBase64 || ""));
+      if (!m) return res.status(400).json({ ok: false, message: "Upload a photo first." });
+      const buf = Buffer.from(m[2], "base64");
+      if (buf.length > 10 * 1024 * 1024) return res.status(413).json({ ok: false, message: "Photo is over 10 MB." });
+      out = b.op === "remove_bg" ? await ia.applyEdit("remove_bg", buf, {}, { biz })
+        : await ia.applyEdit("ai_studio", buf, { style: (STYLES[b.op] + (prompt ? ", " + prompt : "")) }, { biz });
+    }
+    meter.record(biz, "images", 1, { operation: "studio_" + b.op });
+    audit.record({ businessId: biz, userId: req.user.id, action: "image.studio_ai", resourceType: "image", resourceId: null, metadata: { op: b.op }, ip: audit.ipOf(req) });
+    res.json({ ok: true, message: "Done", image: "data:" + out.mime + ";base64," + out.buffer.toString("base64"), width: out.width, height: out.height });
+  } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ ok: false, message: e.message }); }
 });
 // ---- Phase 7: bulk image resize -> ZIP ----
 const images = require("./images");

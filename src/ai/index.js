@@ -4,11 +4,7 @@
 const template = require("./templateProvider");
 const anthropic = require("./anthropicProvider");
 
-function getTextProvider() {
-  if (process.env.ANTHROPIC_API_KEY) return anthropic;
-  return template;
-}
-function providerName() {
-  return process.env.ANTHROPIC_API_KEY ? "claude" : "built-in";
-}
+const llm = require("./llm");
+function getTextProvider() { return llm.enabled() ? anthropic : template; }
+function providerName() { return llm.available()[0] || "built-in"; }
 module.exports = { getTextProvider, providerName };

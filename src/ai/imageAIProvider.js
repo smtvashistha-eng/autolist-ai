@@ -38,9 +38,9 @@ async function openaiImage(path, { prompt, buffer }) {
     const fd = new FormData();
     fd.append("model", model); fd.append("prompt", prompt); fd.append("size", "1024x1024");
     fd.append("image", new Blob([buffer], { type: "image/png" }), "image.png");
-    r = await fetch("https://api.openai.com/v1/images/" + path, { method: "POST", headers: { authorization: "Bearer " + openaiKey() }, body: fd, signal: AbortSignal.timeout(120000) });
+    r = await fetch((process.env.OPENAI_BASE_URL || "https://api.openai.com") + "/v1/images/" + path, { method: "POST", headers: { authorization: "Bearer " + openaiKey() }, body: fd, signal: AbortSignal.timeout(120000) });
   } else {
-    r = await fetch("https://api.openai.com/v1/images/" + path, { method: "POST", headers: { authorization: "Bearer " + openaiKey(), "content-type": "application/json" },
+    r = await fetch((process.env.OPENAI_BASE_URL || "https://api.openai.com") + "/v1/images/" + path, { method: "POST", headers: { authorization: "Bearer " + openaiKey(), "content-type": "application/json" },
       body: JSON.stringify({ model, prompt, size: "1024x1024" }), signal: AbortSignal.timeout(120000) });
   }
   const j = await r.json().catch(() => ({}));

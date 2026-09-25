@@ -1,7 +1,8 @@
 // src/imagehost.js — permanent PUBLIC image hosting for marketplace listings.
 // Marketplaces fetch images by URL, so these links must be public + non-expiring
 // (unlike our private signed file links). Uses Cloudinary when CLOUDINARY_URL is set
-// (cloudinary://API_KEY:API_SECRET@CLOUD_NAME); otherwise hosts on our own domain at /i/...
+// (cloudinary://API_KEY:API_SECRET@CLOUD_NAME), Supabase Storage when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+// are set (public bucket SUPABASE_BUCKET, default "product-images"); otherwise our own domain at /i/...
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -9,7 +10,20 @@ const path = require("path");
 const DIR = process.env.PUBLIC_IMAGE_DIR ||
   path.join(path.dirname(process.env.FILE_STORE_DIR || path.join(__dirname, "..", "data", "files")), "public-images");
 const base = () => (process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, "");
-const provider = () => (process.env.CLOUDINARY_URL ? "cloudinary" : "local");
+const provider = () => (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? "supabase" : process.env.CLOUDINARY_URL ? "cloudinary" : "local");
+
+async function supabaseUpload(buf, ext, biz, sku) {
+  const base = process.env.SUPABASE_URL.replace(/\/$/, ""), bucket = process.env.SUPABASE_BUCKET || "product-images";
+  const name = (sku ? String(sku).replace(/[^A-Za-z0-9_-]/g, "_") + "_" : "") + crypto.randomBytes(8).toString("hex") + "." + ext;
+  const objectPath = `${biz}/${name}`;
+  const r = await fetch(`${base}/storage/v1/object/${bucket}/${objectPath}`, {
+    method: "POST", signal: AbortSignal.timeout(60000),
+    headers: { authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY, "content-type": MIME[ext] || "image/jpeg", "cache-control": "31536000", "x-upsert": "false" },
+    body: buf,
+  });
+  if (!r.ok) throw new Error("Image host rejected the upload (" + r.status + ")");
+  return { url: `${base}/storage/v1/object/public/${bucket}/${objectPath}`, provider: "supabase", publicId: objectPath, bytes: buf.length };
+}
 const MIME = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
 async function cloudinaryUpload(buf, ext, biz, sku) {
@@ -37,7 +51,8 @@ function localUpload(buf, ext, biz) {
 
 async function upload(buf, ext, biz, sku) {
   ext = String(ext).toLowerCase().replace("jpeg", "jpg");
-  return provider() === "cloudinary" ? cloudinaryUpload(buf, ext, biz, sku) : localUpload(buf, ext, biz);
+  const p = provider();
+  return p === "supabase" ? supabaseUpload(buf, ext, biz, sku) : p === "cloudinary" ? cloudinaryUpload(buf, ext, biz, sku) : localUpload(buf, ext, biz);
 }
 
 // resolve a public /i/<biz>/<name> path safely (no traversal)

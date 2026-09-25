@@ -62,11 +62,11 @@ const templateProvider = {
   },
 };
 
-// ---- Anthropic provider (used only when ANTHROPIC_API_KEY is set) ----
+// ---- live AI provider: Claude -> Gemini (via ai/llm.js), used when any text key is set ----
+const llm = require("./llm");
 const anthropicProvider = {
-  name: "anthropic", model: "claude-sonnet-5", promptVersion: "p1",
+  name: "llm", get model() { return (llm.available()[0] || "none"); }, promptVersion: "p1",
   async generateListing(input) {
-    const key = process.env.ANTHROPIC_API_KEY;
     const sys = "You write e-commerce listings. Return ONLY JSON matching {fields:[{name,value,sourceType,confidence,needsConfirmation}],warnings:[],missingFields:[]}. " +
       "sourceType is one of provided|generated_from_confirmed_data|ai_generated|missing. NEVER invent factual fields (" + FACTUAL.join(", ") + "); if not provided, set value \"\", sourceType \"missing\", needsConfirmation true and add to missingFields.";
     const sysBrand = input.brandProfile ? " Follow the seller's brandProfile: write in its tone, match its style (bullet style/count, example title), prefer its keywords, obey its instructions, and NEVER use any of its prohibitedClaims." : "";
@@ -74,18 +74,11 @@ const anthropicProvider = {
     let lastErr = "";
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: this.model, max_tokens: 1500, system: sys + sysBrand, messages: [{ role: "user", content: user }] }),
-        });
-        if (!res.ok) throw new Error("anthropic http " + res.status);
-        const data = await res.json();
-        const text = (data.content || []).map(c => c.text || "").join("");
-        const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        const out = await llm.chat({ system: sys + sysBrand, user, maxTokens: 1500, biz: input.businessId || null });
+        const json = llm.parseJSON(out.text);
         const check = validateGenerationResult(json);
         if (!check.ok) { lastErr = "schema: " + check.errors.join("; "); continue; } // retry once
-        json._usage = { input: data.usage?.input_tokens, output: data.usage?.output_tokens };
+        json._provider = out.provider; json._model = out.model;
         return json;
       } catch (e) { lastErr = String(e.message || e); }
     }
@@ -98,7 +91,6 @@ const anthropicProvider = {
 };
 
 function getTextProvider() {
-  if (process.env.ANTHROPIC_API_KEY && process.env.AI_PROVIDER !== "template") return anthropicProvider;
-  return templateProvider;
+  return llm.enabled() ? anthropicProvider : templateProvider;
 }
 module.exports = { getTextProvider, templateProvider, anthropicProvider, FACTUAL, TITLE_MAX };
