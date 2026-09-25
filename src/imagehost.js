@@ -18,7 +18,8 @@ async function supabaseUpload(buf, ext, biz, sku) {
   const objectPath = `${biz}/${name}`;
   const r = await fetch(`${base}/storage/v1/object/${bucket}/${objectPath}`, {
     method: "POST", signal: AbortSignal.timeout(60000),
-    headers: { authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY, "content-type": MIME[ext] || "image/jpeg", "cache-control": "31536000", "x-upsert": "false" },
+    // new-style secret keys (sb_secret_…) go in "apikey"; legacy service_role JWTs also need Bearer auth
+    headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, ...(/^sb_secret_/.test(process.env.SUPABASE_SERVICE_ROLE_KEY) ? {} : { authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY }), "content-type": MIME[ext] || "image/jpeg", "cache-control": "31536000", "x-upsert": "false" },
     body: buf,
   });
   if (!r.ok) throw new Error("Image host rejected the upload (" + r.status + ")");
