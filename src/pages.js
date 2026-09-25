@@ -1050,6 +1050,7 @@ function bulkProScript() {
     "  if(j.status==='FAILED'){ $('bp-summary').innerHTML='<span style=\"color:var(--err)\">Job failed: '+esc(j.error||'unknown')+'</span>'; return; }",
     "  if(j.status==='CANCELLED'){ $('bp-summary').textContent='Cancelled. '+(r.generated||0)+' generated before stopping.'; }",
     "  else { $('bp-summary').innerHTML='\\u2705 <b>'+(r.ready||0)+' ready</b> and exported'+((r.needsFixCount||0)?(' \\u00b7 \\u26A0 <b>'+r.needsFixCount+' need a fix</b>'):'')+((r.hitLimit)?' \\u00b7 (stopped at plan limit)':''); }",
+    "  if(r.quality){ $('bp-summary').innerHTML+=' \\u00b7 avg quality <b>'+r.quality.avg+'/100</b>'+(r.quality.low.length?(' ('+r.quality.low.length+' below 50: '+esc(r.quality.low.slice(0,8).map(function(q){return q.sku;}).join(', '))+')'):''); }",
     "  if(r.imageMatch){ $('bp-summary').innerHTML+=' \\u00b7 <b>'+r.imageMatch.matched+'</b> products got image links'+(r.imageMatch.unmatchedSkus.length?(' ('+r.imageMatch.unmatchedSkus.length+' photo SKU'+(r.imageMatch.unmatchedSkus.length>1?'s':'')+' matched no row: '+esc(r.imageMatch.unmatchedSkus.slice(0,5).join(', '))+')'):''); }",
     "  if(r.exportId){ fetch('/api/exports/'+r.exportId).then(function(x){return x.json();}).then(function(e){ var ex=e.export||{};",
     "     if(ex.downloadUrl){var a=$('bp-download');a.href=ex.downloadUrl;a.hidden=false;}",

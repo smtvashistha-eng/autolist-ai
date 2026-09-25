@@ -6,6 +6,7 @@ const bulk = require("./bulk");
 const exporter = require("./exporter");
 const meter = require("./usagemeter");
 const brand = require("./brand");
+const jev = require("./ai/jev");   // TypeSafe Jev: advisory quality/claim/category decisions
 const { getTextProvider, TITLE_MAX } = require("./ai/textProvider");
 const { validateGenerationResult } = require("./ai/schema");
 const { db, nowISO, rid } = require("./db");
@@ -77,6 +78,7 @@ queue.register("bulk_generate", async (job, ctx) => {
         if (!conf.productName) conf.productName = p.name;
         if (!conf.brand) conf.brand = p.brand;
         const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id);
+        await jev.review(result, { marketplace, product: conf, categories: (brand.getProfile(job.business_id) || {}).categories, biz: job.business_id });
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
         const now = nowISO(), draftId = rid("d_");
         const fields = {}; for (const fl of result.fields) fields[fl.name] = { value: fl.value, sourceType: fl.sourceType, confidence: fl.confidence, needsConfirmation: fl.needsConfirmation };
@@ -125,6 +127,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   const provider = getTextProvider();
 
   ctx.stage("Generating content");
+  const qualities = [];
   for (let i = job.cursor || 0; i < rows.length; i++) {
     if (ctx.cancelled()) break;
     if (!meter.canUse(biz, "listings")) { hitLimit = true; ctx.warn("Plan listing limit reached — stopping generation."); break; }
@@ -135,14 +138,17 @@ queue.register("bulk_pipeline", async (job, ctx) => {
         const p = db.prepare("SELECT * FROM products WHERE id=?").get(productId);
         const conf = JSON.parse(p.normalized_data_json || "{}");
         const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id);
+        await jev.review(result, { marketplace, product: conf, categories: (brand.getProfile(job.business_id) || {}).categories, biz: job.business_id });
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
         const now = nowISO(), draftId = rid("d_");
         const fields = {}; for (const fl of result.fields) fields[fl.name] = { value: fl.value, sourceType: fl.sourceType, confidence: fl.confidence, needsConfirmation: fl.needsConfirmation };
         db.prepare(`INSERT INTO listing_drafts(id,business_id,product_id,marketplace,status,content_json,validation_summary_json,version,last_saved_at,created_at,updated_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
-          .run(draftId, biz, p.id, marketplace, "generated", JSON.stringify({ fields, provider: provider.name, model: provider.model, generatedAt: now }),
+          .run(draftId, biz, p.id, marketplace, "generated", JSON.stringify({ fields, provider: provider.name, model: provider.model, generatedAt: now, quality: result.quality || null }),
             JSON.stringify({ warnings: result.warnings, missingFields: result.missingFields }), 1, now, now, now);
         draftIds.push(draftId);
+        if (result.suggestedCategory && !p.category) db.prepare("UPDATE products SET category=? WHERE id=? AND business_id=?").run(result.suggestedCategory, p.id, biz);
+        if (result.quality) qualities.push({ sku: p.sku || null, score: result.quality.score });
         meter.record(biz, "listings", 1, { bulk: true });
         completed++; ctx.item("row", p.sku || `row${i + 1}`, "completed");
       }
@@ -165,8 +171,9 @@ queue.register("bulk_pipeline", async (job, ctx) => {
     const exp = await exporter.createExport({ biz, userId: job.user_id, draftIds: readyIds, marketplace, templateId, includeImages });
     if (exp.blocked) exportBlocked = true; else exportId = exp.exportId;
   }
+  const quality = qualities.length ? { by: "jev", avg: Math.round(qualities.reduce((a, q) => a + q.score, 0) / qualities.length), low: qualities.filter(q => q.score < 50).slice(0, 50) } : null;
   const imageMatch = imgMap ? { skusWithImages: Object.keys(imgMap).length, matched: imgMap.__matched.size, unmatchedSkus: Object.keys(imgMap).filter(k => !imgMap.__matched.has(k)).slice(0, 50) } : null;
-  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, draftIds, imageMatch };
+  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, draftIds, imageMatch, quality };
 });
 
 // ---- image_zip (R2): unzip product photos -> validate -> host publicly -> record SKU links ----

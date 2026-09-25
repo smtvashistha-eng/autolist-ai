@@ -192,7 +192,7 @@ function healthPage(user, h) {
   <div class="card pad" style="max-width:560px">
     ${row("Application", HS(h.app))}${row("Database", HS(h.database))}${row("Job worker", HS(h.worker))}${row("Storage", HS(h.storage))}
     ${row("Environment", `<b>${esc(h.env)}</b>`)}${row("Schema version", `<b>v${esc(h.migration)}</b>`)}
-    ${row("AI text provider", `<b>${esc(h.aiProvider)}</b>`)}${row("Image provider", `<b>${esc(h.imageProvider)}</b>`)}${row("Image hosting", `<b>${esc(h.imageHost)}</b>`)}
+    ${row("AI text provider", `<b>${esc(h.aiProvider)}</b>`)}${row("Image provider", `<b>${esc(h.imageProvider)}</b>`)}${row("Image hosting", `<b>${esc(h.imageHost)}</b>`)}${row("Decision AI", `<b>${esc(h.decisionAI)}</b>`)}
     ${row("AI spend (30 days, est.)", `<b>${Number((h.aiSpend || {}).usd || 0).toFixed(2)}</b>&nbsp;<span style="color:var(--muted)">${fmt((h.aiSpend || {}).calls || 0)} calls, ${fmt((h.aiSpend || {}).failed || 0)} failed</span>`)}
     ${row("Uptime", `<b>${Math.floor(h.uptimeSec / 3600)}h ${Math.floor((h.uptimeSec % 3600) / 60)}m</b>`)}
     ${row("API requests", `<b>${fmt(h.requests)}</b>`)}${row("Server errors", `<b style="color:${h.errors ? "var(--err)" : "var(--good)"}">${fmt(h.errors)}</b>`)}

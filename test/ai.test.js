@@ -12,7 +12,7 @@ const STORE = path.join(os.tmpdir(), `autolist-ai-files-${TAG}`, "files");
 let pass = 0, fail = 0;
 const ok = (n, c) => c ? (pass++, console.log("  ✓ " + n)) : (fail++, console.log("  ✗ " + n));
 
-const hits = { claude: 0, gemini: 0, openai: 0, supabase: 0, keys: [] }, bucket = {};
+const hits = { claude: 0, gemini: 0, openai: 0, supabase: 0, jev: 0, jevReq: null, keys: [] }, bucket = {};
 let PNG_B64 = "";
 const F = (name, value, sourceType = "generated_from_confirmed_data") => ({ name, value, sourceType, confidence: value ? 0.9 : 0, needsConfirmation: !value });
 const listing = { fields: [
@@ -31,6 +31,15 @@ const mock = http.createServer((q, s) => {
       hits.gemini++; hits.keys.push(q.headers["x-goog-api-key"]);
       s.writeHead(200, { "content-type": "application/json" });
       return s.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(listing) }] } }], usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 400 } }));
+    }
+    if (q.url === "/v1/systemone") {
+      hits.jev++; hits.keys.push(q.headers.authorization);
+      const j = JSON.parse(body.toString()); hits.jevReq = j;
+      if (/JEVFAIL/.test(JSON.stringify(j.state))) { s.writeHead(529); return s.end("{}"); }   // Jev overloaded
+      const answers = { quality: { type: "score", score: 1, confidence: 0.8 }, risky_claim: { type: "noul", noul: 0.9 }, title_matches_product: { type: "noul", noul: 0.95 } };
+      if (j.questions.category) answers.category = { type: "choice", choice: "Laptop Screen Guard", confidence: 0.9 };
+      s.writeHead(200, { "content-type": "application/json" });
+      return s.end(JSON.stringify({ model: "jev-1.13.0", answers, usage: { input_tokens: 400, output_tokens: 20 } }));
     }
     if (q.url === "/v1/images/generations") {
       hits.openai++; hits.keys.push(q.headers.authorization);
@@ -77,7 +86,7 @@ async function waitJob(cookie, id) {
   const server = spawn(process.execPath, ["--experimental-sqlite", path.join(__dirname, "..", "src", "server.js")],
     { env: { ...process.env, PORT: String(PORT), AUTOLIST_DB: DB, FILE_STORE_DIR: STORE, SESSION_SECRET: "test-secret", NODE_ENV: "test", AI_PROVIDER: "", CLOUDINARY_URL: "", PUBLIC_URL: "", ADMIN_EMAILS: `adm${TAG}@x.in`,
       ANTHROPIC_API_KEY: "test-claude-key", ANTHROPIC_BASE_URL: MB, GEMINI_API_KEY: "test-gemini-key", GEMINI_BASE_URL: MB,
-      OPENAI_API_KEY: "test-openai-key", OPENAI_BASE_URL: MB, IMAGE_API_KEY: "", REMOVEBG_API_KEY: "",
+      JEV_API_KEY: "test-jev-key", JEV_BASE_URL: MB, OPENAI_API_KEY: "test-openai-key", OPENAI_BASE_URL: MB, IMAGE_API_KEY: "", REMOVEBG_API_KEY: "",
       SUPABASE_URL: MB, SUPABASE_SERVICE_ROLE_KEY: "test-supa-key", SUPABASE_BUCKET: "" }, stdio: ["ignore", "ignore", "inherit"] });
   const cleanup = () => { try { server.kill("SIGKILL"); } catch {} mock.close(); for (const f of [DB, DB + "-wal", DB + "-shm"]) { try { fs.unlinkSync(f); } catch {} } try { fs.rmSync(path.dirname(STORE), { recursive: true, force: true }); } catch {} };
   try {
@@ -92,6 +101,18 @@ async function waitJob(cookie, id) {
     ok("Gemini answered instead", hits.gemini >= 1 && gen.status === 200 && gen.json.result._provider === "gemini");
     ok("listing came from the AI, not the fallback writer", !gen.json.result._fallback && /9H Hardness/.test(gen.json.result.fields.find(f => f.name === "title").value));
     ok("missing facts still flagged, not invented", gen.json.summary.missingFields.includes("material"));
+
+    console.log("Jev decisions (quality / claims / category):");
+    ok("Jev sent the official request shape", hits.jevReq && hits.jevReq.model === "jev-latest" && hits.jevReq.questions.quality.type === "score" && hits.jevReq.questions.quality.criteria.length === 5 && hits.jevReq.state.listing.title.length > 0);
+    ok("quality score 0-100 on the listing", gen.json.result.quality && gen.json.result.quality.score === 25 && gen.json.result.quality.by === "jev");
+    ok("low quality + risky claim become warnings (content untouched)", gen.json.result.warnings.some(w => w.includes("scored 25/100")) && gen.json.result.warnings.some(w => /unsupported claim/.test(w)) && /9H Hardness/.test(gen.json.result.fields.find(f => f.name === "title").value));
+    await req("PUT", "/api/brand", { cookie: A, body: { sells: "Screen guards", brands: "TRUSTin", categories: "Mobile Screen Guard, Laptop Screen Guard", tone: "friendly" } });
+    const csv = "sku,name,price\nLP-1,Laptop Guard 15.6 inch,499\nLP-2,JEVFAIL Laptop Guard 14 inch,449\n";
+    const pj = await req("POST", "/api/jobs", { cookie: A, body: { type: "bulk_pipeline", input: { fileId: await upload(A, "p.csv", "text/csv", Buffer.from(csv)), marketplace: "flipkart" } } });
+    const pd = await waitJob(A, pj.json.job.id);
+    ok("bulk still finishes when Jev is down for a row", pd && pd.status === "COMPLETED" && pd.result.generated === 2);
+    ok("bulk reports average quality + low SKUs", pd.result.quality && pd.result.quality.avg === 25 && pd.result.quality.low.some(q => q.sku === "LP-1"));
+    ok("category picked from the seller's own list", hits.jevReq.questions.category && Object.keys(hits.jevReq.questions.category.criteria).includes("other"));
 
     console.log("Images: ChatGPT prompt-to-image:");
     const g = await req("POST", "/api/image/ai", { cookie: A, body: { op: "generate", prompt: "clear screen guard on a laptop" } });
@@ -110,12 +131,12 @@ async function waitJob(cookie, id) {
     ok("public Supabase link serves the photo", links.bySku["SK-1"][0].startsWith(MB + "/storage/v1/object/public/product-images/") && (await req("GET", links.bySku["SK-1"][0])).buf.length > 100);
 
     console.log("Security + admin:");
-    ok("keys only sent to their own vendor", hits.keys.every(k => ["test-claude-key", "test-gemini-key", "Bearer test-openai-key", "Bearer test-supa-key"].includes(k)));
+    ok("keys only sent to their own vendor", hits.keys.every(k => ["test-claude-key", "test-gemini-key", "Bearer test-openai-key", "Bearer test-supa-key", "Bearer test-jev-key"].includes(k)));
     const page = (await req("GET", "/app/images", { cookie: A })).text;
-    ok("no key ever rendered to the browser", !/test-(claude|gemini|openai|supa)-key/.test(page) && page.includes("Generate image"));
+    ok("no key ever rendered to the browser", !/test-(claude|gemini|openai|supa|jev)-key/.test(page) && page.includes("Generate image"));
     const ADM = await signup("adm");
     const health = ((await req("GET", "/admin/health", { cookie: ADM })).text || "").replace(/&rarr;|&#8594;/g, "→");
-    ok("admin shows Claude → Gemini chain + Supabase + spend", /Claude \(claude-sonnet-5\) → Gemini/.test(health) && health.includes("supabase") && /AI spend/.test(health));
+    ok("admin shows Claude → Gemini chain + Supabase + spend", /Claude \(claude-sonnet-5\) → Gemini/.test(health) && health.includes("supabase") && health.includes("TypeSafe Jev") && /AI spend/.test(health));
   } catch (e) { fail++; console.error("Harness error:", e); }
   finally { cleanup(); console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }
 })();

@@ -34,7 +34,9 @@ services:
         sync: false
       - key: GEMINI_API_KEY      # Google Gemini — text fallback after Claude (not used for images: SynthID watermark)
         sync: false
-      - key: SUPABASE_URL        # e.g. https://<project>.supabase.co — photo hosting
+      - key: JEV_API_KEY         # TypeSafe Jev — fast quality/claim/category decisions (console.typesafe.ai)
+        sync: false
+      - key: SUPABASE_URL       # e.g. https://<project>.supabase.co — photo hosting
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY   # server-only secret; never shown in the browser
         sync: false

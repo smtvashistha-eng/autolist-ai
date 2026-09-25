@@ -46,6 +46,7 @@ function health() {
     env: process.env.NODE_ENV || "development",
     aiProvider: require("./ai/llm").describe(),
     imageHost: require("./imagehost").provider(),
+    decisionAI: require("./ai/jev").enabled() ? "TypeSafe Jev (" + (process.env.JEV_MODEL || "jev-latest") + ") — quality, claims, category" : "Off (set JEV_API_KEY)",
     imageProvider: require("./ai/imageAIProvider").describe(),
     aiSpend: (() => { try { const since = new Date(Date.now() - 30 * 864e5).toISOString(); return db.prepare("SELECT COUNT(*) calls, COALESCE(SUM(cost_usd),0) usd, COALESCE(SUM(ok=0),0) failed FROM ai_cost_log WHERE created_at>=?").get(since); } catch { return { calls: 0, usd: 0, failed: 0 }; } })(),
     migration, uptimeSec: m.uptimeSec, requests: m.requests, errors: m.errors,

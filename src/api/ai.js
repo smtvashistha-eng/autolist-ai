@@ -63,6 +63,7 @@ async function run(req, res, type, onlyFields) {
   const reqId = airequests.create({ businessId: draft.business_id, userId: req.user.id, draftId: draft.id, type, provider: provider.name, model: provider.model, promptVersion: provider.promptVersion, meta: { marketplace } });
   try {
     const result = require("../brand").applyREST(await provider.generateListing(input), draft.business_id);
+    await require("../ai/jev").review(result, { marketplace, product: input.product, categories: (require("../brand").getProfile(draft.business_id) || {}).categories, biz: draft.business_id });
     const check = validateGenerationResult(result);
     if (!check.ok) { airequests.fail(reqId, "schema: " + check.errors.join("; ")); return res.status(502).json({ error: "The AI returned output we couldn't validate. Please try again.", requestId: reqId }); }
     const { content, summary } = persist(draft, result, provider, onlyFields);
