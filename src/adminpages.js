@@ -41,6 +41,12 @@ function dashboard(user, d) {
   const list = (arr, fn, empty) => arr.length ? arr.map(fn).join("") : `<tr><td colspan="3" style="color:var(--soft)">${empty}</td></tr>`;
   return layout(user, "/admin", `
   <div class="phead"><div><h1>Overview</h1><p>Real-time platform status. Actions affect real accounts.</p></div></div>
+  ${d.ok ? `<div class="alert al-good" style="margin-bottom:12px"><span>${esc(d.ok)}</span></div>` : ""}${d.err ? `<div class="alert al-err" style="margin-bottom:12px"><span>${esc(d.err)}</span></div>` : ""}
+  ${d.siteMode === "open"
+    ? `<div class="card pad" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-left:4px solid var(--good)"><div><b>🟢 Site is LIVE — open to everyone</b><div style="color:var(--soft);font-size:13px">Anyone can sign up and use AutoList AI.</div></div>
+        <form method="POST" action="/admin/site/mode" style="margin:0" onsubmit="return confirm('Switch back to private mode? Non-admin users will be logged out.')"><input type="hidden" name="mode" value="private"><button class="btn ghost">Switch to private mode</button></form></div>`
+    : `<div class="card pad" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-left:4px solid var(--warn)"><div><b>🔒 Private mode — admins only</b><div style="color:var(--soft);font-size:13px">Visitors see “Coming soon”. Signups closed; only admin emails can log in.</div></div>
+        <form method="POST" action="/admin/site/mode" style="margin:0;display:flex;gap:8px;align-items:center"><input type="hidden" name="mode" value="open"><input name="confirm" placeholder="Type LAUNCH" autocomplete="off" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;width:130px"><button class="btn pri">Launch to public</button></form></div>`}
   <div class="statgrid" style="grid-template-columns:repeat(4,1fr)">
     ${stat("Users", fmt(o.users))}${stat("Businesses", fmt(o.businesses), o.suspended + " suspended")}${stat("Active", fmt(o.activeBusinesses))}${stat("Active paid", fmt(o.activePaid))}
   </div>

@@ -422,6 +422,13 @@ const MIGRATIONS = [
       db.exec(`CREATE INDEX IF NOT EXISTS ix_aicost_time ON ai_cost_log(created_at)`);
     },
   },
+  // ---- pre-launch private mode switch (and future site-wide settings) ----
+  {
+    v: 28, name: "site_settings",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
+    },
+  },
 ];
 
 function run(db) {

@@ -42,6 +42,7 @@ const jsonBody = express.json({ limit: "2mb", verify: (req, res, buf) => { req.r
 app.use((req, res, next) => (req.path === "/api/image/ai" ? next() : jsonBody(req, res, next)));   // studio photos parse at 15 MB on their route
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(auth.attachUser);
+app.use(require("./sitegate").middleware);   // pre-launch: admins only until the owner launches (switch in /admin)
 // Phase 1 JSON REST API (auth, users, businesses)
 app.use("/api", require("./api"));
 
@@ -369,7 +370,14 @@ const adminUI = require("./adminpages");
 const ipOf = require("./audit").ipOf;
 app.get("/app/admin", (req, res) => res.redirect("/admin"));
 app.use("/admin", auth.requireAuth, auth.requireAdmin);   // all /admin requires admin
-app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity() })));
+app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity(), siteMode: require("./sitegate").getMode(), ok: req.query.ok, err: req.query.err })));
+// launch switch — typed confirmation required so it can't be flipped by a stray click
+app.post("/admin/site/mode", (req, res) => {
+  const want = (req.body || {}).mode === "open" ? "open" : "private";
+  if (want === "open" && String((req.body || {}).confirm || "").trim().toUpperCase() !== "LAUNCH") return res.redirect("/admin?err=" + encodeURIComponent('Type LAUNCH to open AutoList AI to everyone.'));
+  require("./sitegate").setMode(want, req.user, ipOf(req));
+  res.redirect("/admin?ok=" + encodeURIComponent(want === "open" ? "AutoList AI is now open to everyone." : "AutoList AI is back in private mode (admins only)."));
+});
 app.get("/admin/users", (req, res) => {
   const limit = 25, offset = Math.max(0, +req.query.offset || 0);
   res.send(adminUI.users(req.user, admin.listUsers({ q: req.query.q, status: req.query.status, plan: req.query.plan, limit, offset }), req.query));
