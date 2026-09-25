@@ -35,6 +35,11 @@ async function generate(bizId, id) {
   const brand = require("./brand");
   const input = { ...brand.enrichInput(bizId, row.data.input), brandProfile: brand.promptContext(bizId) };
   const result = brand.applySSR(await provider.generateListing(input, row.data.marketplace), bizId);
+  // Jev advisory review: adapt the SSR shape ({fields:{title:{value}}}) to the REST shape Jev reads
+  const f = result.fields || {}, v = (k) => (f[k] && f[k].value) || "";
+  const rest = { fields: [["title", v("title")], ["bullets", [].concat(v("bullets")).join("\n")], ["description", v("description")], ["keywords", [].concat(v("keywords")).join(", ")]].map(([name, value]) => ({ name, value })), warnings: [] };
+  await require("./ai/jev").review(rest, { marketplace: row.data.marketplace, product: input, categories: (brand.getProfile(bizId) || {}).categories, biz: bizId });
+  if (rest.quality) result.quality = { ...rest.quality, warnings: rest.warnings };
   return save(bizId, id, d => { d.result = result; });
 }
 function list(bizId) {

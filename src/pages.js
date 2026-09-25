@@ -580,6 +580,9 @@ function reviewListing(user, L, v) {
         </div>
         <div>
           <div class="card pad" style="margin-bottom:14px"><b>Attributes</b><div style="margin-top:8px">${attrs || '<span style="color:var(--soft)">None</span>'}</div></div>
+          ${r.quality ? `<div class="card pad" style="margin-bottom:14px"><b>Quality check</b> <span style="color:var(--soft);font-size:12px">by Jev</span>
+            <div style="font-size:28px;font-weight:800;margin-top:4px;color:${r.quality.score >= 70 ? "var(--good)" : r.quality.score >= 50 ? "var(--warn)" : "var(--err)"}">${r.quality.score}<small style="font-size:14px;color:var(--soft)">/100</small></div>
+            ${(r.quality.warnings || []).map(w => `<div style="font-size:13px;color:var(--warn);margin-top:6px">⚠ ${esc(w.replace(/^Quality check: /, ""))}</div>`).join("")}</div>` : ""}
           <div class="card pad" style="background:var(--accent-weak);border-color:transparent;font-size:13px;color:var(--accent-ink)">${esc(r.note)}</div>
         </div>
       </div>`;

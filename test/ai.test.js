@@ -114,6 +114,11 @@ async function waitJob(cookie, id) {
     ok("bulk reports average quality + low SKUs", pd.result.quality && pd.result.quality.avg === 25 && pd.result.quality.low.some(q => q.sku === "LP-1"));
     ok("category picked from the seller's own list", hits.jevReq.questions.category && Object.keys(hits.jevReq.questions.category.criteria).includes("other"));
 
+    const cr = await fetch(BASE + "/app/create", { method: "POST", redirect: "manual", headers: { cookie: A, "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ productName: "Tempered Glass iPhone 15", brand: "TRUSTin", price: "199", features: "9H hardness", marketplace: "amazon" }) });
+    const review = (await req("GET", cr.headers.get("location"), { cookie: A })).text || "";
+    ok("Create Listing page shows the Jev quality score", cr.status === 302 && review.includes("Quality check") && />25<small/.test(review));
+
     console.log("Images: ChatGPT prompt-to-image:");
     const g = await req("POST", "/api/image/ai", { cookie: A, body: { op: "generate", prompt: "clear screen guard on a laptop" } });
     ok("generated image returned", g.status === 200 && g.json.ok && g.json.image.startsWith("data:image/png;base64,"));
