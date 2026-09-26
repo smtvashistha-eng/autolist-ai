@@ -43,7 +43,8 @@ const templateProvider = {
     fields.push(field("bullets", bullets.join("\n"), bullets.length ? "generated_from_confirmed_data" : "ai_generated", bullets.length ? 0.85 : 0.6, false));
 
     // description
-    const descBits = [name && `${brand ? brand + " " : ""}${name}.`, feats.length ? "Key features: " + feats.join(", ") + "." : ""].filter(Boolean);
+    const brandDup = brand && name.toLowerCase().startsWith(brand.toLowerCase());
+    const descBits = [name && `${brand && !brandDup ? brand + " " : ""}${name}.`, feats.length ? "Key features: " + feats.join(", ") + "." : ""].filter(Boolean);
     fields.push(field("description", descBits.join(" "), descBits.length ? "generated_from_confirmed_data" : "ai_generated", 0.8, false));
 
     // keywords (derived, non-factual)
@@ -64,18 +65,38 @@ const templateProvider = {
 
 // ---- live AI provider: Claude -> Gemini (via ai/llm.js), used when any text key is set ----
 const llm = require("./llm");
+const FORMAT = " Field names: title, bullets, description, keywords, brand, plus the factual fields. Every value is a STRING: bullets = 5 benefit-led lines separated by \n; keywords = comma-separated search phrases. Keep the whole JSON under 900 words.";
+// tolerate harmless shape differences (arrays, numbers, missing flags) — the strict validator still runs after this
+function normalizeResult(j) {
+  if (!j || typeof j !== "object") return j;
+  if (Array.isArray(j.fields)) j.fields = j.fields.map(f => {
+    if (!f || typeof f !== "object") return f;
+    let v = f.value;
+    if (Array.isArray(v)) v = v.map(String).join(f.name === "bullets" ? "\n" : ", ");
+    else if (v == null) v = ""; else if (typeof v !== "string") v = String(v);
+    const src = SOURCES.has(f.sourceType) ? f.sourceType : (v ? "ai_generated" : "missing");
+    const conf = typeof f.confidence === "number" && f.confidence >= 0 && f.confidence <= 1 ? f.confidence : (v ? 0.8 : 0);
+    return { name: String(f.name || ""), value: v, sourceType: src, confidence: conf, needsConfirmation: typeof f.needsConfirmation === "boolean" ? f.needsConfirmation : !v };
+  });
+  if (!Array.isArray(j.warnings)) j.warnings = [];
+  if (!Array.isArray(j.missingFields)) j.missingFields = [];
+  return j;
+}
+const SOURCES = new Set(["provided", "generated_from_confirmed_data", "ai_generated", "missing"]);
 const anthropicProvider = {
   name: "llm", get model() { return (llm.available()[0] || "none"); }, promptVersion: "p1",
   async generateListing(input) {
     const sys = "You write e-commerce listings. Return ONLY JSON matching {fields:[{name,value,sourceType,confidence,needsConfirmation}],warnings:[],missingFields:[]}. " +
       "sourceType is one of provided|generated_from_confirmed_data|ai_generated|missing. NEVER invent factual fields (" + FACTUAL.join(", ") + "); if not provided, set value \"\", sourceType \"missing\", needsConfirmation true and add to missingFields.";
     const sysBrand = input.brandProfile ? " Follow the seller's brandProfile: write in its tone, match its style (bullet style/count, example title), prefer its keywords, obey its instructions, and NEVER use any of its prohibitedClaims." : "";
-    const user = JSON.stringify({ product: input.product, marketplace: input.marketplace, category: input.category, limits: input.limits, brandProfile: input.brandProfile || null, userInstructions: input.userInstructions || null, doNotInvent: FACTUAL });
+    // only what the writer needs — no image links / raw sheet columns (they bloat the prompt and truncate the answer)
+    const { images, extra, picks, picksSource, ...lean } = input.product || {};
+    const user = JSON.stringify({ product: lean, marketplace: input.marketplace, category: input.category, limits: input.limits, brandProfile: input.brandProfile || null, userInstructions: input.userInstructions || null, doNotInvent: FACTUAL });
     let lastErr = "";
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const out = await llm.chat({ system: sys + sysBrand, user, maxTokens: 1500, biz: input.businessId || null });
-        const json = llm.parseJSON(out.text);
+        const out = await llm.chat({ system: sys + sysBrand + FORMAT, user, maxTokens: 4000, biz: input.businessId || null });
+        const json = normalizeResult(llm.parseJSON(out.text));
         const check = validateGenerationResult(json);
         if (!check.ok) { lastErr = "schema: " + check.errors.join("; "); continue; } // retry once
         json._provider = out.provider; json._model = out.model;
@@ -93,4 +114,4 @@ const anthropicProvider = {
 function getTextProvider() {
   return llm.enabled() ? anthropicProvider : templateProvider;
 }
-module.exports = { getTextProvider, templateProvider, anthropicProvider, FACTUAL, TITLE_MAX };
+module.exports = { getTextProvider, templateProvider, anthropicProvider, normalizeResult, FACTUAL, TITLE_MAX };

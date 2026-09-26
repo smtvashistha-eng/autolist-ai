@@ -94,7 +94,14 @@ function stripBanned(text, banned) {
 function banList(p) { return [...new Set([...(p.prohibitedClaims || []), ...DEFAULT_BANNED])]; }
 
 // REST shape: { fields:[{name,value,...}], warnings }
-function applyREST(result, biz) {
+// a learned keyword is reused only if all its meaningful words appear in this product's own text
+// (stops another brand's name, typos, or a wrong material like "tempered glass" leaking into every listing)
+const KW_GENERIC = new Set(["for", "the", "and", "with", "screen", "guard", "protector", "cover", "film", "new", "best"]);
+function kwFits(kw, productText) {
+  const words = String(kw).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2 && !KW_GENERIC.has(w));
+  return words.length > 0 && words.every(w => productText.includes(w));
+}
+function applyREST(result, biz, product) {
   const p = getProfile(biz); if (!p || !result || !Array.isArray(result.fields)) return result;
   const banned = banList(p), hits = new Set();
   for (const f of result.fields) {
@@ -102,8 +109,10 @@ function applyREST(result, biz) {
       const lines = String(f.value).split("\n").map(l => { const r = stripBanned(l, banned); r.hit.forEach(h => hits.add(h)); return r.text; });
       f.value = lines.filter(Boolean).join("\n");
     }
-    if (f.name === "keywords" && p.learned && p.learned.keywords) {
-      const kw = [...new Set([...String(f.value || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean), ...p.learned.keywords])].slice(0, 20);
+    if (f.name === "keywords" && p.learned && p.learned.keywords && product) {
+      const ptext = [product.productName, product.name, product.brand, product.category, ...(product.features || [])].join(" ").toLowerCase();
+      const learned = p.learned.keywords.filter(k => kwFits(k, ptext));
+      const kw = [...new Set([...String(f.value || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean), ...learned])].slice(0, 20);
       f.value = kw.join(", ");
     }
   }
@@ -129,4 +138,4 @@ function applySSR(result, biz) {
   return result;
 }
 
-module.exports = { getProfile, saveProfile, isOnboarded, learnFromSample, promptContext, enrichInput, applyREST, applySSR, DEFAULT_BANNED };
+module.exports = { getProfile, saveProfile, isOnboarded, learnFromSample, promptContext, enrichInput, applyREST, applySSR, kwFits, DEFAULT_BANNED };
