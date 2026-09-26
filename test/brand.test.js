@@ -52,10 +52,15 @@ const field = (r, n) => (r.json.result.fields.find(f => f.name === n) || {}).val
     const lr = await req("POST", "/api/brand/learn", { cookie: A, body: { draftId: d1.id } });
     ok("learned from draft", lr.status === 200 && lr.json.profile.learned.samples === 1 && lr.json.profile.learned.keywords.length > 0);
     const kw = lr.json.profile.learned.keywords[0];
-    const p2 = (await req("POST", "/api/products", { cookie: A, body: { sku: "SK-2", name: "Laptop Guard 15.6", normalizedData: { productName: "Laptop Guard 15.6" } } })).json.product;
+    // a learned keyword is reused only when the new product's own text supports it
+    const p2 = (await req("POST", "/api/products", { cookie: A, body: { sku: "SK-2", name: `Laptop Guard 15.6 ${kw}`, normalizedData: { productName: `Laptop Guard 15.6 ${kw}` } } })).json.product;
     const d2 = (await req("POST", "/api/drafts", { cookie: A, body: { productId: p2.id, marketplace: "flipkart" } })).json.draft;
     const g2 = await req("POST", "/api/ai/listing/generate", { cookie: A, body: { draftId: d2.id } });
-    ok("next listing uses learned keywords", field(g2, "keywords").split(", ").includes(kw));
+    ok("next listing uses a learned keyword that fits it", field(g2, "keywords").split(", ").includes(kw));
+    const p3 = (await req("POST", "/api/products", { cookie: A, body: { sku: "SK-3", name: "Smartwatch Film 44mm", normalizedData: { productName: "Smartwatch Film 44mm" } } })).json.product;
+    const d3 = (await req("POST", "/api/drafts", { cookie: A, body: { productId: p3.id, marketplace: "flipkart" } })).json.draft;
+    const g3 = await req("POST", "/api/ai/listing/generate", { cookie: A, body: { draftId: d3.id } });
+    ok("an unrelated product does NOT inherit learned keywords", !field(g3, "keywords").split(", ").includes(kw));
     ok("brand memory page shows learning", /Learned from/.test((await req("GET", "/app/brand", { cookie: A })).text || ""));
 
     console.log("Isolation:");
