@@ -7,8 +7,8 @@ const { db, nowISO } = require("./db");
 const FIELDS = {
   flipkart: [
     { key: "listingStatus", label: "Listing status", cols: ["listingstatus"], required: true, options: ["Active", "Inactive"], def: "Active" },
-    { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, options: ["Seller", "Flipkart"], def: "Seller" },
-    { key: "procurementType", label: "Procurement type", cols: ["procurementtype"], hint: "Optional — exactly as in Flipkart's dropdown" },
+    { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, def: "SELLER", hint: "Exactly as Flipkart expects, e.g. SELLER" },
+    { key: "procurementType", label: "Procurement type", cols: ["procurementtype"], def: "instock", hint: "instock or express" },
     { key: "procurementSla", label: "Procurement SLA (days)", cols: ["procurementsladay", "procurementsla"], required: true, type: "number", hint: "Days to get ready for dispatch, e.g. 1" },
     { key: "stock", label: "Stock per SKU", cols: ["stock"], required: true, type: "number", hint: "Minimum 5 for visibility" },
     { key: "shippingProvider", label: "Shipping provider", cols: ["shippingprovider"], hint: "Optional — exactly as in Flipkart's dropdown" },
