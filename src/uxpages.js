@@ -8,7 +8,7 @@ function tabs(items, active) {
   return `<nav class="tabs" role="tablist">${items.map(([label, href, count]) =>
     `<a role="tab" class="tab ${href === active ? "on" : ""}" href="${href}" ${href === active ? 'aria-selected="true"' : ""}>${esc(label)}${count != null ? ` <span class="tcount">${count}</span>` : ""}</a>`).join("")}</nav>`;
 }
-const when = (iso) => { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); };
+const when = (iso) => { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString("en-IN", { timeZone: process.env.APP_TZ || "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); };
 const mk = (m) => ({ amazon: "Amazon", flipkart: "Flipkart", meesho: "Meesho", shopify: "Shopify" }[m] || esc(m || "—"));
 const pill = (text, kind) => `<span class="pill2 p2-${kind}">${esc(text)}</span>`;
 const empty = (title, sub, cta) => `<div class="card"><div class="empty"><b>${esc(title)}</b><p>${esc(sub)}</p>${cta || ""}</div></div>`;
@@ -26,7 +26,7 @@ function listingsSingle(user) {
   const table = rows.length ? `<div class="card tcard"><table class="rtable"><thead><tr><th>Product</th><th>Marketplace</th><th>SKU</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${rows.map(r => {
     const d = jparse(r.data_json) || {};
     const q = d.result && d.result.quality ? d.result.quality.score : null;
-    return `<tr class="rowlink" onclick="location.href='/app/listing/${esc(r.id)}'"><td data-l="Product"><b>${esc(r.product_name || "Untitled")}</b>${q != null ? ` <span class="qchip ${q >= 70 ? "qg" : q >= 50 ? "qw" : "qb"}">${q}</span>` : ""}</td>
+    return `<tr class="rowlink" onclick="location.href='/app/listing/${esc(r.id)}'"><td data-l="Product"><a class="tlink" href="/app/listing/${esc(r.id)}"><b>${esc(r.product_name || "Untitled")}</b></a>${q != null ? ` <span class="qchip ${q >= 70 ? "qg" : q >= 50 ? "qw" : "qb"}">${q}</span>` : ""}</td>
       <td data-l="Marketplace">${mk(d.marketplace)}</td><td data-l="SKU" class="mono">${esc(r.sku || "—")}</td>
       <td data-l="Status">${pill(r.status || "draft", r.status === "exported" ? "good" : "draft")}</td><td data-l="Created">${when(r.created_at)}</td>
       <td class="tright"><a class="btn ghost sm" href="/app/listing/${esc(r.id)}">Open</a></td></tr>`;
@@ -45,7 +45,7 @@ function listingsBulk(user, q = {}) {
     const title = (f.title && f.title.value) || r.pname || "Untitled";
     const qs = c.quality ? c.quality.score : null;
     const warn = (v.warnings || []).length, miss = (v.missingFields || []).length;
-    return `<tr class="rowlink" onclick="location.href='/app/drafts/${esc(r.id)}'"><td data-l="Title"><b>${esc(title.slice(0, 110))}</b></td><td data-l="SKU" class="mono">${esc(r.sku || "—")}</td>
+    return `<tr class="rowlink" onclick="location.href='/app/drafts/${esc(r.id)}'"><td data-l="Title"><a class="tlink" href="/app/drafts/${esc(r.id)}"><b>${esc(title.slice(0, 110))}</b></a></td><td data-l="SKU" class="mono">${esc(r.sku || "—")}</td>
       <td data-l="Marketplace">${mk(r.marketplace)}</td><td data-l="Quality">${qs != null ? `<span class="qchip ${qs >= 70 ? "qg" : qs >= 50 ? "qw" : "qb"}">${qs}</span>` : "—"}</td>
       <td data-l="Check">${miss ? pill(miss + " missing", "warn") : warn ? pill(warn + " note" + (warn > 1 ? "s" : ""), "info") : pill("Ready", "good")}</td><td data-l="Created">${when(r.created_at)}</td></tr>`;
   }).join("")}</tbody></table></div>` : empty("No bulk drafts yet.", "Run Guided Bulk — every product it writes shows up here.", `<a class="btn pri" href="/app/wizard">Start Guided Bulk</a>`);
