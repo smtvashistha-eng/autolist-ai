@@ -138,15 +138,21 @@ function applyREST(result, biz, product) {
 }
 
 // SSR shape: { fields:{ title:{value}, bullets:{value:[]}, description:{value}, keywords:{value:[]} } }
-function applySSR(result, biz) {
+function applySSR(result, biz, product) {
   const p = getProfile(biz); if (!p || !result || !result.fields) return result;
+  // same rule as applyREST: learned keywords only when they fit THIS product; strip alien learned words
+  const ptext = product ? [product.productName, product.name, product.brand, product.category, product.material, ...(product.features || [])].join(" ").toLowerCase() : "";
+  const learnedAll = (p.learned && p.learned.keywords) || [];
+  const learnedOk = product ? learnedAll.filter(k => kwFits(k, ptext)) : [];
+  const alien = product ? alienWords(learnedAll, ptext) : new Set(learnedAll.flatMap(k => String(k).toLowerCase().split(/[^a-z0-9]+/)).filter(w => w.length > 2 && !KW_GENERIC.has(w)));
+  const clean = (k) => !String(k).toLowerCase().split(/[^a-z0-9]+/).some(w => alien.has(w));
   const banned = banList(p), F = result.fields, hits = new Set();
   const fix = (s) => { const r = stripBanned(s, banned); r.hit.forEach(h => hits.add(h)); return r.text; };
   if (F.title) F.title.value = fix(F.title.value);
   if (F.description) F.description.value = fix(F.description.value);
   if (F.bullets && Array.isArray(F.bullets.value)) F.bullets.value = F.bullets.value.map(fix).filter(Boolean);
   if (F.keywords && Array.isArray(F.keywords.value)) {
-    F.keywords.value = [...new Set([...F.keywords.value.map(k => String(k).toLowerCase()).filter(k => !banned.some(b => k.includes(b.toLowerCase()))), ...((p.learned && p.learned.keywords) || [])])].slice(0, 20);
+    F.keywords.value = [...new Set([...F.keywords.value.map(k => String(k).toLowerCase()).filter(k => !banned.some(b => k.includes(b.toLowerCase()))).filter(clean), ...learnedOk])].slice(0, 20);
   }
   if (hits.size) result.note = (result.note ? result.note + " " : "") + "Removed claims blocked by your Brand Memory: " + [...hits].join(", ") + ".";
   result.brandApplied = true;

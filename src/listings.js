@@ -34,7 +34,7 @@ async function generate(bizId, id) {
   const provider = getTextProvider();
   const brand = require("./brand");
   const input = { ...brand.enrichInput(bizId, row.data.input), brandProfile: brand.promptContext(bizId) };
-  const result = brand.applySSR(await provider.generateListing(input, row.data.marketplace), bizId);
+  const result = brand.applySSR(await provider.generateListing({ ...input, brandProfile: brand.contextFor(bizId, input) }, row.data.marketplace), bizId, input);
   // Jev advisory review: adapt the SSR shape ({fields:{title:{value}}}) to the REST shape Jev reads
   const f = result.fields || {}, v = (k) => (f[k] && f[k].value) || "";
   const rest = { fields: [["title", v("title")], ["bullets", [].concat(v("bullets")).join("\n")], ["description", v("description")], ["keywords", [].concat(v("keywords")).join(", ")]].map(([name, value]) => ({ name, value })), warnings: [] };
