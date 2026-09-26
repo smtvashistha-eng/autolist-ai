@@ -17,6 +17,9 @@ const yield_ = () => new Promise(r => setImmediate(r));
 function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
   const input = bulk.rowToInput(row, map);
   if (!input.productName) return null;
+  input.extra = row;                                   // R5: keep every original column — the seller's values always win
+  if (!input.designedFor) input.designedFor = require("./attributes").designedFor(input.productName);
+  { const pm = String(input.productName).match(/\b(?:pack|set)\s*of\s*(\d{1,3})\b/i); if (pm && !input.packOf) input.packOf = pm[1]; }
   // R2: attach hosted image links from the uploaded ZIP, matched by SKU (sheet links win)
   if (imgMap && (!input.images || !input.images.length)) {
     const k = String(input.sku || "").trim().toLowerCase();
@@ -128,6 +131,10 @@ queue.register("bulk_pipeline", async (job, ctx) => {
 
   ctx.stage("Generating content");
   const qualities = [];
+  // R5: allowed dropdown values from the seller's template (e.g. Flipkart Type / Features / Suitable For)
+  const tplRow = templateId ? db.prepare("SELECT schema_json FROM marketplace_templates WHERE id=? AND business_id=?").get(templateId, biz) : null;
+  const tplAllowed = tplRow ? (JSON.parse(tplRow.schema_json || "{}").allowed || null) : null;
+  const attributes = require("./attributes");
   for (let i = job.cursor || 0; i < rows.length; i++) {
     if (ctx.cancelled()) break;
     if (!meter.canUse(biz, "listings")) { hitLimit = true; ctx.warn("Plan listing limit reached — stopping generation."); break; }
@@ -137,6 +144,11 @@ queue.register("bulk_pipeline", async (job, ctx) => {
       else {
         const p = db.prepare("SELECT * FROM products WHERE id=?").get(productId);
         const conf = JSON.parse(p.normalized_data_json || "{}");
+        if (tplAllowed) {
+          const pk = await attributes.pick(conf, tplAllowed, biz);
+          conf.picks = pk.values; conf.picksSource = pk.source;
+          db.prepare("UPDATE products SET normalized_data_json=? WHERE id=?").run(JSON.stringify(conf), p.id);
+        }
         const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id);
         await jev.review(result, { marketplace, product: conf, categories: (brand.getProfile(job.business_id) || {}).categories, biz: job.business_id });
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
@@ -165,15 +177,18 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   const readyIds = rep.items.filter(it => it.valid).map(it => it.draftId);
   const needsFix = rep.items.filter(it => !it.valid).map(it => ({ draftId: it.draftId, sku: it.sku, errors: it.blockingErrors.map(e => e.message) }));
 
-  let exportId = null, exportBlocked = false;
+  let exportId = null, exportBlocked = false, exportIssues = [];
   if (readyIds.length) {
     ctx.stage("Building export file");
     const exp = await exporter.createExport({ biz, userId: job.user_id, draftIds: readyIds, marketplace, templateId, includeImages });
-    if (exp.blocked) exportBlocked = true; else exportId = exp.exportId;
+    if (exp.blocked) {
+      exportBlocked = true;
+      exportIssues = exp.report.items.filter(it => !it.valid).slice(0, 50).map(it => ({ draftId: it.draftId, sku: it.sku || null, errors: (it.blockingErrors || []).map(e => e.message) }));
+    } else exportId = exp.exportId;
   }
   const quality = qualities.length ? { by: "jev", avg: Math.round(qualities.reduce((a, q) => a + q.score, 0) / qualities.length), low: qualities.filter(q => q.score < 50).slice(0, 50) } : null;
   const imageMatch = imgMap ? { skusWithImages: Object.keys(imgMap).length, matched: imgMap.__matched.size, unmatchedSkus: Object.keys(imgMap).filter(k => !imgMap.__matched.has(k)).slice(0, 50) } : null;
-  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, draftIds, imageMatch, quality };
+  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality };
 });
 
 // ---- image_zip (R2): unzip product photos -> validate -> host publicly -> record SKU links ----

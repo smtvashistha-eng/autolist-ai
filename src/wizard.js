@@ -69,6 +69,12 @@ function wizardPage(user) {
     <div style="margin-top:14px"><b style="font-size:13.5px">Marketplace sample file</b> <span style="font-size:13px;color:var(--soft)">(.xlsx/.xls from Seller Central — we fill it natively; skip for a clean CSV)</span><br>
       <button class="btn ghost" id="wz-tpl-pick" style="margin-top:6px">Attach sample file</button><input type="file" id="wz-tpl" accept=".xlsx,.xls" hidden>
       <div class="wz-msg" id="wz-tpl-msg"></div></div>
+    <div id="wz-defs-wrap" hidden style="margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:14px">
+      <b style="font-size:13.5px" id="wz-defs-title">Marketplace defaults</b>
+      <p style="font-size:13px;color:var(--soft);margin:4px 0 10px">Facts only you know — stock, package size, HSN, tax, manufacturer. Fill once; we reuse them for every product and remember them next time. <b>We never guess these.</b> Fields marked * are required by the marketplace.</p>
+      <div id="wz-defs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px"></div>
+      <div class="wz-msg" id="wz-defs-msg"></div>
+    </div>
     <div style="margin-top:14px"><b style="font-size:13.5px">Product sheet</b> <span style="font-size:13px;color:var(--soft)">(.xlsx/.xls/.csv — name, sku, price, mrp, features…)</span><br>
       <button class="btn ghost" id="wz-sheet-pick" style="margin-top:6px">Choose product sheet</button><input type="file" id="wz-sheet" accept=".xlsx,.xls,.csv" hidden>
       <div class="wz-msg" id="wz-sheet-msg"></div></div>
@@ -97,7 +103,7 @@ function script() {
     "function esc(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}",
     "function msg(id,m,err){var e=$(id);e.innerHTML=m;e.style.color=err?'var(--err)':'var(--soft)';}",
     "function api(method,url,body){return fetch(url,{method:method,headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('Request failed ('+r.status+')'));return j;});});}",
-    "function go(i){ S.cur=i; for(var k=0;k<5;k++){ $('wz-s'+k).hidden=(k!==i); var d=document.querySelector('.wz-dot[data-i=\"'+k+'\"]'); d.className='wz-dot'+(k===i?' on':(k<i?' done':'')); } if(i===1)loadDrafts(); if(i===4)summary(); window.scrollTo({top:0,behavior:'smooth'}); }",
+    "function go(i){ S.cur=i; for(var k=0;k<5;k++){ $('wz-s'+k).hidden=(k!==i); var d=document.querySelector('.wz-dot[data-i=\"'+k+'\"]'); d.className='wz-dot'+(k===i?' on':(k<i?' done':'')); } if(i===1)loadDrafts(); if(i===3&&!DEF)loadDefs(); if(i===4)summary(); window.scrollTo({top:0,behavior:'smooth'}); }",
     "document.querySelectorAll('[data-back]').forEach(function(b){b.onclick=function(){go(+b.getAttribute('data-back')-1);};});",
     "function upload(file,mime){ return api('POST','/api/files/presign',{fileName:file.name,mime:mime||file.type||'application/octet-stream',size:file.size}).then(function(p){",
     "  return fetch(p.uploadUrl,{method:'PUT',headers:{'content-type':'application/octet-stream'},body:file}).then(function(){return api('POST','/api/files/complete',{fileId:p.fileId});}).then(function(){return p.fileId;}); }); }",
@@ -155,7 +161,21 @@ function script() {
     "  if(f.size>25*1024*1024){msg('wz-sheet-msg','File is over 25 MB.',1);return;}",
     "  S.sheetId=null; $('wz-n3').disabled=true; msg('wz-sheet-msg','Uploading '+esc(f.name)+'\\u2026');",
     "  upload(f).then(function(fid){ S.sheetId=fid; S.sheetName=f.name; msg('wz-sheet-msg','\\u2705 '+esc(f.name)+' ready.'); $('wz-n3').disabled=false; }).catch(function(e){msg('wz-sheet-msg',esc(e.message),1);}); };",
-    "$('wz-n3').onclick=function(){ S.mkt=mkt(); go(4); };",
+    // R5: marketplace defaults form (facts entered once, saved per seller)
+    "var DEF=null;",
+    "function loadDefs(){ DEF=null; $('wz-defs-wrap').hidden=true; api('GET','/api/listing-defaults/'+mkt()).then(function(d){ DEF=d;",
+    "  $('wz-defs-title').textContent=(mkt().charAt(0).toUpperCase()+mkt().slice(1))+' defaults'+(d.saved?' (saved \\u2014 check they\\u2019re still right)':'');",
+    "  $('wz-defs').innerHTML=d.fields.map(function(f){ var v=d.values[f.key]||''; var lab='<label style=\"font-size:12.5px;font-weight:600\">'+esc(f.label)+(f.required?' <span style=\"color:var(--err)\">*</span>':'')+'</label>';",
+    "   var inp=f.options?('<select class=\"input\" data-def=\"'+f.key+'\" style=\"width:100%\"><option value=\"\"></option>'+f.options.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>')",
+    "     :(f.long?('<textarea class=\"input\" rows=\"2\" data-def=\"'+f.key+'\" style=\"width:100%\">'+esc(v)+'</textarea>'):('<input class=\"input\" data-def=\"'+f.key+'\" value=\"'+esc(v)+'\" '+(f.type==='number'?'inputmode=\"decimal\"':'')+' style=\"width:100%\">'));",
+    "   return '<div'+(f.long?' style=\"grid-column:1/-1\"':'')+'>'+lab+inp+(f.hint?'<div style=\"font-size:11.5px;color:var(--soft)\">'+esc(f.hint)+'</div>':'')+'</div>'; }).join('');",
+    "  $('wz-defs-wrap').hidden=false; }).catch(function(){}); }",
+    "function saveDefs(){ if(!DEF)return Promise.resolve(true); var body={}; document.querySelectorAll('[data-def]').forEach(function(el){body[el.getAttribute('data-def')]=el.value;});",
+    "  if(S.templateId){ var miss=DEF.fields.filter(function(f){return f.required&&!String(body[f.key]||'').trim();}).map(function(f){return f.label;});",
+    "    if(miss.length){ msg('wz-defs-msg','Please fill: <b>'+esc(miss.join(', '))+'</b> \\u2014 the marketplace rejects listings without them.',1); return Promise.resolve(false);} }",
+    "  return api('PUT','/api/listing-defaults/'+mkt(),body).then(function(){ msg('wz-defs-msg','\\u2705 Saved.'); return true; }).catch(function(e){ msg('wz-defs-msg',esc(e.message),1); return false; }); }",
+    "document.querySelectorAll('input[name=wzmkt]').forEach(function(r){r.addEventListener('change',loadDefs);});",
+    "$('wz-n3').onclick=function(){ S.mkt=mkt(); saveDefs().then(function(ok){ if(ok)go(4); }); };",
     // step 5
     "function summary(){ var r=function(k,v){return '<b>'+k+'</b><span>'+v+'</span>';};",
     "  $('wz-summary').innerHTML=r('Marketplace',esc(S.mkt.charAt(0).toUpperCase()+S.mkt.slice(1)))+r('Output',S.templateId?('Your sample file filled natively ('+esc(S.tplName)+')'):'Clean marketplace CSV')",
@@ -168,7 +188,10 @@ function script() {
     "  .then(function(j){ var r=j.result||{}; $('wz-back4').disabled=false; $('wz-confirm').disabled=false;",
     "   if(j.status==='FAILED'){msg('wz-run-msg','Failed: '+esc(j.error||'unknown error'),1);return;}",
     "   var h='\\u2705 <b>'+(r.ready||0)+' of '+(r.total||0)+'</b> listings ready'+((r.needsFixCount||0)?(' \\u00b7 \\u26A0 <b>'+r.needsFixCount+'</b> need a fix'):'')+(r.imageMatch?(' \\u00b7 <b>'+r.imageMatch.matched+'</b> got photo links'):'')+(r.quality?(' \\u00b7 avg quality <b>'+r.quality.avg+'/100</b>'+(r.quality.low.length?(' ('+r.quality.low.length+' low)'):'')):'')+(r.hitLimit?' \\u00b7 stopped at plan limit':'');",
-    "   if(r.exportBlocked)h+='<br><span style=\"color:var(--err)\">Your sample file has required columns we could not fill. Open Drafts to add the missing details, then export again.</span>';",
+    "   if(r.exportBlocked){ var iss=r.exportIssues||[]; var fld=function(e){var m=/\"([^\"]+)\"/.exec(e);return m?m[1]:e;};",
+    "     h+='<br><span style=\"color:var(--err)\"><b>File not built yet</b> \\u2014 the marketplace requires these columns and they are still empty. Nothing was guessed.</span>';",
+    "     if(iss.length)h+='<table class=\"tbl\" style=\"margin-top:8px\"><tr><th>SKU</th><th>Missing</th></tr>'+iss.map(function(x){return '<tr><td>'+esc(x.sku||'-')+'</td><td>'+esc(x.errors.map(fld).join(', '))+'</td></tr>';}).join('')+'</table>';",
+    "     h+='<div style=\"font-size:13px;margin-top:6px\">Fix: add the value to your <b>defaults</b> (step 4) or as a column in your <b>product sheet</b>, add <b>photos</b> (step 3) for image columns \\u2014 then press <b>Back</b> and run again.</div>'; }",
     "   if(r.imageMatch&&r.imageMatch.unmatchedSkus.length)h+='<br><small style=\"color:var(--soft)\">Photo SKUs not in your sheet: '+esc(r.imageMatch.unmatchedSkus.slice(0,10).join(', '))+'</small>';",
     "   var fx=r.needsFix||[]; if(fx.length)h+='<table class=\"tbl\" style=\"margin-top:10px\"><tr><th>SKU</th><th>What to fix</th></tr>'+fx.map(function(f){return '<tr><td>'+esc(f.sku||'-')+'</td><td>'+esc((f.errors||[]).join('; '))+'</td></tr>';}).join('')+'</table><a href=\"/app/listings\">Fix in Drafts \\u2192</a>';",
     "   msg('wz-run-msg',''); $('wz-done').hidden=false; $('wz-done').innerHTML=h;",

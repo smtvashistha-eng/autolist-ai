@@ -14,8 +14,8 @@ function fileProvider(id, name) {
     // input: { listings:[legacy], templateBuffer? } -> { buffer, ext, mime, rowCount }
     async generateExport({ listings, templateBuffer }) {
       if (templateBuffer && (id === "amazon" || id === "flipkart")) {
-        const out = template.fillTemplate(templateBuffer, listings, id); // native .xlsx fill
-        return { buffer: out.buffer, ext: "xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", rowCount: listings.length, filledColumns: out.filledCols };
+        const out = template.fillTemplate(templateBuffer, listings, id); // native fill, same format as the seller's file
+        return { buffer: out.buffer, ext: out.ext, mime: out.ext === "xls" ? "application/vnd.ms-excel" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", rowCount: listings.length, filledColumns: out.filledCols };
       }
       const csv = toCSV(id, listings);
       return { buffer: Buffer.from(csv, "utf8"), ext: "csv", mime: "text/csv", rowCount: listings.length };

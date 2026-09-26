@@ -28,14 +28,22 @@ router.post("/templates/upload", auth.requireAuth, (req, res) => {
     const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get(fileId, req.user.business_id);
     if (!f) return res.status(400).json({ error: "Upload the template file first (a stored fileId you own)." });
     if (!["xlsx", "xls"].includes(f.ext)) return res.status(400).json({ error: "Template must be an .xlsx or .xls file." });
-    const a = analyze(storage.readBuffer(f.storage_key), marketplace);
+    const buf = storage.readBuffer(f.storage_key);
+    const a = analyze(buf, marketplace);
+    // R5: allowed dropdown values shipped inside the template + the marketplace's mandatory columns
+    const tmpl = require("../template");
+    let allowed = {};
+    try { const st = tmpl.detectStructure(buf, marketplace); allowed = tmpl.parseAllowed(st.wb, st.sheet || st.sheetName, st.headers); } catch {}
+    const REQ = { flipkart: ["sellerskuid", "mrpinr", "yoursellingpriceinr", "brand", "designedfor", "type", "features", "suitablefor", "modelnumber", "modelname", "mainimageurl"] };
+    const must = new Set([...(REQ[marketplace] || []), ...require("../listingDefaults").requiredCols(marketplace)]);
+    a.fields = a.fields.map(fl => ({ ...fl, required: fl.required || must.has(tmpl.norm(fl.fieldName)) }));
     const id = rid("mt_"), now = nowISO();
     db.prepare(`INSERT INTO marketplace_templates(id,business_id,marketplace,category,file_id,file_name,storage_key,sheet,header_row,data_start,version,schema_json,active,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(id, req.user.business_id, marketplace, category || null, f.id, f.original_name, f.storage_key, a.sheet, a.headerRow, a.dataStart, "1", JSON.stringify({ sheet: a.sheet }), 1, now, now);
+      .run(id, req.user.business_id, marketplace, category || null, f.id, f.original_name, f.storage_key, a.sheet, a.headerRow, a.dataStart, "1", JSON.stringify({ sheet: a.sheet, allowed }), 1, now, now);
     saveFields(id, req.user.business_id, a.fields);
     audit.record({ businessId: req.user.business_id, userId: req.user.id, action: "template.upload", resourceType: "template", resourceId: id, metadata: { marketplace, fields: a.fields.length }, ip: audit.ipOf(req) });
-    res.status(201).json({ template: shape(own(req, id)), fields: fields(id) });
+    res.status(201).json({ template: shape(own(req, id)), fields: fields(id), allowed });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 

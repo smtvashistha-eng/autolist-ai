@@ -22,6 +22,9 @@ function toLegacy(draft, product) {
     material: g("material") || norm.material || "", weight: g("weight") || norm.weight || "",
     countryOfOrigin: g("countryOfOrigin") || norm.countryOfOrigin || "",
     images: Array.isArray(norm.images) ? norm.images : [],   // R2: hosted links -> template image columns
+    extra: norm.extra || null,               // R5: the seller's original sheet columns (theirs always win)
+    picks: norm.picks || null,               // R5: dropdown values chosen from the template's allowed lists
+    designedFor: norm.designedFor || "", packOf: norm.packOf || "", modelName: norm.modelName || "", modelNumber: norm.modelNumber || "",
   };
   const result = { fields: {
     title: { value: g("title") },
@@ -81,13 +84,15 @@ async function createExport({ biz, userId, draftIds, marketplace, templateId, in
 
   // build listings
   const drafts = draftIds.map(id => db.prepare("SELECT * FROM listing_drafts WHERE id=? AND business_id=?").get(id, biz)).filter(Boolean);
-  const legacy = drafts.map(d => toLegacy(d, d.product_id ? db.prepare("SELECT * FROM products WHERE id=?").get(d.product_id) : null));
+  const defaults = require("./listingDefaults").get(biz, marketplace).values;
+  const legacy = drafts.map(d => { const L = toLegacy(d, d.product_id ? db.prepare("SELECT * FROM products WHERE id=?").get(d.product_id) : null); L.data.defaults = defaults; return L; });
+  const allowed = tpl ? (JSON.parse(tpl.schema_json || "{}").allowed || null) : null;
 
   // template required-field check via the ACTUAL fill logic (concept-aware), not raw names
   if (schemaFields) {
     const requiredFields = schemaFields.filter(f => f.required);
     legacy.forEach((L, i) => {
-      const missing = requiredFields.filter(f => { const v = template.valueFor(f.fieldName, L); return v === undefined || v === null || String(v).trim() === ""; });
+      const missing = requiredFields.filter(f => { const v = template.valueFor(f.fieldName, L, allowed); return v === undefined || v === null || String(v).trim() === ""; });
       if (missing.length) {
         report.valid = false; report.blockingItems++;
         const item = report.items[i] || (report.items[i] = { draftId: L.id, blockingErrors: [], warnings: [], suggestions: [] });

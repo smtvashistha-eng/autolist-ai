@@ -11,7 +11,8 @@ router.use(require("./drafts"));      // Phase 2
 router.use(require("./ai"));          // Phase 3
 router.use(require("./images"));      // Phase 4
 router.use(require("./jobs"));         // Phase 5
-router.use(require("./templates"));    // Phase 6
+router.use(require("./templates"));
+router.use(require("./defaults"));      // R5 marketplace defaults    // Phase 6
 router.use(require("./exports"));      // Phase 6
 router.use(require("./billing"));      // Phase 7
 router.use(require("./connections"));  // Phase 8

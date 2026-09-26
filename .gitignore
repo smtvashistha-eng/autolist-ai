@@ -26,3 +26,9 @@ scratchpad/
 # proprietary — our own product IP; keep OUT of the public repo (not used by the server runtime)
 templates/
 engine/
+
+# real marketplace templates / seller files — private, never in the public repo
+*.xls
+*.xlsx
+*.xlsm
+!test/fixtures/*.xlsx

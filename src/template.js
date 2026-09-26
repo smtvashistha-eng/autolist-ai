@@ -53,67 +53,132 @@ function detectStructure(buffer, marketplace) {
   return { wb, sheetName, headerRow, dataStart, headers };
 }
 
+// ---- allowed dropdown values that ship INSIDE the seller's template (e.g. Flipkart "Index" sheet) ----
+// Finds a row (outside the data sheet) whose cells repeat >=2 of the template's column names, then reads the
+// values listed under each. Returns { normHeader: [values] }.
+function parseAllowed(wb, dataSheet, headers) {
+  const names = new Set(headers.map(h => norm(h.name)));
+  const out = {};
+  for (const sn of wb.SheetNames) {
+    if (sn === dataSheet) continue;
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "" });
+    for (let r = 0; r < Math.min(rows.length, 15); r++) {
+      const hits = rows[r].map((v, c) => ({ c, k: norm(v) })).filter(x => x.k && names.has(x.k));
+      // a values-index row names a few dropdown columns; a row repeating most headers is a data-sheet copy (e.g. "Parent Variant Products")
+      if (hits.length < 2 || hits.length > Math.max(12, names.size * 0.3)) continue;
+      for (const { c, k } of hits) {
+        if (out[k]) continue;
+        const vals = [];
+        for (let rr = r + 1; rr < rows.length; rr++) { const v = String(rows[rr][c] ?? "").trim(); if (v) vals.push(v); }
+        if (vals.length) out[k] = [...new Set(vals)];
+      }
+      break;
+    }
+  }
+  return out;
+}
+
+// columns the marketplace fills itself — never written by us
+const MARKETPLACE_OWNED = new Set(["flipkartserialnumber", "catalogqcstatus", "qcfailedreasonifany", "flipkartproductlink", "productdatastatus", "disapprovalreasonifany", "supplierimage"]);
+
+// snap a value (or "::"-separated multi value) onto an allowed list; unknown values are dropped, never invented
+function snapAllowed(v, list) {
+  if (!list || v === undefined || v === null || v === "") return v;
+  const parts = String(v).split(/::|,|;/).map(x => x.trim()).filter(Boolean);
+  const ok = parts.map(p => list.find(a => a.toLowerCase() === p.toLowerCase())).filter(Boolean);
+  return [...new Set(ok)].join("::");
+}
+
 // ---- resolve one template column -> a value from a listing ----
-function valueFor(headerName, L) {
+// Priority: seller's own sheet column  >  product data  >  AI dropdown picks  >  seller's saved marketplace defaults.
+function valueFor(headerName, L, allowed) {
   const d = L.data || {}, i = d.input || {}, r = d.result || { fields: {}, attributes: {} };
+  const mk = String(d.marketplace || "").toLowerCase();
+  const sep = mk === "flipkart" ? "::" : ", ";
   const bullets = r.fields.bullets?.value || [];
   const keywords = r.fields.keywords?.value || [];
   const raw = String(headerName);
   const images = i.images || [];
+  const n = norm(raw);
+  const list = allowed && allowed[n];
+  const done = (v) => (list && v !== undefined ? snapAllowed(v, list) : v);
+  if (MARKETPLACE_OWNED.has(n)) return undefined;
+  // 1) the seller's sheet already has this exact column -> theirs wins
+  if (i.extra && typeof i.extra === "object") {
+    const k = Object.keys(i.extra).find(k => norm(k) === n);
+    if (k !== undefined && String(i.extra[k]).trim() !== "") {
+      let sv = done(String(i.extra[k]).trim());
+      const pv = i.picks && i.picks[n];
+      if (Array.isArray(pv) && pv.length) sv = done([...String(sv).split("::"), ...pv].filter(Boolean).join("::"));   // multi-value: sheet ∪ picks
+      if (sv !== "") return sv;              // free text that isn't in a dropdown's allowed list falls through to the picks below
+    }
+  }
   // indexed columns
   let mm = raw.match(/bullet[_ ]?point.*?#?(\d+)/i); if (mm) return bullets[(+mm[1]) - 1] || "";
   mm = raw.match(/(generic[_ ]?keyword|search[_ ]?term).*?#?(\d+)/i); if (mm) return keywords[(+mm[2]) - 1] || "";
   // image columns: main/front -> images[0]; other/additional #N -> images[N]; image N -> images[N-1]
-  {
-    const rn = norm(raw);
-    if (/image|photo|picture/.test(rn)) {
-      if (/swatch/.test(rn)) return undefined;               // leave variation swatch cells untouched
-      if (/main|front|primary|cover/.test(rn)) return images[0] || "";
-      const num = rn.match(/(\d+)/);
-      if (/other|additional|secondary|sub/.test(rn)) return images[num ? +num[1] : 1] || "";
-      if (num) return images[(+num[1]) - 1] || "";
-      return images[0] || "";                                 // bare "image" / "image url"
-    }
+  if (/image|photo|picture/.test(n)) {
+    if (/swatch/.test(n)) return undefined;               // leave variation swatch cells untouched
+    if (/main|front|primary|cover/.test(n)) return images[0] || "";
+    const num = n.match(/(\d+)/);
+    if (/other|additional|secondary|sub/.test(n)) return images[num ? +num[1] : 1] || "";
+    if (num) return images[(+num[1]) - 1] || "";
+    return images[0] || "";                                 // bare "image" / "image url"
   }
-  const n = norm(raw);
+  // 2) product data (from the seller's sheet / generated content)
   const has = (...xs) => xs.some(x => n.includes(x));
-  if (has("itemname", "producttitle", "productname") || n === "title") return r.fields.title?.value || i.productName || "";
-  if (has("brand", "vendor", "manufacturer")) return i.brand || "";
-  if (has("description", "bodyhtml")) return r.fields.description?.value || "";
-  if (has("sku", "contributionsku", "handle", "itemsku")) return i.sku || L.id;
-  if (has("sellingprice", "standardprice", "ourprice", "variantprice", "yoursellingprice") || n === "price") return i.price || "";
-  if (has("mrp", "listprice", "maximumretailprice", "maxretailprice")) return i.mrp || "";
-  if (has("keyfeature")) return bullets.join("::");
-  if (has("searchkeyword", "generickeyword", "tags", "keyword")) return keywords.join(", ");
-  if (has("color", "colour")) return i.color || "";
-  if (has("size")) return i.size || "";
-  if (has("material")) return i.material || "";
-  if (has("weight")) return i.weight || "";
-  if (has("countryoforigin", "origin", "coo")) return i.countryOfOrigin || "";
-  return undefined; // leave the seller's existing cell untouched
+  const picks = i.picks || {};
+  const designed = i.designedFor || "";
+  let v;
+  if (has("itemname", "producttitle", "productname") || n === "title") v = r.fields.title?.value || i.productName || "";
+  else if (n === "brand" || n === "brandname" || n === "vendor") v = i.brand || "";
+  else if (has("description", "bodyhtml")) v = r.fields.description?.value || "";
+  else if (has("sellerskuid", "itemsku", "contributionsku", "handle") || n === "sku") v = i.sku || L.id;
+  else if (has("sellingprice", "standardprice", "ourprice", "variantprice", "yoursellingprice") || n === "price") v = i.price || "";
+  else if (has("mrp", "listprice", "maximumretailprice", "maxretailprice")) v = i.mrp || "";
+  else if (has("keyfeature")) v = bullets.join(sep);
+  else if (has("searchkeyword", "generickeyword", "tags", "keyword")) v = keywords.join(sep);
+  else if (n === "designedfor") v = designed;
+  else if (n === "packof") v = i.packOf || "";
+  else if (n === "modelnumber") v = i.modelNumber || i.sku || "";
+  else if (n === "modelname") v = i.modelName || (designed ? ((picks.type || "Screen Guard") + " for " + designed).slice(0, 100) : "");
+  else if (n in picks) v = Array.isArray(picks[n]) ? picks[n].join("::") : picks[n];
+  else if (n === "color" || n === "colour" || n === "colorname") v = i.color || "";
+  else if (n === "size") v = i.size || "";
+  else if (has("material")) v = i.material || "";
+  else if (n === "weight" || n === "itemweight") v = i.weight || "";
+  else if (has("countryoforigin")) v = i.countryOfOrigin || "";
+  if (v !== undefined && v !== null && String(v).trim() !== "") return done(v);
+  // 3) seller's saved marketplace defaults (stock, HSN, package size, manufacturer …)
+  const dv = require("./listingDefaults").valueForColumn(mk, d.defaults, n);
+  if (dv !== undefined) return done(dv);
+  return v === undefined ? undefined : done(v); // "" for known-but-empty; undefined leaves the seller's cell untouched
 }
 
 // ---- fill the template, preserving everything else ----
 function fillTemplate(buffer, listings, marketplace) {
   const { wb, sheetName, headerRow, dataStart, headers } = detectStructure(buffer, marketplace);
+  const allowed = parseAllowed(wb, sheetName, headers);
   const ws = wb.Sheets[sheetName];
   const range = XLSX.utils.decode_range(ws["!ref"]);
   let filledCols = 0;
   listings.forEach((L, i) => {
     const rowIdx = (dataStart - 1) + i; // 0-based sheet row
     headers.forEach(h => {
-      const v = valueFor(h.name, L);
+      const v = valueFor(h.name, L, allowed);
       if (v === undefined) return;
       const addr = XLSX.utils.encode_cell({ r: rowIdx, c: h.col });
       ws[addr] = { t: typeof v === "number" ? "n" : "s", v };
-      if (i === 0) filledCols++;
+      if (i === 0 && v !== "") filledCols++;
       if (rowIdx > range.e.r) range.e.r = rowIdx;
       if (h.col > range.e.c) range.e.c = h.col;
     });
   });
   ws["!ref"] = XLSX.utils.encode_range(range);
-  const out = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-  return { buffer: out, sheetName, headerRow, dataStart, columns: headers.length, filledCols, rows: listings.length };
+  // keep the marketplace's own format: legacy .xls (OLE2 signature D0 CF 11 E0) stays .xls
+  const isXls = Buffer.isBuffer(buffer) && buffer.length > 4 && buffer.readUInt32BE(0) === 0xd0cf11e0;
+  const out = XLSX.write(wb, { type: "buffer", bookType: isXls ? "biff8" : "xlsx" });
+  return { buffer: out, ext: isXls ? "xls" : "xlsx", sheetName, headerRow, dataStart, columns: headers.length, filledCols, rows: listings.length, allowed };
 }
 
-module.exports = { detectStructure, fillTemplate, valueFor };
+module.exports = { detectStructure, fillTemplate, valueFor, parseAllowed, snapAllowed, norm };

@@ -429,6 +429,16 @@ const MIGRATIONS = [
       db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
     },
   },
+  // ---- R5: per-seller marketplace defaults (stock, HSN, package size, manufacturer …) ----
+  {
+    v: 29, name: "listing_defaults",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS listing_defaults(
+        business_id TEXT NOT NULL REFERENCES businesses(id), marketplace TEXT NOT NULL,
+        data_json TEXT, updated_at TEXT, PRIMARY KEY(business_id, marketplace)
+      )`);
+    },
+  },
 ];
 
 function run(db) {
