@@ -16,6 +16,7 @@ function wizardPage(user) {
   const body = `
   ${crumbs([{ label: "Dashboard", href: "/app" }, { label: "Guided bulk listing" }])}
   <div class="phead"><div><h1>Guided bulk listing</h1><p>Five short steps. You confirm each one — nothing is exported until you say so.</p></div></div>
+  ${require("./uxpages").tabs([["Guided Bulk", "/app/wizard"], ["Quick Bulk", "/app/bulk"], ["Jobs", "/app/jobs"]], "/app/wizard")}
   <style>
     .wz-rail{display:flex;gap:6px;list-style:none;padding:0;margin:0 0 16px;flex-wrap:wrap}
     .wz-dot{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--soft)}

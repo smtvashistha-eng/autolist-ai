@@ -97,13 +97,27 @@ app.get("/app", (req, res) => {
 function safe(fn, dflt) { try { return fn(); } catch { return dflt; } }
 
 // real: My Listings (reads DB, tenant-scoped)
-app.get("/app/listings", (req, res) => {
-  const rows = db.prepare("SELECT * FROM listings WHERE business_id=? ORDER BY created_at DESC").all(req.user.business_id);
-  const body = rows.length
-    ? `<div class="card"><table><thead><tr><th>Product</th><th>Category</th><th>Marketplaces</th><th>Status</th></tr></thead><tbody>${
-      rows.map(r => `<tr><td><b>${r.product_name || "Untitled"}</b></td><td style="color:var(--soft)">${r.category || "—"}</td><td style="color:var(--soft)">${(r.marketplaces || "").replace(/"/g, "").replace(/[\[\]]/g, "") || "—"}</td><td><span class="pill p-draft">${r.status}</span></td></tr>`).join("")}</tbody></table></div>`
-    : `<div class="card"><div class="empty"><b>No listings yet.</b><p>Create your first one.</p><a class="btn pri" href="/app/create">Create a listing</a></div></div>`;
-  res.send(pages.shell(req.user, "/app/listings", `<div class="phead"><div><h1>My Listings</h1><p>${rows.length} in ${req.user.business.name}</p></div></div>${body}`));
+// ---- UX: tabbed manage screens (listings, drafts, exports, jobs, hosted photos, defaults) ----
+const ux = require("./uxpages");
+app.get("/app/listings", (req, res) => res.send(ux.listingsSingle(req.user)));
+app.get("/app/listings/bulk", (req, res) => res.send(ux.listingsBulk(req.user, req.query)));
+app.get("/app/drafts/:id", (req, res) => { const h = ux.draftView(req.user, req.params.id); h ? res.send(h) : res.redirect("/app/listings/bulk"); });
+app.get("/app/exports", (req, res) => res.send(ux.exportsFiles(req.user)));
+app.get("/app/exports/single", (req, res) => res.send(ux.exportsSingle(req.user)));
+for (const [part, col] of [["report", "report_file_id"], ["images", "image_zip_file_id"]]) {
+  app.get("/app/exports/:id/" + part, (req, res) => {
+    const x = db.prepare("SELECT * FROM marketplace_exports WHERE id=? AND business_id=?").get(req.params.id, req.user.business_id);
+    if (!x || !x[col]) return res.redirect("/app/exports");
+    res.redirect(require("./storage").signedUrl(x[col], 300));
+  });
+}
+app.get("/app/jobs", (req, res) => res.send(ux.jobsPage(req.user)));
+app.get("/app/images/hosted", (req, res) => res.send(ux.hostedPhotos(req.user, req.query)));
+app.get("/app/brand/defaults", (req, res) => res.send(ux.defaultsPage(req.user, String(req.query.m || "flipkart"), req.query.ok, req.query.err)));
+app.post("/app/brand/defaults", (req, res) => {
+  const m = String(req.query.m || "flipkart");
+  try { require("./listingDefaults").save(req.user.business_id, m, req.body || {}); res.redirect("/app/brand/defaults?m=" + m + "&ok=" + encodeURIComponent("Saved. Guided Bulk will use these automatically.")); }
+  catch (e) { res.redirect("/app/brand/defaults?m=" + m + "&err=" + encodeURIComponent(e.message)); }
 });
 
 // ---- Phase 2: single listing + AI content + drafts ----
@@ -160,14 +174,6 @@ app.post("/app/listing/:id/export", (req, res) => {
   res.send(csv);
 });
 
-app.get("/app/exports", (req, res) => {
-  const rows = db.prepare("SELECT * FROM exports WHERE business_id=? ORDER BY created_at DESC").all(req.user.business_id);
-  const body = rows.length
-    ? `<div class="card"><table><thead><tr><th>File</th><th>Marketplace</th><th>Rows</th><th>Created</th></tr></thead><tbody>${
-      rows.map(r => `<tr><td class="mono" style="font-size:12px">${r.filename}</td><td style="color:var(--soft)">${r.marketplace}</td><td class="tnum">${r.rows}</td><td style="color:var(--soft)">${new Date(r.created_at).toLocaleString()}</td></tr>`).join("")}</tbody></table></div>`
-    : `<div class="card"><div class="empty"><b>No exports yet.</b><p>Generate a listing, then export a marketplace file.</p></div></div>`;
-  res.send(pages.shell(req.user, "/app/exports", `<div class="phead"><div><h1>Exports</h1><p>Your download history</p></div></div>${body}`));
-});
 // autosave a single edited field
 app.patch("/api/listings/:id", (req, res) => {
   const { key, value } = req.body;

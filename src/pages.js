@@ -186,18 +186,19 @@ function authPage(mode, error) {
 // ---- authenticated app shell + dashboard ----
 // [label, href, icon-path, live, group]
 const NAV = [
-  ["Dashboard", "/app", "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z", 1, "Workspace"],
-  ["Create Listing", "/app/create", "M12 5v14M5 12h14", 1, "Workspace"],
-  ["Guided Bulk", "/app/wizard", "M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3", 1, "Workspace"],
-  ["Bulk Upload", "/app/bulk", "M12 16V4M8 8l4-4 4 4M4 20h16", 1, "Workspace"],
-  ["Drafts", "/app/listings", "M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7", 1, "Workspace"],
-  ["Brand Memory", "/app/brand", "M12 2a7 7 0 00-4 12.7V18h8v-3.3A7 7 0 0012 2zM9 22h6", 1, "Workspace"],
-  ["Images", "/app/images", "M3 3h18v18H3zM21 15l-5-5L5 21", 1, "Content"],
-  ["Templates", "/app/templates", "M4 4h16v16H4zM4 10h16M10 4v16", 1, "Content"],
-  ["Exports", "/app/exports", "M12 3v12M8 11l4 4 4-4M4 21h16", 1, "Content"],
-  ["Marketplaces", "/app/market", "M3 9l1-5h16l1 5M4 9v10h16V9", 1, "Grow"],
-  ["Billing", "/app/billing", "M2 5h20v14H2zM2 10h20", 1, "Grow"],
-  ["Help", "/app/help", "M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01", 1, "Grow"],
+  ["Dashboard", "/app", "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z", 1, "Create"],
+  ["Create Listing", "/app/create", "M12 5v14M5 12h14", 1, "Create"],
+  ["Guided Bulk", "/app/wizard", "M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3", 1, "Create"],
+  ["Quick Bulk", "/app/bulk", "M12 16V4M8 8l4-4 4 4M4 20h16", 1, "Create"],
+  ["Listings", "/app/listings", "M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7", 1, "Manage"],
+  ["Exports", "/app/exports", "M12 3v12M8 11l4 4 4-4M4 21h16", 1, "Manage"],
+  ["Jobs", "/app/jobs", "M12 8v4l3 2M22 12a10 10 0 11-20 0 10 10 0 0120 0z", 1, "Manage"],
+  ["Images", "/app/images", "M3 3h18v18H3zM21 15l-5-5L5 21", 1, "Assets"],
+  ["Templates", "/app/templates", "M4 4h16v16H4zM4 10h16M10 4v16", 1, "Assets"],
+  ["Brand & Defaults", "/app/brand", "M12 2a7 7 0 00-4 12.7V18h8v-3.3A7 7 0 0012 2zM9 22h6", 1, "Settings"],
+  ["Marketplaces", "/app/market", "M3 9l1-5h16l1 5M4 9v10h16V9", 1, "Settings"],
+  ["Billing", "/app/billing", "M2 5h20v14H2zM2 10h20", 1, "Settings"],
+  ["Help", "/app/help", "M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01", 1, "Settings"],
 ];
 function navItems(activePath) {
   let out = "", lastG = "";
@@ -248,11 +249,11 @@ function shell(user, activePath, body) {
   const imgUsed = u ? u.images.used : 0, imgTot = u ? u.images.limit : 100;
   const planName = esc((u ? u.planName : biz.plan || "Free Trial"));
   const initials = esc((user.name || user.email || "?").slice(0, 2).toUpperCase());
-  const usageBlock = `<div class="usage"><div class="u1"><span>Listings this month</span><b class="tnum">${used} / ${total}</b></div>
-      <div class="ubar"><span style="width:${Math.min(100, Math.round(used / total * 100))}%"></span></div>
-      <div class="u1" style="margin-top:9px"><span>Images</span><b class="tnum">${imgUsed} / ${imgTot}</b></div>
-      <div class="ubar"><span style="width:${Math.min(100, Math.round(imgUsed / imgTot * 100))}%"></span></div>
-      <a href="/app/billing" class="planlink">Plan: <b>${planName}</b> · Manage</a></div>`;
+  const pct = (a, b) => Math.min(100, Math.round(a / Math.max(1, b) * 100));
+  const usageBlock = `<a class="usage slim" href="/app/billing" title="Usage this month — manage plan">
+      <div class="u1"><span>Listings</span><b class="tnum">${used}/${total}</b></div><div class="ubar"><span style="width:${pct(used, total)}%"></span></div>
+      <div class="u1"><span>Images</span><b class="tnum">${imgUsed}/${imgTot}</b></div><div class="ubar"><span style="width:${pct(imgUsed, imgTot)}%"></span></div>
+      <div class="planlink">Plan: <b>${planName}</b></div></a>`;
   return head(title + " — AutoList AI") + `
 <div class="app">
   <div class="overlay" id="ovl"></div>
@@ -607,7 +608,8 @@ function bulkImages(user, error) {
   const presets = [["amazon", "Amazon 1000×1000"], ["flipkart", "Flipkart 1000×1000"], ["instagram", "Instagram 1080×1080"], ["website", "Website 1600×1200"], ["square", "Square 1200×1200"]];
   return shell(user, "/app/images", `
   <div class="phead"><div><h1>Bulk Images</h1><p>Drop many product photos → get them all resized onto a clean white marketplace canvas → download a ZIP.</p></div>
-    <a class="btn ghost" href="/app/images">Single studio</a></div>
+</div>
+  ${require("./uxpages").tabs(require("./uxpages").IMAGE_TABS, "/app/images/bulk")}
   ${error ? `<div class="err">${esc(error)}</div>` : ""}
   <form method="POST" action="/api/images/bulk" enctype="multipart/form-data" class="card pad">
     <b>1 · Marketplace size</b>
@@ -708,9 +710,9 @@ function imageStudio(user, caps) {
   const PRESETS = [["Amazon Main", 1000, 1000], ["Flipkart Gallery", 1000, 1000], ["Instagram", 1080, 1080], ["Website Hero", 1600, 1200]];
   const aiChip = (id, label) => { const on = id === "remove_bg" ? caps.bgEnabled : caps.aiEnabled; return `<button class="fchip" data-ai="${id}" style="cursor:pointer">${label}${on ? "" : ' <span style="font-size:10px;color:var(--faint)">key</span>'}</button>`; };
   return shell(user, "/app/images", `
-  <div class="phead"><div><h1>AI Image Studio</h1><p>Marketplace-perfect images. Resize &amp; white background are free; AI edits and prompt-to-image use ChatGPT${caps.aiEnabled ? " (connected)" : " (needs the OpenAI key)"}.</p></div>
-    <a class="btn pri" href="/app/images/bulk">Bulk images →</a></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  <div class="phead"><div><h1>AI Image Studio</h1><p>Marketplace-perfect images. Resize &amp; white background are free; AI edits and prompt-to-image use ChatGPT${caps.aiEnabled ? " (connected)" : " (needs the OpenAI key)"}.</p></div></div>
+  ${require("./uxpages").tabs(require("./uxpages").IMAGE_TABS, "/app/images")}
+  <div class="studio-grid">
     <div class="card pad">
       <b>1 · Upload a product photo</b>
       <label class="drop" style="display:block;border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;background:var(--panel);margin-top:10px;cursor:pointer">
@@ -892,6 +894,7 @@ function brandPage(user, p, listings, notice) {
   return shell(user, "/app/brand", `
   <div class="phead"><div><h1>Brand Memory</h1><p>Your private AI memory — used in every listing AutoList writes for you.</p></div>
     ${p && p.onboardedAt ? `<span class="badge b-good">ACTIVE</span>` : `<span class="badge b-warn">NOT SET UP</span>`}</div>
+  ${require("./uxpages").tabs(require("./uxpages").BRAND_TABS, "/app/brand")}
   ${notice ? alertBox("good", notice) : ""}
   <div class="dash-cols" style="margin-bottom:16px">
     <div class="card pad"><b>What the AI learned from your listings</b><div style="margin-top:10px">${learned}</div></div>
@@ -907,7 +910,8 @@ function bulkPro(user) {
   const seg = (v, n) => `<label class="seg"><input type="radio" name="bpmkt" value="${v}" ${v === "amazon" ? "checked" : ""}><span>${n}</span></label>`;
   const body = `
   ${crumbs([{ label: "Dashboard", href: "/app" }, { label: "Bulk Listing" }])}
-  <div class="phead"><div><h1>Bulk Listing</h1><p>Upload one file — AutoList AI generates, validates and exports every listing for you.</p></div></div>
+  <div class="phead"><div><h1>Quick Bulk</h1><p>One file in, upload-ready file out — for sellers who already know their columns. New? Use Guided Bulk.</p></div></div>
+  ${require("./uxpages").tabs([["Guided Bulk", "/app/wizard"], ["Quick Bulk", "/app/bulk"], ["Jobs", "/app/jobs"]], "/app/bulk")}
   ${alertBox("info", "Add product rows (with image links) in an Excel/CSV. We write the listing for each row, flag anything missing, and build your upload-ready marketplace file.")}
 
   <div class="card pad section" id="bp-step1">
