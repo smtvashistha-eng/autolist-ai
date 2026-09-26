@@ -92,6 +92,8 @@ function makeTemplate() {
     const ex = await req("GET", `/api/exports/${run2.result.exportId}`, { cookie: A });
     const file = (await req("GET", ex.json.export.downloadUrl)).buf;
     ok("same .xls format as Flipkart's file", ex.json.export.fileType === "xls" && file.readUInt32BE(0) === 0xd0cf11e0);
+    const cd = (await fetch(ex.json.export.downloadUrl.startsWith("http") ? ex.json.export.downloadUrl : BASE + ex.json.export.downloadUrl)).headers.get("content-disposition") || "";
+    ok("download keeps Flipkart's original file name (Flipkart rejects renamed files)", /filename="C_screen-guard\.xls"/.test(cd));
     const out = XLSX.read(file);
     ok("all sheets kept", ["Summary Sheet", "Index", "screen_guard", "Parent Variant Products"].every(n => out.SheetNames.includes(n)));
     const rows = XLSX.utils.sheet_to_json(out.Sheets.screen_guard, { header: 1, defval: "" });

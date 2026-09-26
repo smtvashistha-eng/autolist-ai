@@ -103,7 +103,9 @@ async function createExport({ biz, userId, draftIds, marketplace, templateId, in
   }
   if (!report.valid) return { blocked: true, report };
   const out = await provider.generateExport({ listings: legacy, templateBuffer });
-  const fileId = storeFile(biz, userId, out.buffer, out.ext, out.mime, `autolist_${marketplace}.${out.ext}`, "export");
+  // marketplaces (Flipkart) reject a filled template whose file name was changed — keep the seller's original name
+  const outName = tpl && tpl.file_name && out.ext !== "csv" ? tpl.file_name.replace(/[\\/:*?"<>|]/g, "_") : `autolist_${marketplace}.${out.ext}`;
+  const fileId = storeFile(biz, userId, out.buffer, out.ext, out.mime, outName, "export");
 
   // validation report file (JSON)
   const reportBuf = Buffer.from(JSON.stringify(report, null, 2), "utf8");

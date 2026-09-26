@@ -89,7 +89,7 @@ function wizardPage(user) {
     <div class="wz-nav"><button class="btn ghost" data-back="4" id="wz-back4">Back</button>
       <span><a class="btn pri" id="wz-dl" hidden>Download marketplace file</a> <button class="btn pri" id="wz-go" disabled>Start AI fill</button></span></div>`)}
 
-  ${alertBox("info", "Next: upload the downloaded file in Seller Central (Amazon: Add Products via Upload · Flipkart: Bulk Listing). Rows that need a fix are listed so you can correct them in Drafts.")}
+  ${alertBox("info", "Next: upload the downloaded file in Seller Central (Amazon: Add Products via Upload · Flipkart: Add Listings in Bulk → Manual-filling Excel Template → Upload filled template → Send to QC). Don't rename the file — Flipkart rejects renamed templates; we keep its original name for you. Rows that need a fix are listed so you can correct them in Drafts.")}
   <script>${script()}</script>`;
   return shell(user, "/app/wizard", body);
 }
