@@ -47,7 +47,7 @@ function listingsBulk(user, q = {}) {
     const warn = (v.warnings || []).length, miss = (v.missingFields || []).length;
     return `<tr class="rowlink" onclick="location.href='/app/drafts/${esc(r.id)}'"><td data-l="Title"><a class="tlink" href="/app/drafts/${esc(r.id)}"><b>${esc(title.slice(0, 110))}</b></a></td><td data-l="SKU" class="mono">${esc(r.sku || "—")}</td>
       <td data-l="Marketplace">${mk(r.marketplace)}</td><td data-l="Quality">${qs != null ? `<span class="qchip ${qs >= 70 ? "qg" : qs >= 50 ? "qw" : "qb"}">${qs}</span>` : "—"}</td>
-      <td data-l="Check">${miss ? pill(miss + " missing", "warn") : warn ? pill(warn + " note" + (warn > 1 ? "s" : ""), "info") : pill("Ready", "good")}</td><td data-l="Created">${when(r.created_at)}</td></tr>`;
+      <td data-l="Check">${miss ? `<span title="Optional product facts not in your sheet (e.g. material, warranty). Marketplace defaults fill the required ones at export.">${pill(miss + " optional blank", "info")}</span>` : warn ? pill(warn + " note" + (warn > 1 ? "s" : ""), "info") : pill("Ready", "good")}</td><td data-l="Created">${when(r.created_at)}</td></tr>`;
   }).join("")}</tbody></table></div>` : empty("No bulk drafts yet.", "Run Guided Bulk — every product it writes shows up here.", `<a class="btn pri" href="/app/wizard">Start Guided Bulk</a>`);
   return shell(user, "/app/listings", `<div class="phead"><div><h1>Listings</h1><p>Drafts written by Bulk Upload and Guided Bulk.</p></div><div class="phead-a"><a class="btn pri" href="/app/wizard">Guided Bulk</a></div></div>
     ${tabs(LISTING_TABS(biz), "/app/listings/bulk")}${filt}${table}`);
@@ -66,7 +66,7 @@ function draftView(user, id) {
     .filter(([, x]) => x).map(([k, x]) => `<div class="kv"><span>${k}</span><b>${esc(x)}</b></div>`).join("");
   const picks = n.picks ? Object.entries(n.picks).filter(([, x]) => x && (!Array.isArray(x) || x.length)).map(([k, x]) => `<div class="kv"><span>${esc(k)}</span><b>${esc(Array.isArray(x) ? x.join(", ") : x)}</b></div>`).join("") : "";
   const q = c.quality ? c.quality.score : null;
-  const notes = [...(v.missingFields || []).map(m => `<li class="nw">Missing: ${esc(m)}</li>`), ...(v.warnings || []).map(w => `<li>${esc(w)}</li>`)].join("");
+  const notes = [...(v.missingFields || []).map(m => `<li>Not in your sheet (optional unless the marketplace requires it): ${esc(m)}</li>`), ...(v.warnings || []).map(w => `<li>${esc(w)}</li>`)].join("");
   return shell(user, "/app/listings", `
     <div class="crumbs"><a href="/app/listings/bulk">Listings</a> <span>/</span> <span>Bulk draft</span></div>
     <div class="phead"><div><h1>${esc((val("title") || (p && p.name) || "Draft").slice(0, 120))}</h1><p>${mk(d.marketplace)} · created ${when(d.created_at)}${c.provider ? " · written by " + esc(c.provider === "template" ? "built-in writer" : "AI") : ""}</p></div></div>
