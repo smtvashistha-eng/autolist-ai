@@ -8,7 +8,7 @@ try {
   require("../src/db");
   const { normalizeResult } = require("../src/ai/textProvider");
   const { validateGenerationResult } = require("../src/ai/schema");
-  const { kwFits } = require("../src/brand");
+  const { kwFits, alienWords } = require("../src/brand");
 
   console.log("AI output normalization (Claude answers were rejected on shape):");
   const n = normalizeResult({ fields: [
@@ -28,5 +28,9 @@ try {
   ok("wrong material (tempered glass) is not added", !kwFits("tempred glass for laptop", pt) && !kwFits("tempered glass for laptop", pt));
   ok("typos not added", !kwFits("traperent tempred glass for laptop", pt));
   ok("a fitting keyword is kept", kwFits("anti glare screen guard", pt) && kwFits("screen guard", pt) === false || kwFits("matte laptop", pt));
+  const learnedKw = ["skrechtech", "tempred glass for laptop", "traperent  tempred glass for laptop", "screen guard"];
+  const alien = alienWords(learnedKw, pt);
+  const finalKw = ["anti glare screen guard", "tempred glass for laptop", "hp pavilion 14 screen protector", "skrechtech", "traperent tempred glass for laptop", "tempered glass for laptop"].filter(k => !k.split(/[^a-z0-9]+/).some(w => alien.has(w)));
+  ok("Claude's copies of alien learned words are removed afterwards", finalKw.join("|") === "anti glare screen guard|hp pavilion 14 screen protector" && alien.has("skrechtech") && alien.has("tempred") && alien.has("glass"));
 } catch (e) { fail++; console.error("Harness error:", e); }
 finally { for (const s of ["", "-wal", "-shm"]) { try { fs.unlinkSync(process.env.AUTOLIST_DB + s); } catch {} } console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }

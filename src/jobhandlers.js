@@ -80,7 +80,7 @@ queue.register("bulk_generate", async (job, ctx) => {
         const conf = JSON.parse(p.normalized_data_json || p.source_data_json || "{}") || {};
         if (!conf.productName) conf.productName = p.name;
         if (!conf.brand) conf.brand = p.brand;
-        const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id, conf);
+        const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.contextFor(job.business_id, conf), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id, conf);
         await jev.review(result, { marketplace, product: conf, categories: (brand.getProfile(job.business_id) || {}).categories, biz: job.business_id });
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
         const now = nowISO(), draftId = rid("d_");
@@ -149,7 +149,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
           conf.picks = pk.values; conf.picksSource = pk.source;
           db.prepare("UPDATE products SET normalized_data_json=? WHERE id=?").run(JSON.stringify(conf), p.id);
         }
-        const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.promptContext(job.business_id), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id, conf);
+        const result = brand.applyREST(await provider.generateListing({ product: brand.enrichInput(job.business_id, conf), brandProfile: brand.contextFor(job.business_id, conf), marketplace, limits: { title: TITLE_MAX[marketplace] || 200 } }), job.business_id, conf);
         await jev.review(result, { marketplace, product: conf, categories: (brand.getProfile(job.business_id) || {}).categories, biz: job.business_id });
         if (!validateGenerationResult(result).ok) throw new Error("AI output failed validation");
         const now = nowISO(), draftId = rid("d_");

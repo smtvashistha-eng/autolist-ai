@@ -54,7 +54,7 @@ async function run(req, res, type, onlyFields) {
   const marketplace = (draft.marketplace || "amazon").toLowerCase();
   const input = {
     product: require("../brand").enrichInput(draft.business_id, confirmedFor(draft, req.body || {})),
-    brandProfile: require("../brand").promptContext(draft.business_id),
+    brandProfile: require("../brand").contextFor(draft.business_id, confirmedFor(draft, req.body || {})),
     marketplace, category: (req.body.confirmedData || {}).category,
     limits: { title: TITLE_MAX[marketplace] || 200 },
     userInstructions: (req.body || {}).userInstructions || null,

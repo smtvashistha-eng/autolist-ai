@@ -101,6 +101,19 @@ function kwFits(kw, productText) {
   const words = String(kw).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2 && !KW_GENERIC.has(w));
   return words.length > 0 && words.every(w => productText.includes(w));
 }
+// words from learned keywords that this product's own text does not support (other brands, typos, wrong material)
+function alienWords(learnedKeywords, productText) {
+  const out = new Set();
+  for (const k of learnedKeywords || []) for (const w of String(k).toLowerCase().split(/[^a-z0-9]+/))
+    if (w.length > 2 && !KW_GENERIC.has(w) && !productText.includes(w)) out.add(w);
+  return out;
+}
+// the brand profile Claude sees, with preferred keywords trimmed to ones that fit THIS product
+function contextFor(biz, product) {
+  const c = promptContext(biz); if (!c || !product) return c;
+  const ptext = [product.productName, product.name, product.brand, product.category, ...(product.features || [])].join(" ").toLowerCase();
+  return { ...c, preferredKeywords: (c.preferredKeywords || []).filter(k => kwFits(k, ptext)) };
+}
 function applyREST(result, biz, product) {
   const p = getProfile(biz); if (!p || !result || !Array.isArray(result.fields)) return result;
   const banned = banList(p), hits = new Set();
@@ -112,7 +125,9 @@ function applyREST(result, biz, product) {
     if (f.name === "keywords" && p.learned && p.learned.keywords && product) {
       const ptext = [product.productName, product.name, product.brand, product.category, ...(product.features || [])].join(" ").toLowerCase();
       const learned = p.learned.keywords.filter(k => kwFits(k, ptext));
-      const kw = [...new Set([...String(f.value || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean), ...learned])].slice(0, 20);
+      const alien = alienWords(p.learned.keywords, ptext);
+      const clean = (k) => !k.split(/[^a-z0-9]+/).some(w => alien.has(w));
+      const kw = [...new Set([...String(f.value || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean).filter(clean), ...learned])].slice(0, 20);
       f.value = kw.join(", ");
     }
   }
@@ -138,4 +153,4 @@ function applySSR(result, biz) {
   return result;
 }
 
-module.exports = { getProfile, saveProfile, isOnboarded, learnFromSample, promptContext, enrichInput, applyREST, applySSR, kwFits, DEFAULT_BANNED };
+module.exports = { getProfile, saveProfile, isOnboarded, learnFromSample, promptContext, enrichInput, applyREST, applySSR, kwFits, contextFor, alienWords, DEFAULT_BANNED };

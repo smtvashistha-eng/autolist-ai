@@ -163,7 +163,8 @@ function script() {
     "  upload(f).then(function(fid){ S.sheetId=fid; S.sheetName=f.name; msg('wz-sheet-msg','\\u2705 '+esc(f.name)+' ready.'); $('wz-n3').disabled=false; }).catch(function(e){msg('wz-sheet-msg',esc(e.message),1);}); };",
     // R5: marketplace defaults form (facts entered once, saved per seller)
     "var DEF=null;",
-    "function loadDefs(){ DEF=null; $('wz-defs-wrap').hidden=true; api('GET','/api/listing-defaults/'+mkt()).then(function(d){ DEF=d;",
+    "var defReq=0;",
+    "function loadDefs(){ var my=++defReq, m=mkt(); DEF=null; $('wz-defs-wrap').hidden=true; api('GET','/api/listing-defaults/'+m).then(function(d){ if(my!==defReq||m!==mkt())return; DEF=d;   /* ignore stale answers when the marketplace changed meanwhile */",
     "  $('wz-defs-title').textContent=(mkt().charAt(0).toUpperCase()+mkt().slice(1))+' defaults'+(d.saved?' (saved \\u2014 check they\\u2019re still right)':'');",
     "  $('wz-defs').innerHTML=d.fields.map(function(f){ var v=d.values[f.key]||''; var lab='<label style=\"font-size:12.5px;font-weight:600\">'+esc(f.label)+(f.required?' <span style=\"color:var(--err)\">*</span>':'')+'</label>';",
     "   var inp=f.options?('<select class=\"input\" data-def=\"'+f.key+'\" style=\"width:100%\"><option value=\"\"></option>'+f.options.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>')",
