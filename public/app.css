@@ -556,7 +556,6 @@ body{font-size:13.5px}
 .cwrap{padding:22px 26px}
 .appbar .btn.pri{padding:8px 13px}
 /* sidebar footer */
-.side{position:relative}
 .pfoot{position:relative;border-top:1px solid var(--line2);padding:8px}
 .prow{width:100%;display:flex;align-items:center;gap:8px;padding:7px 8px;border:0;background:none;border-radius:10px;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
 .prow:hover,.prow[aria-expanded="true"]{background:var(--panel)}
@@ -620,3 +619,8 @@ body{font-size:13.5px}
   input,select,textarea{font-size:16px!important} /* stops iOS zoom-on-focus */
 }
 @media(max-width:380px){.kpis,.qas{grid-template-columns:1fr}}
+@media(max-width:760px){
+  table:not(.rtable){display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  select.input,select{max-width:100%}
+  .step,.steps{min-width:0}
+}
