@@ -633,3 +633,10 @@ body{font-size:13.5px}
   .fbar:not(form){flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-14px;margin-right:-14px;padding:0 14px}
   .fbar:not(form)::-webkit-scrollbar{display:none}.fbar .fchip{white-space:nowrap;flex:none}
 }
+@media(max-width:760px){
+  .cwrap .wz-rail{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px 14px;padding:2px 14px}
+  .cwrap .wz-rail::-webkit-scrollbar{display:none}
+  .cwrap .wz-dot{flex:none;white-space:nowrap;padding:7px 11px;font-size:12.5px}
+  .cwrap .wz-nav{flex-direction:column-reverse;align-items:stretch}
+  .cwrap .wz-nav>span{display:flex;gap:8px}.cwrap .wz-nav .btn{flex:1;justify-content:center}
+}
