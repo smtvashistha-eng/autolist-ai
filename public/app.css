@@ -579,3 +579,44 @@ body{font-size:13.5px}
 .pm-i:hover{background:var(--panel)}.pm-i .ic{width:15px;height:15px;color:var(--soft)}.pm-out,.pm-out .ic{color:var(--err)}
 /* retire old usage card + header chip styles */
 .sfoot2,.usage.slim{display:none}
+
+/* ===== Mobile pass ===== */
+.overlay{position:fixed;inset:0;z-index:45;background:rgba(15,23,42,.45);opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.show{opacity:1;pointer-events:auto}
+.app{grid-template-rows:100%}
+/* grid/flex children may shrink below their content (stops long titles pushing the page wider than the screen) */
+.dcols>*,.kpis>*,.qas>*,.gs-list>*,.bgrid>*,.dgrid>*,.studio-grid>*,.bmeters>*,.dash-cols>*,.form2>*{min-width:0}
+.cwrap{min-width:0;max-width:100%}
+.card{min-width:0}
+@media(max-width:760px){
+  :root{--appbar-h:56px}
+  .cwrap{padding:16px 14px 88px}
+  .appbar{padding:8px 12px;gap:8px}
+  .ptitle{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .appbar .abr{gap:6px}
+  .tasks-btn{width:36px;height:36px}
+  .appbar .btn.pri{padding:8px 11px}
+  .side{width:84vw;max-width:300px}
+  .phead{margin-bottom:14px;align-items:flex-start}
+  .phead h1,.dhello h1{font-size:18px}
+  .dhello{margin-bottom:14px}.dhello .phead-a{width:100%}.dhello .phead-a .btn{flex:1;justify-content:center}
+  .kpis,.qas{gap:10px}
+  .kpis{grid-template-columns:1fr 1fr}.kpi{padding:12px}.kpi b{font-size:19px}.kpi small{display:none}
+  .qas{grid-template-columns:1fr 1fr}.qa{padding:12px;flex-direction:column;align-items:flex-start;gap:8px}.qa small{display:none}
+  .dcols{gap:12px}
+  .rlist li>a,.rlist .rl-row{padding:10px 14px}
+  .card.pad,.pad{padding:14px}
+  .tabs{margin-bottom:12px}.tab{padding:9px 10px}
+  .fbar{gap:6px}.fbar .input{max-width:none!important;flex:1;min-width:0}
+  .btn{padding:9px 13px}
+  .dgrid{gap:12px}
+  .gs-bar{width:100%}
+  .tpanel{top:calc(var(--appbar-h) + 6px);bottom:10px}
+  .toast{left:12px;right:12px;bottom:12px;min-width:0;max-width:none}
+  .mdl{padding:10px}
+  .tour-card{bottom:12px!important}
+  /* wide forms stack */
+  .dform{grid-template-columns:1fr}
+  input,select,textarea{font-size:16px!important} /* stops iOS zoom-on-focus */
+}
+@media(max-width:380px){.kpis,.qas{grid-template-columns:1fr}}
