@@ -142,7 +142,7 @@ const anthropicProvider = {
     let issues = null, lastErr = "", best = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const out = await llm.chat({ system: WRITER_RULES, user: brief(input, issues), maxTokens: 1200, biz });
+        const out = await llm.chat({ system: WRITER_RULES, user: brief(input, issues), maxTokens: 2000, biz });
         const res = assemble(llm.parseJSON(out.text), input);
         res._provider = out.provider; res._model = out.model;
         // CHECK with Jev; rewrite once, only when it finds a concrete problem

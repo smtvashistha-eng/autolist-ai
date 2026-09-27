@@ -46,6 +46,14 @@ function health() {
     env: process.env.NODE_ENV || "development",
     aiProvider: require("./ai/llm").describe(),
     imageHost: require("./imagehost").provider(),
+    textCost: (() => { try {
+      const since = new Date(Date.now() - 30 * 864e5).toISOString();
+      const rows = db.prepare("SELECT operation, cost_usd, ok FROM ai_cost_log WHERE created_at>=? AND operation LIKE 'text:%'").all(since);
+      if (!rows.length) return null;
+      let tin = 0, tout = 0, usd = 0, bad = 0;
+      for (const r of rows) { const m = /text:(\d+)\/(\d+)/.exec(r.operation) || []; tin += +m[1] || 0; tout += +m[2] || 0; usd += r.cost_usd || 0; if (!r.ok) bad++; }
+      return { calls: rows.length, avgIn: Math.round(tin / rows.length), avgOut: Math.round(tout / rows.length), avgUsd: usd / rows.length, failed: bad };
+    } catch { return null; } })(),
     decisionAI: require("./ai/jev").enabled() ? "TypeSafe Jev (" + (process.env.JEV_MODEL || "jev-latest") + ") — quality, claims, category" : "Off (set JEV_API_KEY)",
     imageProvider: require("./ai/imageAIProvider").describe(),
     aiSpend: (() => { try { const since = new Date(Date.now() - 30 * 864e5).toISOString(); return db.prepare("SELECT COUNT(*) calls, COALESCE(SUM(cost_usd),0) usd, COALESCE(SUM(ok=0),0) failed FROM ai_cost_log WHERE created_at>=?").get(since); } catch { return { calls: 0, usd: 0, failed: 0 }; } })(),

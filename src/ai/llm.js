@@ -20,6 +20,7 @@ const PROVIDERS = {
       });
       if (!r.ok) throw new Error("Claude HTTP " + r.status);
       const d = await r.json();
+      if (d.stop_reason === "max_tokens") { const e = new Error("Claude answer cut off at the token limit"); e.inTok = d.usage?.input_tokens || 0; e.outTok = d.usage?.output_tokens || 0; throw e; }
       return { text: (d.content || []).map(c => c.text || "").join(""), inTok: d.usage?.input_tokens || 0, outTok: d.usage?.output_tokens || 0 };
     },
   },
@@ -33,7 +34,7 @@ const PROVIDERS = {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: "user", parts: [{ text: user }] }],
-          generationConfig: { maxOutputTokens: maxTokens, ...(json ? { responseMimeType: "application/json" } : {}) },
+          generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 }, ...(json ? { responseMimeType: "application/json" } : {}) },
         }),
       });
       if (!r.ok) throw new Error("Gemini HTTP " + r.status);
@@ -63,9 +64,9 @@ async function chat({ system, user, maxTokens = 1500, json = true, biz = null })
     try {
       const out = await p.call({ system, user, maxTokens, json });
       const [pi, po] = PRICE[name];
-      logCost(biz, name, "text", (out.inTok * pi + out.outTok * po) / 1e6);
+      logCost(biz, name, "text:" + out.inTok + "/" + out.outTok, (out.inTok * pi + out.outTok * po) / 1e6);
       return { text: out.text, provider: name, model: p.model() };
-    } catch (e) { last = e; logCost(biz, name, "text", 0, false); }
+    } catch (e) { last = e; const [pi, po] = PRICE[name]; logCost(biz, name, "text:" + (e.inTok || 0) + "/" + (e.outTok || 0), ((e.inTok || 0) * pi + (e.outTok || 0) * po) / 1e6, false); }
   }
   throw last;
 }
