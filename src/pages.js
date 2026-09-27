@@ -348,6 +348,7 @@ function shell(user, activePath, body) {
         var cw=card.offsetWidth,ch=card.offsetHeight,left=r.right+18,top=r.top+r.height/2-ch/2;
         if(left+cw>innerWidth-12){left=Math.max(12,Math.min(innerWidth-cw-12,r.left));top=r.bottom+14;if(top+ch>innerHeight-12)top=r.top-ch-14;}
         card.style.left=left+'px';card.style.top=Math.max(12,Math.min(innerHeight-ch-12,top))+'px';}
+      dim.style.background=vis?'transparent':'rgba(15,23,42,.58)';
       else{spot.style.display='none';card.style.left=Math.max(12,innerWidth/2-card.offsetWidth/2)+'px';card.style.top=Math.max(12,innerHeight/2-card.offsetHeight/2)+'px';}
     }
     function show(){
