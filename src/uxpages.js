@@ -125,7 +125,7 @@ function qcFixPage(user) {
         <input type="file" id="qc-file" accept=".xls,.xlsx" hidden></div>
       <div class="wz-msg" id="qc-msg" style="margin-top:10px"></div>
     </div>
-    <p class="hint">${ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z")} Flipkart accepts each file <b>only once</b> — the code at the end of its name (…REQ…) is a one-time upload ID. If you see “Feed is already present”, download a <b>fresh</b> error file from Flipkart and fix that one. Never rename files.</p>
+    <p class="hint">${ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z")} Flipkart accepts each file <b>only once</b> — the code at the end of its name (…REQ…) is a one-time upload ID. If you see “Feed is already present”, download a <b>fresh</b> error file from Flipkart and fix that one. Never rename files — and if your browser saves it as “… (1).xls”, delete the older copy and remove “ (1)” from the name before uploading.</p>
     <div class="card pad" id="qc-out" hidden><b>Result</b><div id="qc-res"></div></div>
     <script>${script}</script>`);
 }
