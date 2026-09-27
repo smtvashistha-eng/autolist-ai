@@ -251,11 +251,23 @@ function shell(user, activePath, body) {
   const planName = esc((u ? u.planName : biz.plan || "Free Trial"));
   const initials = esc((user.name || user.email || "?").slice(0, 2).toUpperCase());
   const pct = (a, b) => Math.min(100, Math.round(a / Math.max(1, b) * 100));
-  const usageBlock = `<a class="usage slim" href="/app/billing" title="Usage this month — manage plan">
-      <div class="u1"><span>Listings</span><b class="tnum">${used}/${total}</b></div><div class="ubar"><span style="width:${pct(used, total)}%"></span></div>
-      <div class="u1"><span>Photos</span><b class="tnum">${imgUsed}/${imgTot}</b></div><div class="ubar"><span style="width:${pct(imgUsed, imgTot)}%"></span></div>
-      <div class="u1"><span>AI images</span><b class="tnum">${aiUsed}/${aiTot}</b></div><div class="ubar"><span style="width:${pct(aiUsed, aiTot)}%"></span></div>
-      <div class="planlink">Plan: <b>${planName}</b></div></a>`;
+  const meter = (label, a, b) => `<div class="pm-u"><div class="pm-ut"><span>${label}</span><b class="tnum">${a.toLocaleString("en-IN")} / ${b.toLocaleString("en-IN")}</b></div><div class="pm-bar"><span style="width:${pct(a, b)}%;${pct(a, b) >= 90 ? "background:var(--err)" : pct(a, b) >= 70 ? "background:var(--warn)" : ""}"></span></div></div>`;
+  const displayName = esc(String(user.name || user.email || "Account").replace(/\s+/g, " ").trim());
+  const profile = `<div class="pfoot">
+      <div class="pmenu" id="mePop" role="menu" aria-label="Account">
+        <div class="pm-head"><span class="pm-av">${initials}</span><span class="pm-id"><b>${displayName}</b><small>${esc(user.email || "")}</small></span></div>
+        <div class="pm-plan"><span>${planName} plan</span><a href="/app/billing">${u && u.price ? "Manage" : "Upgrade"}</a></div>
+        <div class="pm-usage">${meter("Listings", used, total)}${meter("Hosted photos", imgUsed, imgTot)}${meter("AI images", aiUsed, aiTot)}</div>
+        <div class="pm-sep"></div>
+        <a class="pm-i" href="/app/billing">${ic("M2 5h20v14H2zM2 10h20")} Billing &amp; plan</a>
+        <button class="pm-i" type="button" id="tourBtn">${ic("M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z")} Take the tour</button>
+        <a class="pm-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help &amp; videos</a>
+        ${isAdmin(user) ? `<a class="pm-i" href="/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin panel</a>` : ""}
+        <div class="pm-sep"></div>
+        <form method="POST" action="/logout" style="margin:0"><button class="pm-i pm-out" type="submit">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9")} Log out</button></form>
+      </div>
+      <button class="prow" id="meBtn" type="button" aria-haspopup="menu" aria-expanded="false"><span class="pm-av sm">${initials}</span><span class="pr-name">${displayName}</span><span class="pr-plan">· ${planName}</span><span class="pr-car">${ic("M6 15l6-6 6 6")}</span></button>
+    </div>`;
   return head(title + " — AutoList AI") + `
 <div class="app">
   <div class="overlay" id="ovl"></div>
@@ -263,7 +275,7 @@ function shell(user, activePath, body) {
     <div class="top"><a class="logo" href="/app"><span class="mark"></span> AutoList AI</a>
       <button class="xnav" id="xnav" aria-label="Close menu">${ic("M18 6L6 18M6 6l12 12")}</button></div>
     <div class="navwrap">${nav}</div>
-    <div class="sfoot2">${usageBlock}</div>
+    ${profile}
   </aside>
   <div class="main">
     <div class="appbar">
@@ -272,21 +284,9 @@ function shell(user, activePath, body) {
       <div class="abr">
         ${(() => { const v = require("./tutorials").forPath(activePath); return v
           ? `<button class="btn-video" type="button" id="videoBtn" data-vid="${esc(v.id)}" data-vlabel="${esc(v.label)}"><span class="play"></span><span class="vlbl">Watch how</span></button>`
-          : (isAdmin(user) ? `<a class="btn-video" href="/admin/videos" title="Add a tutorial video for this page"><span class="play" style="opacity:.45"></span><span class="vlbl">Add video</span></a>` : ""); })()}
+          : ""; })()}
         <button class="tasks-btn" type="button" id="tasksBtn" aria-label="Background tasks" title="Background tasks">${ic("M4 6h16M4 12h16M4 18h10")}<span class="tbadge" id="tbadge" hidden>0</span></button>
         <a class="btn pri" href="/app/create">${ic("M12 5v14M5 12h14")} <span class="hide-sm">New Listing</span></a>
-        <div class="umenu">
-          <button class="pchip" id="meBtn" aria-haspopup="true" aria-label="Account menu"><span class="me">${initials}</span><span class="pc-name">${esc(user.name || user.email || "Account")}</span><span class="pc-plan">· ${planName}</span><span class="pc-car">${ic("M6 9l6 6 6-6")}</span></button>
-          <div class="umenu-pop" id="mePop">
-            <div class="um-head"><b>${esc(user.name || "Account")}</b><span>${esc(user.email || "")}</span>
-              <span class="um-biz">${esc(biz.name || "")}</span></div>
-            ${isAdmin(user) ? `<a class="um-i" href="/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin</a>` : ""}
-            <a class="um-i" href="/app/billing">${ic("M2 5h20v14H2z")} Billing &amp; plan</a>
-            <button class="um-i" type="button" id="tourBtn">${ic("M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z")} Take the tour</button>
-            <a class="um-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help</a>
-            <form method="POST" action="/logout" style="margin:0"><button class="um-i um-out" type="submit">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9")} Log out</button></form>
-          </div>
-        </div>
       </div>
     </div>
     <div class="content"><div class="cwrap">${body}</div></div>
@@ -304,8 +304,10 @@ function shell(user, activePath, body) {
   var h=document.getElementById('hamb'),x=document.getElementById('xnav');
   if(h)h.onclick=open; if(x)x.onclick=close; if(ovl)ovl.onclick=close;
   var mb=document.getElementById('meBtn'),mp=document.getElementById('mePop');
-  if(mb)mb.onclick=function(e){e.stopPropagation();mp.classList.toggle('show');};
-  document.addEventListener('click',function(){if(mp)mp.classList.remove('show');});
+  if(mb)mb.onclick=function(e){e.stopPropagation();var o=mp.classList.toggle('show');mb.setAttribute('aria-expanded',o?'true':'false');};
+  if(mp)mp.addEventListener('click',function(e){if(!e.target.closest('a,button'))e.stopPropagation();});
+  document.addEventListener('click',function(){if(mp){mp.classList.remove('show');if(mb)mb.setAttribute('aria-expanded','false');}});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&mp&&mp.classList.contains('show')){mp.classList.remove('show');mb.focus();}});
   // ---- "Watch how" video modal (YouTube, privacy-enhanced embed) ----
   function openVideo(id,label){
     var m=document.createElement('div');m.className='mdl';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
@@ -330,7 +332,7 @@ function shell(user, activePath, body) {
     {sel:'[data-tour="/app/listings"]',t:'3 · Review your listings',p:'Every listing gets a quality score. Open any one to see the text, facts, photos and notes — copy with one click.'},
     {sel:'[data-tour="/app/exports"]',t:'4 · Download & upload',p:'Your upload-ready files live here for 7 days. Upload them to Seller Central without renaming — marketplaces reject renamed templates.'},
     {sel:'[data-tour="/app/images"]',t:'Photos made easy',p:'Hosted photo links for every SKU, a free white-background prep, and AI studio edits when you need them.'},
-    {sel:'.usage',t:'Your plan at a glance',p:'Listings, hosted photos and AI image credits used this month. Tap to see plans.'},
+    {sel:'#meBtn',t:'Your account & plan',p:'Tap your name to see listings, hosted photos and AI image credits used this month — plus billing, help and this tour.'},
     {sel:'#videoBtn',t:'Stuck? Watch how',p:'Pages with a video show this button — a short walkthrough of that screen. Help is always in your profile menu.',skipIfMissing:true},
     {t:'You’re all set \u{1F680}',p:'Start with Brand & Defaults, then run Guided Bulk. We’ll be right here if you need us.',cta:'Start Guided Bulk',href:'/app/wizard'}
   ];
@@ -344,11 +346,11 @@ function shell(user, activePath, body) {
     function next(){if(i<steps.length-1){i++;show();}else{var s=steps[i];done();if(s.href)location.href=s.href;}}
     function place(){
       var s=steps[i],el=s.sel&&document.querySelector(s.sel),r=el&&el.getBoundingClientRect(),vis=r&&r.width>0&&r.height>0&&r.left>=0&&r.left<innerWidth;
+      dim.style.background=vis?'transparent':'rgba(15,23,42,.58)';
       if(vis){spot.style.display='';spot.style.top=(r.top-6)+'px';spot.style.left=(r.left-6)+'px';spot.style.width=(r.width+12)+'px';spot.style.height=(r.height+12)+'px';
         var cw=card.offsetWidth,ch=card.offsetHeight,left=r.right+18,top=r.top+r.height/2-ch/2;
         if(left+cw>innerWidth-12){left=Math.max(12,Math.min(innerWidth-cw-12,r.left));top=r.bottom+14;if(top+ch>innerHeight-12)top=r.top-ch-14;}
         card.style.left=left+'px';card.style.top=Math.max(12,Math.min(innerHeight-ch-12,top))+'px';}
-      dim.style.background=vis?'transparent':'rgba(15,23,42,.58)';
       else{spot.style.display='none';card.style.left=Math.max(12,innerWidth/2-card.offsetWidth/2)+'px';card.style.top=Math.max(12,innerHeight/2-card.offsetHeight/2)+'px';}
     }
     function show(){

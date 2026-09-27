@@ -100,7 +100,8 @@ async function waitJob(cookie, id) {
     const dsh = await req("GET", "/app", { cookie: A });
     ok("dashboard: next step + getting-started checklist + KPIs + quick actions", /Next step:/.test(dsh.text) && /Get started/.test(dsh.text) && /class="kpis"/.test(dsh.text) && /class="qas"/.test(dsh.text));
     ok("dashboard shows the bulk draft and its file", dsh.text.includes("/app/drafts/" + did) && dsh.text.includes("/api/exports/" + pj.result.exportId + "/download"));
-    ok("header: background-tasks button + panel + profile chip with plan", /id="tasksBtn"/.test(dsh.text) && /id="tpanel"/.test(dsh.text) && /class="pc-plan">· Free Trial/.test(dsh.text));
+    ok("header: background-tasks button + panel; account row with plan in the sidebar", /id="tasksBtn"/.test(dsh.text) && /id="tpanel"/.test(dsh.text) && /class="pr-plan">· Free Trial/.test(dsh.text) && /class="pmenu"/.test(dsh.text) && !/class="pchip"/.test(dsh.text));
+    ok("account menu shows usage meters + plan", /Hosted photos/.test(dsh.text) && /AI images/.test(dsh.text) && /Free Trial plan/.test(dsh.text));
     ok("tour available from the profile menu", /id="tourBtn"/.test(dsh.text) && /alStartTour/.test(dsh.text));
     ok("no video button for sellers until one is set", !/id="videoBtn"/.test(dsh.text));
     const ADM = "sid=" + /sid=([^;]+)/.exec((await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "boss" + TAG + "@x.in", password: "pass1234", businessName: "Boss" }) })).headers.get("set-cookie"))[1];
@@ -113,6 +114,21 @@ async function waitJob(cookie, id) {
     ok("seller sees 'Watch how' on that page (privacy embed id only)", /id="videoBtn" data-vid="dQw4w9WgXcQ"/.test(wz.text) && !/evil.example/.test(wz.text));
     ok("dashboard shows 'Watch the intro'", /Watch the intro/.test((await req("GET", "/app", { cookie: A })).text));
     ok("help page lists the video library", /Video tutorials/.test((await req("GET", "/app/help", { cookie: A })).text));
+    ok("admin tools stay in the admin panel (no 'Add video' in the seller app)", !/Add video/.test((await req("GET", "/app/listings", { cookie: ADM })).text));
+
+    console.log("Browser scripts compile on every page (guards the header-click bug):");
+    const pagesToCheck = ["/app", "/app/create", "/app/wizard", "/app/bulk", "/app/listings", "/app/listings/bulk", "/app/exports", "/app/jobs", "/app/images", "/app/images/hosted", "/app/images/bulk", "/app/brand", "/app/brand/defaults", "/app/templates", "/app/billing", "/app/help", "/app/market", "/app/drafts/" + did];
+    const broken = [];
+    for (const p of pagesToCheck) {
+      const html = (await req("GET", p, { cookie: A })).text || "";
+      html.split("<script>").slice(1).map(x => x.split("</script>")[0]).forEach((code, i) => { try { new Function(code); } catch (e) { broken.push(p + "#" + i + ": " + e.message); } });
+    }
+    for (const p of ["/admin", "/admin/videos", "/admin/health"]) {
+      const html = (await req("GET", p, { cookie: ADM })).text || "";
+      html.split("<script>").slice(1).map(x => x.split("</script>")[0]).forEach((code, i) => { try { new Function(code); } catch (e) { broken.push(p + "#" + i + ": " + e.message); } });
+    }
+    if (broken.length) console.log("    " + broken.join(" | "));
+    ok("no page ships a broken script (" + (pagesToCheck.length + 3) + " pages)", broken.length === 0);
 
     console.log("Isolation:");
     ok("B cannot open A's draft", (await req("GET", `/app/drafts/${did}`, { cookie: B })).location === "/app/listings/bulk");
