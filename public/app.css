@@ -625,3 +625,11 @@ body{font-size:13.5px}
   .step,.steps{min-width:0}
 }
 @media(max-width:760px){.content{overflow-x:hidden}}
+@media(max-width:700px){
+  .rtable td:first-child{display:block;text-align:left;padding-bottom:6px}
+  .rtable td:first-child::before{display:none}
+  .rtable td:first-child b{font-size:13.5px;line-height:1.4}
+  .rtable tr{padding:12px 14px}
+  .fbar:not(form){flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-14px;margin-right:-14px;padding:0 14px}
+  .fbar:not(form)::-webkit-scrollbar{display:none}.fbar .fchip{white-space:nowrap;flex:none}
+}
