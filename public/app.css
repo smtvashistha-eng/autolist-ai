@@ -640,3 +640,9 @@ body{font-size:13.5px}
   .cwrap .wz-nav{flex-direction:column-reverse;align-items:stretch}
   .cwrap .wz-nav>span{display:flex;gap:8px}.cwrap .wz-nav .btn{flex:1;justify-content:center}
 }
+@media(max-width:760px){
+  .stepper{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  .stepper::-webkit-scrollbar{display:none}
+  .stepper .step:not(.now) .slbl{display:none}   /* phones: only the current step name, others as numbered dots */
+  .input,select.input{padding:9px 11px}
+}
