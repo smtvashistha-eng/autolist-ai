@@ -117,7 +117,7 @@ async function waitJob(cookie, id) {
     ok("admin tools stay in the admin panel (no 'Add video' in the seller app)", !/Add video/.test((await req("GET", "/app/listings", { cookie: ADM })).text));
 
     console.log("Browser scripts compile on every page (guards the header-click bug):");
-    const pagesToCheck = ["/app", "/app/create", "/app/wizard", "/app/bulk", "/app/listings", "/app/listings/bulk", "/app/exports", "/app/jobs", "/app/images", "/app/images/hosted", "/app/images/bulk", "/app/brand", "/app/brand/defaults", "/app/templates", "/app/billing", "/app/help", "/app/market", "/app/drafts/" + did];
+    const pagesToCheck = ["/app", "/app/create", "/app/wizard", "/app/bulk", "/app/listings", "/app/listings/bulk", "/app/exports", "/app/exports/fix", "/app/jobs", "/app/images", "/app/images/hosted", "/app/images/bulk", "/app/brand", "/app/brand/defaults", "/app/templates", "/app/billing", "/app/help", "/app/market", "/app/drafts/" + did];
     const broken = [];
     for (const p of pagesToCheck) {
       const html = (await req("GET", p, { cookie: A })).text || "";

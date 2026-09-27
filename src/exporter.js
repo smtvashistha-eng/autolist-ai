@@ -86,7 +86,7 @@ async function createExport({ biz, userId, draftIds, marketplace, templateId, in
   const drafts = draftIds.map(id => db.prepare("SELECT * FROM listing_drafts WHERE id=? AND business_id=?").get(id, biz)).filter(Boolean);
   const defaults = require("./listingDefaults").get(biz, marketplace).values;
   const legacy = drafts.map(d => { const L = toLegacy(d, d.product_id ? db.prepare("SELECT * FROM products WHERE id=?").get(d.product_id) : null); L.data.defaults = defaults; return L; });
-  const allowed = tpl ? (JSON.parse(tpl.schema_json || "{}").allowed || null) : null;
+  const allowed = Object.assign({}, tpl ? (JSON.parse(tpl.schema_json || "{}").allowed || {}) : {}, require("./qcLearn").rulesFor(marketplace));
 
   // template required-field check via the ACTUAL fill logic (concept-aware), not raw names
   if (schemaFields) {
@@ -133,4 +133,4 @@ async function createExport({ biz, userId, draftIds, marketplace, templateId, in
   return { blocked: false, exportId: id };
 }
 
-module.exports = { validateDrafts, createExport, toLegacy };
+module.exports = { validateDrafts, createExport, toLegacy, storeFile };

@@ -429,6 +429,17 @@ const MIGRATIONS = [
       db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
     },
   },
+  // ---- learned marketplace rules (from QC error files): allowed values per template column ----
+  {
+    v: 30, name: "marketplace_rules",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS marketplace_rules(
+        marketplace TEXT NOT NULL, column_norm TEXT NOT NULL, column_label TEXT,
+        allowed_json TEXT, source TEXT, hits INTEGER DEFAULT 1, updated_at TEXT,
+        PRIMARY KEY(marketplace, column_norm)
+      )`);
+    },
+  },
   // ---- R5: per-seller marketplace defaults (stock, HSN, package size, manufacturer …) ----
   {
     v: 29, name: "listing_defaults",

@@ -646,3 +646,8 @@ body{font-size:13.5px}
   .stepper .step:not(.now) .slbl{display:none}   /* phones: only the current step name, others as numbered dots */
   .input,select.input{padding:9px 11px}
 }
+
+.qc-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.qc-sum>div{background:var(--panel);border-radius:12px;padding:12px;text-align:center}.qc-sum b{display:block;font-size:20px;font-weight:800}.qc-sum span{font-size:11.5px;color:var(--soft)}
+.qc-sum .ok{background:var(--good-weak)}.qc-sum .ok b{color:var(--good)}.qc-sum .bad{background:var(--err-weak)}.qc-sum .bad b{color:var(--err)}
+@media(max-width:520px){.qc-sum{grid-template-columns:1fr 1fr}}

@@ -87,6 +87,7 @@ app.get("/app/listings/bulk", (req, res) => res.send(ux.listingsBulk(req.user, r
 app.get("/app/drafts/:id", (req, res) => { const h = ux.draftView(req.user, req.params.id); h ? res.send(h) : res.redirect("/app/listings/bulk"); });
 app.get("/app/exports", (req, res) => res.send(ux.exportsFiles(req.user)));
 app.get("/app/exports/single", (req, res) => res.send(ux.exportsSingle(req.user)));
+app.get("/app/exports/fix", (req, res) => res.send(ux.qcFixPage(req.user)));
 for (const [part, col] of [["report", "report_file_id"], ["images", "image_zip_file_id"]]) {
   app.get("/app/exports/:id/" + part, (req, res) => {
     const x = db.prepare("SELECT * FROM marketplace_exports WHERE id=? AND business_id=?").get(req.params.id, req.user.business_id);

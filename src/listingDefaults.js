@@ -7,7 +7,7 @@ const { db, nowISO } = require("./db");
 const FIELDS = {
   flipkart: [
     { key: "listingStatus", label: "Listing status", cols: ["listingstatus"], required: true, options: ["Active", "Inactive"], def: "Active" },
-    { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, def: "SELLER", hint: "Exactly as Flipkart expects, e.g. SELLER" },
+    { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, options: ["seller", "FA", "SellerSmart"], def: "seller", hint: "seller = you ship · FA = Flipkart Assured" },
     { key: "procurementType", label: "Procurement type", cols: ["procurementtype"], def: "instock", hint: "instock or express" },
     { key: "procurementSla", label: "Procurement SLA (days)", cols: ["procurementsladay", "procurementsla"], required: true, type: "number", hint: "Days to get ready for dispatch, e.g. 1" },
     { key: "stock", label: "Stock per SKU", cols: ["stock"], required: true, type: "number", hint: "Minimum 5 for visibility" },
@@ -57,7 +57,11 @@ function save(biz, marketplace, body) {
     let v = body[f.key]; if (v === undefined || v === null) v = "";
     v = String(v).trim().slice(0, f.long ? 1000 : 200);
     if (v && f.type === "number" && !/^\d+(\.\d+)?$/.test(v)) throw new Error(`${f.label} must be a number.`);
-    if (v && f.options && !f.options.map(o => o.toLowerCase()).includes(v.toLowerCase())) throw new Error(`${f.label} must be one of: ${f.options.join(", ")}.`);
+    if (v && f.options) {
+      const hit = f.options.find(o => o.toLowerCase() === v.toLowerCase());
+      if (!hit) throw new Error(`${f.label} must be one of: ${f.options.join(", ")}.`);
+      v = hit;   // store the marketplace's exact spelling
+    }
     clean[f.key] = v;
   }
   db.prepare("INSERT INTO listing_defaults(business_id,marketplace,data_json,updated_at) VALUES(?,?,?,?) ON CONFLICT(business_id,marketplace) DO UPDATE SET data_json=excluded.data_json, updated_at=excluded.updated_at")

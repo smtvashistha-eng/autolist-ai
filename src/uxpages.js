@@ -86,7 +86,48 @@ function draftView(user, id) {
 const EXPORT_TABS = (biz) => [
   ["Marketplace files", "/app/exports", count("SELECT COUNT(*) c FROM marketplace_exports WHERE business_id=?", biz)],
   ["Single-listing CSVs", "/app/exports/single", count("SELECT COUNT(*) c FROM exports WHERE business_id=?", biz)],
+  ["Fix QC errors", "/app/exports/fix"],
 ];
+// ---- Fix QC errors: upload the marketplace's error file → learned rules → corrected file (same name) ----
+function qcFixPage(user) {
+  const rules = require("./qcLearn").rulesFor("flipkart");
+  const learned = Object.keys(rules).length;
+  const script = [
+    "(function(){var $=function(i){return document.getElementById(i)};",
+    "function esc(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}",
+    "function msg(h,err){$('qc-msg').innerHTML=h;$('qc-msg').style.color=err?'var(--err)':'var(--soft)';}",
+    "$('qc-pick').onclick=function(){$('qc-file').click();};",
+    "$('qc-drop').addEventListener('dragover',function(e){e.preventDefault();$('qc-drop').classList.add('dragover');});",
+    "$('qc-drop').addEventListener('dragleave',function(){$('qc-drop').classList.remove('dragover');});",
+    "$('qc-drop').addEventListener('drop',function(e){e.preventDefault();$('qc-drop').classList.remove('dragover');if(e.dataTransfer.files[0])run(e.dataTransfer.files[0]);});",
+    "$('qc-file').onchange=function(){if(this.files[0])run(this.files[0]);};",
+    "function api(m,u,b){return fetch(u,{method:m,headers:b?{'content-type':'application/json'}:{},body:b?JSON.stringify(b):undefined}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Request failed');return j;});});}",
+    "function run(file){ if(!/\\.xlsx?$/i.test(file.name)){msg('Please choose the .xls/.xlsx error file you downloaded from the marketplace.',1);return;}",
+    "  $('qc-out').hidden=true; msg('Reading '+esc(file.name)+'\\u2026');",
+    "  api('POST','/api/files/presign',{fileName:file.name,mime:file.type||'application/vnd.ms-excel',size:file.size}).then(function(p){",
+    "    return fetch(p.uploadUrl,{method:'PUT',headers:{'content-type':'application/octet-stream'},body:file}).then(function(){return api('POST','/api/files/complete',{fileId:p.fileId});}).then(function(){return api('POST','/api/qc/fix',{fileId:p.fileId,marketplace:$('qc-mk').value});});",
+    "  }).then(function(r){ var R=r.report; msg('');",
+    "    var h='<div class=\"qc-sum\"><div><b>'+R.rows+'</b><span>rows</span></div><div><b>'+R.errors+'</b><span>errors</span></div><div class=\"ok\"><b>'+R.fixed+'</b><span>fixed</span></div><div class=\"'+(R.unfixed?'bad':'')+'\"><b>'+R.unfixed+'</b><span>need you</span></div></div>';",
+    "    if(R.learned.length)h+='<div class=\"hint\">\\u2728 Learned for next time: '+R.learned.map(function(l){return '<b>'+esc(l.column)+'</b> = '+esc(l.allowed.join(' / '));}).join(' \\u00b7 ')+'</div>';",
+    "    h+='<table class=\"rtable\" style=\"margin-top:10px\"><thead><tr><th>SKU</th><th>Fixed</th><th>Still to fix</th></tr></thead><tbody>'+R.items.map(function(it){return '<tr><td data-l=\"SKU\" class=\"mono\">'+esc(it.sku||'-')+'</td><td data-l=\"Fixed\">'+(it.fixes.map(function(f){return esc(f.column)+': '+esc(f.from)+' \\u2192 <b>'+esc(f.to)+'</b>';}).join('<br>')||'\\u2014')+'</td><td data-l=\"Still to fix\">'+(it.open.map(function(o){return '<span style=\"color:var(--err)\">'+esc(o.column)+'</span>: '+esc(o.message)+(o.allowed.length?' <i>(allowed: '+esc(o.allowed.join(', '))+')</i>':'');}).join('<br>')||'\\u2014')+'</td></tr>';}).join('')+'</tbody></table>';",
+    "    h+='<div class=\"formfoot\"><span class=\"muted\">Upload it on the marketplace with <b>Upload Corrected Excel</b> \\u2014 same file name, don\\u2019t rename.</span><a class=\"btn pri\" href=\"'+r.downloadUrl+'\">Download corrected file</a></div>';",
+    "    $('qc-res').innerHTML=h; $('qc-out').hidden=false;",
+    "  }).catch(function(e){msg(esc(e.message),1);}); }",
+    "})();",
+  ].join("\n");
+  return shell(user, "/app/exports", `<div class="phead"><div><h1>Exports</h1><p>Marketplace rejected some rows? Upload its error file — we fix what's safe, learn the rule, and hand back the corrected file.</p></div></div>
+    ${tabs(EXPORT_TABS(user.business_id), "/app/exports/fix")}
+    <div class="card pad mb">
+      <div class="fbar"><label class="muted" for="qc-mk">Marketplace</label><select class="input" id="qc-mk" style="width:auto"><option value="flipkart">Flipkart</option><option value="amazon">Amazon</option><option value="meesho">Meesho</option></select><span class="muted">${learned} rule${learned === 1 ? "" : "s"} learned so far</span></div>
+      <div class="cr-drop" id="qc-drop" tabindex="0" role="button" aria-label="Upload the QC error file">
+        <b>Drop the error file here</b><span>Flipkart: Listings in progress → Bulk → Download Error File</span>
+        <button type="button" class="btn pri" id="qc-pick" style="margin-top:10px">Choose error file</button>
+        <input type="file" id="qc-file" accept=".xls,.xlsx" hidden></div>
+      <div class="wz-msg" id="qc-msg" style="margin-top:10px"></div>
+    </div>
+    <div class="card pad" id="qc-out" hidden><b>Result</b><div id="qc-res"></div></div>
+    <script>${script}</script>`);
+}
 function exportsFiles(user) {
   const biz = user.business_id;
   const rows = db.prepare(`SELECT x.*, f.original_name, f.size FROM marketplace_exports x LEFT JOIN files f ON f.id=x.file_id WHERE x.business_id=? ORDER BY x.created_at DESC LIMIT 200`).all(biz);
@@ -178,4 +219,4 @@ function defaultsPage(user, marketplace, note, err) {
       <div class="formfoot"><span class="muted">${d.saved ? "Saved — used automatically in Guided Bulk." : "Not saved yet."} Fields marked * are required by ${mk(m)}.</span><button class="btn pri">Save defaults</button></div></form>`);
 }
 
-module.exports = { jparse, when, mk, pill, count, tabs, listingsSingle, listingsBulk, draftView, exportsFiles, exportsSingle, jobsPage, hostedPhotos, defaultsPage, IMAGE_TABS, BRAND_TABS };
+module.exports = { qcFixPage, jparse, when, mk, pill, count, tabs, listingsSingle, listingsBulk, draftView, exportsFiles, exportsSingle, jobsPage, hostedPhotos, defaultsPage, IMAGE_TABS, BRAND_TABS };

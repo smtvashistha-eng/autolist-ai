@@ -159,6 +159,8 @@ function valueFor(headerName, L, allowed) {
 function fillTemplate(buffer, listings, marketplace) {
   const { wb, sheetName, headerRow, dataStart, headers } = detectStructure(buffer, marketplace);
   const allowed = parseAllowed(wb, sheetName, headers);
+  // rules learned from marketplace QC error files (e.g. Fullfilment by ∈ FA|seller|SellerSmart) — exact spelling wins
+  try { const learned = require("./qcLearn").rulesFor(marketplace); for (const k of Object.keys(learned)) allowed[k] = learned[k]; } catch {}
   const ws = wb.Sheets[sheetName];
   const range = XLSX.utils.decode_range(ws["!ref"]);
   let filledCols = 0;

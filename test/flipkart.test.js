@@ -33,7 +33,7 @@ async function waitJob(cookie, id) {
 }
 
 // a Flipkart-shaped category template: data sheet (row1 headers, rows2-4 metadata, data row5) + Index + a Parent Variant copy
-const HEAD = ["Flipkart Serial Number", "Catalog QC Status", "Seller SKU ID", "Listing Status", "MRP (INR)", "Your selling price (INR)", "Fullfilment by", "Procurement SLA (DAY)", "Stock",
+const HEAD = ["Flipkart Serial Number", "Catalog QC Status", "QC Failed Reason (if any)", "Seller SKU ID", "Listing Status", "MRP (INR)", "Your selling price (INR)", "Fullfilment by", "Procurement SLA (DAY)", "Stock",
   "Length (CM)", "Breadth (CM)", "Height (CM)", "Weight (KG)", "HSN", "Country Of Origin", "Manufacturer Details", "Packer Details", "Tax Code", "Brand", "Designed For", "Type", "Features",
   "Items Included", "Suitable For", "Model Number", "Brand Color", "Pack of", "Main Image URL", "Other Image URL 1", "Model Name", "Applied on", "Description", "Search Keywords", "Key Features", "Color", "Supplier Image"];
 function makeTemplate() {
@@ -79,7 +79,7 @@ function makeTemplate() {
     const run1 = await waitJob(A, (await req("POST", "/api/jobs", { cookie: A, body: { type: "bulk_pipeline", input: { fileId: sheet, marketplace: "flipkart", templateId: tpl.json.template.id } } })).json.job.id);
     ok("without defaults: export blocked, not a broken file", run1.status === "COMPLETED" && run1.result.ready === 2 && !run1.result.exportId && run1.result.exportBlocked === true);
 
-    const defs = { listingStatus: "Active", fulfilmentBy: "Seller", procurementSla: "1", stock: "50", lengthCm: "18", breadthCm: "10", heightCm: "1", weightKg: "0.05", hsn: "70071900", taxCode: "GST_18",
+    const defs = { listingStatus: "Active", fulfilmentBy: "SELLER", procurementSla: "1", stock: "50", lengthCm: "18", breadthCm: "10", heightCm: "1", weightKg: "0.05", hsn: "70071900", taxCode: "GST_18",
       countryOfOrigin: "India", manufacturerDetails: "TRUSTin, Jaipur 302001", packerDetails: "TRUSTin, Jaipur 302001", itemsIncluded: "1 Tempered Glass", packOf: "1", brandColor: "Transparent", color: "Transparent" };
     const iss = (run1.result.exportIssues || []).find(x => x.sku === "RN14-TG");
     ok("blocked result names exactly the missing columns", !!iss && iss.errors.some(e => /"HSN"/.test(e)) && iss.errors.some(e => /"Tax Code"/.test(e)) && !iss.errors.some(e => /Main Image|Designed For|"Type"|"Features"/.test(e)));
@@ -109,7 +109,30 @@ function makeTemplate() {
     const fset = (v) => String(v).split("::").sort().join("|");
     ok("features = sheet values ∪ text-supported picks, nothing else", fset(get(r1, "Features")) === "Air-bubble Proof|Anti Fingerprint|Scratch Resistant" && get(r2, "Features") === "Scratch Resistant");
     ok("Flipkart-owned columns left alone", get(r1, "Flipkart Serial Number") === "" && get(r1, "Catalog QC Status") === "" && get(r1, "Supplier Image") === "");
+    ok("fulfilment written in Flipkart's exact spelling (SELLER → seller)", get(r1, "Fullfilment by") === "seller");
     ok("multi-values use Flipkart's :: separator", /::/.test(get(r1, "Key Features") + get(r1, "Search Keywords")));
+
+    console.log("Learn from Flipkart's QC error file:");
+    // simulate Flipkart's error file: our filled file, with a wrong value + Flipkart's per-row reasons
+    const ew = XLSX.read(file); const es = ew.Sheets.screen_guard;
+    const colOf = (name) => H.indexOf(name);
+    const setCell = (r, name, v) => { es[XLSX.utils.encode_cell({ r, c: colOf(name) })] = { t: "s", v }; };
+    setCell(4, "Fullfilment by", "SELLER"); setCell(5, "Fullfilment by", "SELLER"); setCell(5, "Type", "Glass Thing");
+    setCell(4, "Catalog QC Status", "Failed"); setCell(5, "Catalog QC Status", "Failed");
+    const NL = String.fromCharCode(10);
+    setCell(4, "QC Failed Reason (if any)", "1 error(s) found" + NL + "1. [fulfilled_by]: Invalid value given for attribute: service_profile. Allowed values are: FA,seller,SellerSmart" + NL);
+    setCell(5, "QC Failed Reason (if any)", "2 error(s) found" + NL + "1. [fulfilled_by]: Invalid value given for attribute: service_profile. Allowed values are: FA,seller,SellerSmart" + NL + "2. [type]: Invalid value. Allowed values are: Tempered Glass,Screen Guard" + NL);
+    const errBuf = XLSX.write(ew, { type: "buffer", bookType: "biff8" });
+    const efid = await upload(A, "C_screen-guard_ERRREQ.xls", "application/vnd.ms-excel", errBuf);
+    const fx = await req("POST", "/api/qc/fix", { cookie: A, body: { fileId: efid, marketplace: "flipkart" } });
+    ok("error file read: 3 errors, 2 fixed, 1 left for the seller", fx.status === 200 && fx.json.report.errors === 3 && fx.json.report.fixed === 2 && fx.json.report.unfixed === 1);
+    ok("rule learned (Fullfilment by = FA/seller/SellerSmart)", fx.json.report.learned.some(l => l.column === "Fullfilment by" && l.allowed.includes("seller")));
+    ok("unsafe value is NOT guessed ('Glass Thing' left for the seller with allowed list)", fx.json.report.items[1].open.some(o => /Type/.test(o.column) && o.allowed.includes("Tempered Glass")));
+    const fixedRes = await fetch(fx.json.downloadUrl.startsWith("http") ? fx.json.downloadUrl : BASE + fx.json.downloadUrl);
+    ok("corrected file keeps the marketplace's file name", (fixedRes.headers.get("content-disposition") || "").includes("filename=\"C_screen-guard_ERRREQ.xls\"") && /./.test(fixedRes.headers.get("content-disposition") || ""));
+    const fr = XLSX.utils.sheet_to_json(XLSX.read(Buffer.from(await fixedRes.arrayBuffer())).Sheets.screen_guard, { header: 1, defval: "" });
+    ok("cells fixed + QC verdict cleared on fully-fixed rows", fr[4][colOf("Fullfilment by")] === "seller" && fr[4][colOf("Catalog QC Status")] === "" && fr[5][colOf("Catalog QC Status")] === "Failed");
+    ok("B cannot run A's error file", (await req("POST", "/api/qc/fix", { cookie: B, body: { fileId: efid } })).status === 400);
   } catch (e) { fail++; console.error("Harness error:", e); }
   finally { cleanup(); console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }
 })();
