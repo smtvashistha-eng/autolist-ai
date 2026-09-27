@@ -83,26 +83,83 @@ function normalizeResult(j) {
   return j;
 }
 const SOURCES = new Set(["provided", "generated_from_confirmed_data", "ai_generated", "missing"]);
+// ---- live AI writer: DECIDE (Jev / rules) → WRITE (Claude, words only) → CHECK (Jev) → targeted fix ----
+// Claude never outputs facts or flags — facts are filled here from the seller's data (provided or "missing"), so
+// nothing can be invented and the schema can't break. Short keys + a compact brief cut tokens roughly in half.
+const WRITER_RULES = "You write marketplace product listings. Use ONLY the facts in \"p\" and the decided attributes in \"a\" — never add materials, certifications, warranty, dimensions, compatibility or claims that are not there. No superlatives (best, No.1, 100%, guaranteed, lifetime). Output ONLY minified JSON: {\"t\":title,\"b\":[bullets],\"d\":description,\"k\":[search phrases]}. Title ≤ L chars, brand first. Bullets: benefit-led, each ≤ 200 chars. Description: 80-140 words, plain text. Keywords: 6-10 lowercase phrases, no other brand names.";
+function brief(input, issues) {
+  const p = input.product || {};
+  const keep = ["productName", "brand", "category", "color", "size", "material", "designedFor", "packOf", "model", "sku"];
+  const facts = {};
+  for (const k of keep) if (p[k] != null && String(p[k]).trim()) facts[k] = String(p[k]).trim().slice(0, 160);
+  const feats = (Array.isArray(p.features) ? p.features : []).map(x => String(x).trim()).filter(Boolean).slice(0, 8);
+  if (feats.length) facts.features = feats;
+  const bp = input.brandProfile || {};
+  const style = {};
+  if (bp.tone) style.tone = bp.tone;
+  if (bp.audience) style.audience = String(bp.audience).slice(0, 80);
+  if (bp.style && bp.style.bulletCount) style.bullets = bp.style.bulletCount;
+  if (bp.prohibitedClaims && bp.prohibitedClaims.length) style.avoid = bp.prohibitedClaims.slice(0, 12);
+  if (bp.preferredKeywords && bp.preferredKeywords.length) style.prefer = bp.preferredKeywords.slice(0, 8);
+  if (bp.instructions) style.note = String(bp.instructions).slice(0, 200);
+  const decided = {};
+  for (const [k, v] of Object.entries(p.picks || {})) if (v && (!Array.isArray(v) || v.length)) decided[k] = v;
+  const out = { mk: input.marketplace || "amazon", L: (input.limits && input.limits.title) || TITLE_MAX[input.marketplace] || 200, p: facts };
+  if (Object.keys(decided).length) out.a = decided;
+  if (Object.keys(style).length) out.s = style;
+  if (input.userInstructions) out.u = String(input.userInstructions).slice(0, 300);
+  if (issues && issues.length) out.fix = issues;
+  return JSON.stringify(out);
+}
+// assemble the strict REST result: AI text + facts from the seller (never from the model)
+function assemble(j, input) {
+  const p = input.product || {};
+  const clean = (x) => String(x == null ? "" : x).replace(/\s+/g, " ").trim();
+  const L = (input.limits && input.limits.title) || TITLE_MAX[input.marketplace] || 200;
+  let title = clean(j.t); if (title.length > L) title = truncate(title, L);
+  const bullets = (Array.isArray(j.b) ? j.b : String(j.b || "").split("\n")).map(clean).filter(Boolean).slice(0, 7);
+  const kw = (Array.isArray(j.k) ? j.k : String(j.k || "").split(",")).map(x => clean(x).toLowerCase()).filter(Boolean).slice(0, 12);
+  const fields = [], missingFields = [], warnings = [];
+  if (p.brand) fields.push(field("brand", String(p.brand), "provided", 1, false)); else { fields.push(field("brand", "", "missing", 0, true)); missingFields.push("brand"); }
+  fields.push(field("title", title, "ai_generated", 0.9, false));
+  fields.push(field("bullets", bullets.join("\n"), "ai_generated", 0.9, false));
+  fields.push(field("description", clean(j.d), "ai_generated", 0.9, false));
+  fields.push(field("keywords", kw.join(", "), "ai_generated", 0.85, false));
+  for (const fk of FACTUAL) {
+    const v = p[fk];
+    if (v !== undefined && v !== null && String(v).trim()) fields.push(field(fk, String(v), "provided", 1, false));
+    else { fields.push(field(fk, "", "missing", 0, true)); missingFields.push(fk); }
+  }
+  if (!title || !bullets.length || !clean(j.d)) throw new Error("writer returned empty text");
+  if (bullets.some(x => CLAIMY.test(x)) || CLAIMY.test(title)) warnings.push("A promotional claim slipped into the text — please review.");
+  return { fields, warnings, missingFields };
+}
 const anthropicProvider = {
-  name: "llm", get model() { return (llm.available()[0] || "none"); }, promptVersion: "p1",
+  name: "llm", get model() { return (llm.available()[0] || "none"); }, promptVersion: "p2-lean",
   async generateListing(input) {
-    const sys = "You write e-commerce listings. Return ONLY JSON matching {fields:[{name,value,sourceType,confidence,needsConfirmation}],warnings:[],missingFields:[]}. " +
-      "sourceType is one of provided|generated_from_confirmed_data|ai_generated|missing. NEVER invent factual fields (" + FACTUAL.join(", ") + "); if not provided, set value \"\", sourceType \"missing\", needsConfirmation true and add to missingFields.";
-    const sysBrand = input.brandProfile ? " Follow the seller's brandProfile: write in its tone, match its style (bullet style/count, example title), prefer its keywords, obey its instructions, and NEVER use any of its prohibitedClaims." : "";
-    // only what the writer needs — no image links / raw sheet columns (they bloat the prompt and truncate the answer)
-    const { images, extra, picks, picksSource, ...lean } = input.product || {};
-    const user = JSON.stringify({ product: lean, marketplace: input.marketplace, category: input.category, limits: input.limits, brandProfile: input.brandProfile || null, userInstructions: input.userInstructions || null, doNotInvent: FACTUAL });
-    let lastErr = "";
+    const jev = require("./jev");
+    const biz = input.businessId || null;
+    let issues = null, lastErr = "", best = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const out = await llm.chat({ system: sys + sysBrand + FORMAT, user, maxTokens: 4000, biz: input.businessId || null });
-        const json = normalizeResult(llm.parseJSON(out.text));
-        const check = validateGenerationResult(json);
-        if (!check.ok) { lastErr = "schema: " + check.errors.join("; "); continue; } // retry once
-        json._provider = out.provider; json._model = out.model;
-        return json;
+        const out = await llm.chat({ system: WRITER_RULES, user: brief(input, issues), maxTokens: 1200, biz });
+        const res = assemble(llm.parseJSON(out.text), input);
+        res._provider = out.provider; res._model = out.model;
+        // CHECK with Jev; rewrite once, only when it finds a concrete problem
+        await jev.review(res, { marketplace: input.marketplace, product: input.product || {}, categories: (input.brandProfile && input.brandProfile.categories) || [], biz });
+        best = res;
+        const found = [];
+        if (res.quality && res.quality.score < 50) found.push("quality is low: be more specific about the product and its use");
+        for (const w of res.warnings || []) {
+          if (/unsupported claim|superlative/i.test(w)) found.push("remove any superlative or unsupported claim");
+          if (/title may not match/i.test(w)) found.push("the title must clearly name this exact product");
+        }
+        if (!found.length || attempt === 1) return res;
+        issues = [...new Set(found)];
+        lastErr = "jev: " + issues.join("; ");
       } catch (e) { lastErr = String(e.message || e); }
     }
+    if (best) return best;
     // never surface malformed AI output — fall back to the deterministic provider
     const fallback = await templateProvider.generateListing(input);
     fallback.warnings = [...(fallback.warnings || []), "AI provider returned unusable output (" + lastErr + "); used the safe generator instead."];
@@ -114,4 +171,4 @@ const anthropicProvider = {
 function getTextProvider() {
   return llm.enabled() ? anthropicProvider : templateProvider;
 }
-module.exports = { getTextProvider, templateProvider, anthropicProvider, normalizeResult, FACTUAL, TITLE_MAX };
+module.exports = { getTextProvider, templateProvider, anthropicProvider, normalizeResult, brief, assemble, WRITER_RULES, FACTUAL, TITLE_MAX };

@@ -29,8 +29,15 @@ const mock = http.createServer((q, s) => {
     if (q.url === "/v1/messages") { hits.claude++; hits.keys.push(q.headers["x-api-key"]); s.writeHead(529); return s.end("{}"); }   // Claude overloaded
     if (q.url.includes(":generateContent")) {
       hits.gemini++; hits.keys.push(q.headers["x-goog-api-key"]);
+      const g = JSON.parse(body.toString()); hits.geminiReqs = (hits.geminiReqs || []).concat([g]);
+      const sys = ((g.systemInstruction || {}).parts || [{}])[0].text || "";
+      // lean writer (bulk/REST) answers with short keys; the Create Listing writer uses its own named keys
+      const answer = /You write marketplace product listings/.test(sys)
+        ? { t: "TRUSTin Tempered Glass for iPhone 15 - 9H Hardness", b: ["9H HARDNESS - resists scratches", "BUBBLE-FREE - easy install"], d: "Tempered glass guard for iPhone 15.", k: ["iphone 15 screen guard", "tempered glass"] }
+        : /product-listing writer/.test(sys) ? { title: "TRUSTin Tempered Glass for iPhone 15", shortTitle: "TRUSTin Glass iPhone 15", bullets: ["9H hardness"], description: "Tempered glass guard.", keywords: ["iphone 15 screen guard"] }
+        : listing;
       s.writeHead(200, { "content-type": "application/json" });
-      return s.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(listing) }] } }], usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 400 } }));
+      return s.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(answer) }] } }], usageMetadata: { promptTokenCount: 300, candidatesTokenCount: 200 } }));
     }
     if (q.url === "/v1/systemone") {
       hits.jev++; hits.keys.push(q.headers.authorization);
@@ -101,6 +108,10 @@ async function waitJob(cookie, id) {
     ok("Gemini answered instead", hits.gemini >= 1 && gen.status === 200 && gen.json.result._provider === "gemini");
     ok("listing came from the AI, not the fallback writer", !gen.json.result._fallback && /9H Hardness/.test(gen.json.result.fields.find(f => f.name === "title").value));
     ok("missing facts still flagged, not invented", gen.json.summary.missingFields.includes("material"));
+    const writes = (hits.geminiReqs || []).filter(g => /You write marketplace product listings/.test(g.systemInstruction.parts[0].text));
+    const fixCall = writes.find(g => /"fix":/.test(g.contents[0].parts[0].text));
+    ok("Jev-flagged listing gets exactly one targeted rewrite with the reason", writes.length === 2 && fixCall && /superlative|quality is low/.test(fixCall.contents[0].parts[0].text));
+    ok("writer prompt is compact (no schema essay, no full brand dump)", writes[0].contents[0].parts[0].text.length < 700 && !/sourceType|needsConfirmation|doNotInvent/.test(writes[0].contents[0].parts[0].text));
 
     console.log("Jev decisions (quality / claims / category):");
     ok("Jev sent the official request shape", hits.jevReq && hits.jevReq.model === "jev-latest" && hits.jevReq.questions.quality.type === "score" && hits.jevReq.questions.quality.criteria.length === 5 && hits.jevReq.state.listing.title.length > 0);

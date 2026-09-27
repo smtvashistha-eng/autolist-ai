@@ -35,6 +35,7 @@ const QUALITY_LEVELS = [
 // advisory review of a generated REST listing result ({fields:[...],warnings,missingFields}); mutates + returns it
 async function review(result, { marketplace = "amazon", product = {}, categories = [], biz = null } = {}) {
   if (!enabled() || !result || !Array.isArray(result.fields)) return result;
+  if (result.quality && result.quality.by === "jev") return result;   // already checked inside the writer — don't pay twice
   const val = (n) => ((result.fields.find(f => f.name === n) || {}).value) || "";
   const state = { marketplace, product: { name: product.productName || product.name || "", brand: product.brand || "", category: product.category || "" },
     listing: { title: val("title"), bullets: val("bullets"), description: String(val("description")).slice(0, 2000), keywords: val("keywords") } };
