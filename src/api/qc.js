@@ -13,9 +13,9 @@ router.post("/qc/fix", auth.requireAuth, (req, res) => {
   if (!f) return res.status(400).json({ error: "Upload the error file first." });
   if (!["xls", "xlsx"].includes(f.ext)) return res.status(400).json({ error: "The error file must be the .xls/.xlsx you downloaded from the marketplace." });
   try {
-    const q = require("../qcLearn").fixErrorFile(storage.readBuffer(f.storage_key), marketplace, "seller-upload");
+    const q = require("../qcLearn").fixErrorFile(storage.readBuffer(f.storage_key), marketplace, "seller-upload", biz);
     const outId = require("../exporter").storeFile(biz, req.user.id, q.buffer, q.ext, q.ext === "xls" ? "application/vnd.ms-excel" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f.original_name, "qc_fixed");
-    audit.record({ businessId: biz, userId: req.user.id, action: "qc.fix", resourceType: "file", resourceId: outId, metadata: { marketplace, fixed: q.report.fixed, open: q.report.unfixed }, ip: audit.ipOf(req) });
+    audit.record({ businessId: biz, userId: req.user.id, action: "qc.fix", resourceType: "file", resourceId: outId, metadata: { marketplace, fixed: q.report.fixed, open: q.report.unfixed, duplicates: q.report.duplicates }, ip: audit.ipOf(req) });
     res.json({ report: q.report, fileName: f.original_name, downloadUrl: storage.signedUrl(outId, 600) });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });

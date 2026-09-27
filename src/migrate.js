@@ -429,6 +429,18 @@ const MIGRATIONS = [
       db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
     },
   },
+  // ---- products the seller already has live on a marketplace (learned from duplicate QC errors) ----
+  {
+    v: 31, name: "seller_listings",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS seller_listings(
+        business_id TEXT NOT NULL REFERENCES businesses(id), marketplace TEXT NOT NULL, fsn TEXT NOT NULL,
+        sku TEXT, designed_for TEXT, designed_norm TEXT, source TEXT, created_at TEXT,
+        PRIMARY KEY(business_id, marketplace, fsn)
+      )`);
+      db.exec(`CREATE INDEX IF NOT EXISTS ix_sellerlist_model ON seller_listings(business_id, marketplace, designed_norm)`);
+    },
+  },
   // ---- learned marketplace rules (from QC error files): allowed values per template column ----
   {
     v: 30, name: "marketplace_rules",

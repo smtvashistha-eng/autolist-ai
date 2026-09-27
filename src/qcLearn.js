@@ -79,7 +79,24 @@ function rulesFor(marketplace) {
 }
 
 // read a QC error file, learn rules, fix what is safe; returns { buffer, ext, report }
-function fixErrorFile(buffer, marketplace, sourceLabel) {
+// "The product you're trying to list matches an existing product of yours. FSN: X, SKU: Y" → { fsn, sku }
+function parseDuplicate(message) {
+  const m = String(message || "").match(/matches an existing product[\s\S]*?FSN\s*:\s*([A-Z0-9]{8,})\s*,?\s*SKU\s*:\s*([^\s,]+)/i);
+  return m ? { fsn: m[1], sku: m[2] } : null;
+}
+const modelNorm = (s) => String(s || "").toLowerCase().replace(/\(\s*\d+(\.\d+)?\s*(inch|")\s*\)/g, "").replace(/[^a-z0-9]/g, "");
+function rememberListing(biz, marketplace, fsn, sku, designedFor, source) {
+  if (!biz || !fsn) return;
+  db.prepare("INSERT INTO seller_listings(business_id,marketplace,fsn,sku,designed_for,designed_norm,source,created_at) VALUES(?,?,?,?,?,?,?,?)" +
+    " ON CONFLICT(business_id,marketplace,fsn) DO UPDATE SET sku=COALESCE(excluded.sku,sku), designed_for=COALESCE(excluded.designed_for,designed_for), designed_norm=COALESCE(excluded.designed_norm,designed_norm)")
+    .run(biz, marketplace, fsn, sku || null, designedFor || null, designedFor ? modelNorm(designedFor) : null, source || null, nowISO());
+}
+// is this model already live for the seller? → { fsn, sku } or null
+function findExisting(biz, marketplace, designedFor) {
+  const n = modelNorm(designedFor); if (!biz || !n) return null;
+  try { return db.prepare("SELECT fsn, sku FROM seller_listings WHERE business_id=? AND marketplace=? AND designed_norm=?").get(biz, marketplace, n) || null; } catch { return null; }
+}
+function fixErrorFile(buffer, marketplace, sourceLabel, biz) {
   const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
   const tmpl = require("./template");
   const st = tmpl.detectStructure(buffer, marketplace);
@@ -90,7 +107,8 @@ function fixErrorFile(buffer, marketplace, sourceLabel) {
   if (!reasonCol) throw new Error("This doesn't look like a QC error file (no 'QC Failed Reason' column).");
   const range = XLSX.utils.decode_range(ws["!ref"]);
   const cellVal = (r, c) => { const x = ws[XLSX.utils.encode_cell({ r, c })]; return x ? x.v : ""; };
-  const report = { rows: 0, errors: 0, fixed: 0, unfixed: 0, learned: [], items: [] };
+  const report = { rows: 0, errors: 0, fixed: 0, unfixed: 0, duplicates: 0, learned: [], items: [] };
+  const designedCol = headers.find(h => norm(h.name) === "designedfor");
   const learned = new Set();
   for (let r = st.dataStart - 1; r <= range.e.r; r++) {
     const reason = cellVal(r, reasonCol.col);
@@ -100,9 +118,15 @@ function fixErrorFile(buffer, marketplace, sourceLabel) {
     const errs = parseReason(reason);
     if (!errs.length) continue;
     const row = []; for (let c = 0; c <= range.e.c; c++) row[c] = cellVal(r, c);
-    const item = { sku, fixes: [], open: [] };
+    const item = { sku, fixes: [], open: [], duplicate: null };
     for (const e of errs) {
       report.errors++;
+      const dup = parseDuplicate(e.message);
+      if (dup) {   // already live — not fixable in the file; remember it so future runs skip this model
+        item.duplicate = dup; report.duplicates++;
+        rememberListing(biz, marketplace, dup.fsn, dup.sku, designedCol ? String(row[designedCol.col] || "") : "", "qc-duplicate");
+        continue;
+      }
       const h = locateColumn(headers, row, e, rulesFor(marketplace));
       if (h && e.allowed.length) {
         if (!learned.has(h.name)) { learnRule(marketplace, h.name, e.allowed, sourceLabel); learned.add(h.name); report.learned.push({ column: h.name, allowed: e.allowed }); }
@@ -126,4 +150,4 @@ function fixErrorFile(buffer, marketplace, sourceLabel) {
   return { buffer: out, ext: isXls ? "xls" : "xlsx", report };
 }
 
-module.exports = { parseReason, snapTo, locateColumn, similar, learnRule, rulesFor, fixErrorFile, norm };
+module.exports = { parseDuplicate, findExisting, rememberListing, modelNorm, parseReason, snapTo, locateColumn, similar, learnRule, rulesFor, fixErrorFile, norm };

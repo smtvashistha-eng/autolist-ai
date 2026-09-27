@@ -174,6 +174,15 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   // split ready vs needs-fix, export only the ready ones
   ctx.stage("Validating");
   const rep = exporter.validateDrafts(biz, draftIds, marketplace, null);
+  // skip products the seller already has live on this marketplace (learned from earlier duplicate QC errors)
+  const qcl = require("./qcLearn"), alreadyLive = [];
+  for (const it of rep.items) {
+    if (!it.valid) continue;
+    const d = db.prepare("SELECT p.normalized_data_json FROM listing_drafts d JOIN products p ON p.id=d.product_id WHERE d.id=?").get(it.draftId);
+    const n = d ? (JSON.parse(d.normalized_data_json || "{}") || {}) : {};
+    const hit = qcl.findExisting(biz, marketplace, n.designedFor);
+    if (hit) { it.valid = false; it.blockingErrors = [...(it.blockingErrors || []), { code: "ALREADY_LIVE", message: `Already live on ${marketplace} as FSN ${hit.fsn}${hit.sku ? " (your SKU " + hit.sku + ")" : ""} — duplicates are rejected, so it was left out of the file.` }]; alreadyLive.push({ sku: it.sku, fsn: hit.fsn }); }
+  }
   const readyIds = rep.items.filter(it => it.valid).map(it => it.draftId);
   const needsFix = rep.items.filter(it => !it.valid).map(it => ({ draftId: it.draftId, sku: it.sku, errors: it.blockingErrors.map(e => e.message) }));
 
@@ -188,7 +197,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   }
   const quality = qualities.length ? { by: "jev", avg: Math.round(qualities.reduce((a, q) => a + q.score, 0) / qualities.length), low: qualities.filter(q => q.score < 50).slice(0, 50) } : null;
   const imageMatch = imgMap ? { skusWithImages: Object.keys(imgMap).length, matched: imgMap.__matched.size, unmatchedSkus: Object.keys(imgMap).filter(k => !imgMap.__matched.has(k)).slice(0, 50) } : null;
-  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality };
+  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality, alreadyLive };
 });
 
 // ---- image_zip (R2): unzip product photos -> validate -> host publicly -> record SKU links ----

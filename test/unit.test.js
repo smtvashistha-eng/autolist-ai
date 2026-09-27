@@ -75,6 +75,18 @@ try {
   const hdrs = [{ col: 0, name: "Seller SKU ID" }, { col: 1, name: "Fullfilment by" }, { col: 2, name: "Procurement type" }];
   const col = q.locateColumn(hdrs, ["X-1", "seller", "instock"], q.parseReason("1. [fulfilled_by]: Invalid value given for attribute: service_profile. Allowed values are: FA,seller,SellerSmart")[0], rules);
   ok("a rejected lowercase 'seller' is still traced to 'Fullfilment by'", col && col.name === "Fullfilment by");
+  console.log("Duplicate learning (Flipkart 'matches an existing product of yours'):");
+  const dmsg = "The product you're trying to list matches an existing product of yours.\nFSN: ACCHQEZSBBVKCEKP,  SKU: asusvivobook162025-16-L-019\nListing duplicate products is not permitted";
+  const dd = q.parseDuplicate(dmsg);
+  ok("FSN + SKU read from the duplicate error", dd && dd.fsn === "ACCHQEZSBBVKCEKP" && dd.sku === "asusvivobook162025-16-L-019");
+  ok("other errors are not mistaken for duplicates", q.parseDuplicate("Invalid value given for attribute: service_profile") === null);
+  const { db: udb } = require("../src/db"), now = new Date().toISOString();
+  udb.prepare("INSERT INTO businesses(id,name,type,country,currency,default_language,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)").run("biz_dup", "Dup", "seller", "IN", "INR", "en", now, now);
+  q.rememberListing("biz_dup", "flipkart", dd.fsn, dd.sku, "Asus VivoBook 16 (2025) (16 inch)", "qc-duplicate");
+  const hit = q.findExisting("biz_dup", "flipkart", "ASUS Vivobook 16 (2025)");
+  ok("remembered model is found again (size/case/spacing ignored)", hit && hit.fsn === "ACCHQEZSBBVKCEKP");
+  ok("a different model is not flagged", q.findExisting("biz_dup", "flipkart", "Asus VivoBook 15 (2025)") === null);
+  ok("another marketplace is not flagged", q.findExisting("biz_dup", "amazon", "Asus VivoBook 16 (2025)") === null);
   ok("defaults offer 'Seller' first", require("../src/listingDefaults").fieldsFor("flipkart").find(x => x.key === "fulfilmentBy").def === "Seller");
 } catch (e) { fail++; console.error("Harness error:", e); }
 finally { for (const s of ["", "-wal", "-shm"]) { try { fs.unlinkSync(process.env.AUTOLIST_DB + s); } catch {} } console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }
