@@ -205,7 +205,7 @@ function navItems(activePath) {
   for (const [label, href, path, live, group] of NAV) {
     if (group !== lastG) { out += `<div class="nlbl">${group}</div>`; lastG = group; }
     const on = href === activePath || (href !== "/app" && activePath.startsWith(href));
-    out += `<a class="nav ${on ? "on" : ""}" href="${href}">${ic(path)} <span>${label}</span></a>`;
+    out += `<a class="nav ${on ? "on" : ""}" href="${href}" data-tour="${href}">${ic(path)} <span>${label}</span></a>`;
   }
   return out;
 }
@@ -270,14 +270,19 @@ function shell(user, activePath, body) {
       <button class="hamb" id="hamb" aria-label="Open menu">${ic("M3 12h18M3 6h18M3 18h18")}</button>
       <h2 class="ptitle">${esc(title)}</h2>
       <div class="abr">
+        ${(() => { const v = require("./tutorials").forPath(activePath); return v
+          ? `<button class="btn-video" type="button" id="videoBtn" data-vid="${esc(v.id)}" data-vlabel="${esc(v.label)}"><span class="play"></span><span class="vlbl">Watch how</span></button>`
+          : (isAdmin(user) ? `<a class="btn-video" href="/admin/videos" title="Add a tutorial video for this page"><span class="play" style="opacity:.45"></span><span class="vlbl">Add video</span></a>` : ""); })()}
+        <button class="tasks-btn" type="button" id="tasksBtn" aria-label="Background tasks" title="Background tasks">${ic("M4 6h16M4 12h16M4 18h10")}<span class="tbadge" id="tbadge" hidden>0</span></button>
         <a class="btn pri" href="/app/create">${ic("M12 5v14M5 12h14")} <span class="hide-sm">New Listing</span></a>
         <div class="umenu">
-          <button class="me" id="meBtn" aria-haspopup="true" aria-label="Account menu">${initials}</button>
+          <button class="pchip" id="meBtn" aria-haspopup="true" aria-label="Account menu"><span class="me">${initials}</span><span class="pc-name">${esc(user.name || user.email || "Account")}</span><span class="pc-plan">· ${planName}</span><span class="pc-car">${ic("M6 9l6 6 6-6")}</span></button>
           <div class="umenu-pop" id="mePop">
             <div class="um-head"><b>${esc(user.name || "Account")}</b><span>${esc(user.email || "")}</span>
               <span class="um-biz">${esc(biz.name || "")}</span></div>
             ${isAdmin(user) ? `<a class="um-i" href="/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin</a>` : ""}
             <a class="um-i" href="/app/billing">${ic("M2 5h20v14H2z")} Billing &amp; plan</a>
+            <button class="um-i" type="button" id="tourBtn">${ic("M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z")} Take the tour</button>
             <a class="um-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help</a>
             <form method="POST" action="/logout" style="margin:0"><button class="um-i um-out" type="submit">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9")} Log out</button></form>
           </div>
@@ -285,6 +290,10 @@ function shell(user, activePath, body) {
       </div>
     </div>
     <div class="content"><div class="cwrap">${body}</div></div>
+    <aside class="tpanel" id="tpanel" hidden aria-label="Background tasks"><div class="tp-head"><b>Background tasks</b><span class="tp-act">
+      <button type="button" id="texpand" title="Open Jobs page">${ic("M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7")}</button>
+      <button type="button" id="tclear" title="Clear finished">${ic("M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14")}</button>
+      <button type="button" id="tclose" title="Close">${ic("M18 6L6 18M6 6l12 12")}</button></span></div><div class="tp-body" id="tbody"></div></aside>
   </div>
 </div>
 <script>
@@ -297,6 +306,115 @@ function shell(user, activePath, body) {
   var mb=document.getElementById('meBtn'),mp=document.getElementById('mePop');
   if(mb)mb.onclick=function(e){e.stopPropagation();mp.classList.toggle('show');};
   document.addEventListener('click',function(){if(mp)mp.classList.remove('show');});
+  // ---- "Watch how" video modal (YouTube, privacy-enhanced embed) ----
+  function openVideo(id,label){
+    var m=document.createElement('div');m.className='mdl';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
+    m.innerHTML='<div class="mdl-box"><div class="mdl-head"><b></b><button class="mdl-x" aria-label="Close">×</button></div><div class="mdl-vid"><iframe allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div></div>';
+    m.querySelector('b').textContent=label||'How it works';
+    m.querySelector('iframe').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?autoplay=1&rel=0&modestbranding=1';
+    function close(){m.remove();document.removeEventListener('keydown',onKey);}
+    function onKey(e){if(e.key==='Escape')close();}
+    m.addEventListener('click',function(e){if(e.target===m)close();});m.querySelector('.mdl-x').onclick=close;document.addEventListener('keydown',onKey);
+    document.body.appendChild(m);m.querySelector('.mdl-x').focus();
+  }
+  window.alOpenVideo=openVideo;
+  var vb=document.getElementById('videoBtn'); if(vb)vb.onclick=function(){openVideo(vb.getAttribute('data-vid'),vb.getAttribute('data-vlabel'));};
+  document.querySelectorAll('[data-open-video]').forEach(function(b){b.onclick=function(){openVideo(b.getAttribute('data-open-video'),b.getAttribute('data-vlabel'));};});
+  // ---- guided tour (first login, or from the account menu) ----
+  var UID=${JSON.stringify(String(user.id || ""))}, TKEY='al_tour_v1_'+UID;
+  var STEPS=[
+    {t:'Welcome to AutoList AI \u{1F44B}',p:'A 60-second tour of how to turn your products into ready-to-upload marketplace listings. You can restart it any time from your profile menu.'},
+    {sel:'[data-tour="/app/brand"]',t:'1 · Tell us about your brand',p:'Brand Memory keeps your tone and rules. Marketplace defaults hold facts you enter once — stock, package size, HSN, tax, manufacturer. We never guess these.'},
+    {sel:'[data-tour="/app/wizard"]',t:'2 · Guided Bulk — the fastest way',p:'Upload a product sheet, a photo ZIP and the marketplace sample file. We write every listing, check quality, and fill that exact file for you.'},
+    {sel:'[data-tour="/app/create"]',t:'Just one product?',p:'Create Listing writes a single listing in seconds. Great for testing your style.'},
+    {sel:'[data-tour="/app/listings"]',t:'3 · Review your listings',p:'Every listing gets a quality score. Open any one to see the text, facts, photos and notes — copy with one click.'},
+    {sel:'[data-tour="/app/exports"]',t:'4 · Download & upload',p:'Your upload-ready files live here for 7 days. Upload them to Seller Central without renaming — marketplaces reject renamed templates.'},
+    {sel:'[data-tour="/app/images"]',t:'Photos made easy',p:'Hosted photo links for every SKU, a free white-background prep, and AI studio edits when you need them.'},
+    {sel:'.usage',t:'Your plan at a glance',p:'Listings, hosted photos and AI image credits used this month. Tap to see plans.'},
+    {sel:'#videoBtn',t:'Stuck? Watch how',p:'Pages with a video show this button — a short walkthrough of that screen. Help is always in your profile menu.',skipIfMissing:true},
+    {t:'You’re all set \u{1F680}',p:'Start with Brand & Defaults, then run Guided Bulk. We’ll be right here if you need us.',cta:'Start Guided Bulk',href:'/app/wizard'}
+  ];
+  function startTour(){
+    var steps=STEPS.filter(function(s){return !s.skipIfMissing||document.querySelector(s.sel);});
+    var i=0,dim=document.createElement('div'),spot=document.createElement('div'),card=document.createElement('div');
+    dim.className='tour-dim';spot.className='tour-spot';card.className='tour-card';card.setAttribute('role','dialog');card.setAttribute('aria-live','polite');
+    document.body.appendChild(dim);document.body.appendChild(spot);document.body.appendChild(card);
+    function done(){[dim,spot,card].forEach(function(n){n.remove();});try{localStorage.setItem(TKEY,'1');}catch(e){}document.removeEventListener('keydown',key);window.removeEventListener('resize',place);}
+    function key(e){if(e.key==='Escape')done();if(e.key==='ArrowRight')next();if(e.key==='ArrowLeft'&&i>0){i--;show();}}
+    function next(){if(i<steps.length-1){i++;show();}else{var s=steps[i];done();if(s.href)location.href=s.href;}}
+    function place(){
+      var s=steps[i],el=s.sel&&document.querySelector(s.sel),r=el&&el.getBoundingClientRect(),vis=r&&r.width>0&&r.height>0&&r.left>=0&&r.left<innerWidth;
+      if(vis){spot.style.display='';spot.style.top=(r.top-6)+'px';spot.style.left=(r.left-6)+'px';spot.style.width=(r.width+12)+'px';spot.style.height=(r.height+12)+'px';
+        var cw=card.offsetWidth,ch=card.offsetHeight,left=r.right+18,top=r.top+r.height/2-ch/2;
+        if(left+cw>innerWidth-12){left=Math.max(12,Math.min(innerWidth-cw-12,r.left));top=r.bottom+14;if(top+ch>innerHeight-12)top=r.top-ch-14;}
+        card.style.left=left+'px';card.style.top=Math.max(12,Math.min(innerHeight-ch-12,top))+'px';}
+      else{spot.style.display='none';card.style.left=Math.max(12,innerWidth/2-card.offsetWidth/2)+'px';card.style.top=Math.max(12,innerHeight/2-card.offsetHeight/2)+'px';}
+    }
+    function show(){
+      var s=steps[i],el=s.sel&&document.querySelector(s.sel);
+      if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest'});
+      card.innerHTML='<div class="tstep"></div><h4></h4><p></p><div class="tour-foot"><div class="tour-dots"></div><div style="display:flex;gap:8px;align-items:center"><button class="tour-skip" type="button">Skip</button>'+(i>0?'<button class="btn ghost sm" type="button" data-b>Back</button>':'')+'<button class="btn pri sm" type="button" data-n></button></div></div>';
+      card.querySelector('.tstep').textContent='Step '+(i+1)+' of '+steps.length;card.querySelector('h4').textContent=s.t;card.querySelector('p').textContent=s.p;
+      card.querySelector('[data-n]').textContent=i===steps.length-1?(s.cta||'Finish'):(i===0?'Show me around':'Next');
+      card.querySelector('.tour-dots').innerHTML=steps.map(function(_,k){return '<i class="'+(k===i?'on':'')+'"></i>';}).join('');
+      card.querySelector('[data-n]').onclick=next;card.querySelector('.tour-skip').onclick=done;var b=card.querySelector('[data-b]');if(b)b.onclick=function(){i--;show();};
+      place();card.querySelector('[data-n]').focus();
+    }
+    document.addEventListener('keydown',key);window.addEventListener('resize',place);show();
+  }
+  window.alStartTour=startTour;
+  var tb=document.getElementById('tourBtn');if(tb)tb.onclick=function(e){e.stopPropagation();if(mp)mp.classList.remove('show');startTour();};
+  var seen=false;try{seen=!!localStorage.getItem(TKEY);}catch(e){seen=true;}
+  if(!seen&&location.pathname==='/app'&&innerWidth>760)setTimeout(startTour,600);
+  // ---- Background tasks panel: live running jobs + finished list (like a download/tasks tray) ----
+  (function(){
+    var btn=document.getElementById('tasksBtn'),panel=document.getElementById('tpanel'),badge=document.getElementById('tbadge');
+    if(!btn||!panel)return;
+    var CKEY='al_tasks_cleared_'+UID,LABEL={bulk_pipeline:'Bulk listing',image_zip:'Photos ZIP',product_import:'Product import',bulk_generate:'Bulk generate'};
+    var lastRunning={},timer=null,openFin=false;
+    function clearedAt(){try{return localStorage.getItem(CKEY)||'';}catch(e){return '';}}
+    function esc(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
+    function ago(iso){if(!iso)return '';var s=Math.max(1,Math.round((Date.now()-Date.parse(iso))/1000));if(s<60)return s+'s ago';var m=Math.round(s/60);if(m<60)return m+' min ago';var h=Math.round(m/60);if(h<24)return h+' h ago';return Math.round(h/24)+' d ago';}
+    function summary(j){var r=j.result||{};
+      if(j.type==='bulk_pipeline')return (r.ready!=null?r.ready+' ready':'')+(r.needsFixCount?' · '+r.needsFixCount+' to fix':'')+(r.quality?' · quality '+r.quality.avg:'')+(r.exportBlocked?' · file blocked':'');
+      if(j.type==='image_zip')return (r.uploaded||0)+' photos · '+(r.skus||0)+' SKUs';
+      return (j.completedItems||0)+'/'+(j.totalItems||0)+' done';}
+    function link(j){var r=j.result||{};
+      if(j.type==='bulk_pipeline'&&r.exportId)return '<a class="tk-a" href="/api/exports/'+encodeURIComponent(r.exportId)+'/download">File</a>';
+      if(j.type==='image_zip')return '<a class="tk-a" href="/app/images/hosted?job='+encodeURIComponent(j.id)+'">Links</a>';
+      return '<a class="tk-a" href="/app/jobs">View</a>';}
+    function icon(st){return st==='COMPLETED'?'<span class="tk-ic ok">✓</span>':st==='PARTIALLY_COMPLETED'?'<span class="tk-ic warn">!</span>':st==='FAILED'?'<span class="tk-ic bad">×</span>':st==='CANCELLED'?'<span class="tk-ic">–</span>':'<span class="tk-spin"></span>';}
+    function toast(html){var t=document.createElement('div');t.className='toast';t.innerHTML=html;document.body.appendChild(t);setTimeout(function(){t.classList.add('out');setTimeout(function(){t.remove();},400);},5200);}
+    function render(jobs){
+      var ca=clearedAt(),run=jobs.filter(function(j){return j.status==='QUEUED'||j.status==='RUNNING';}),fin=jobs.filter(function(j){return !(j.status==='QUEUED'||j.status==='RUNNING')&&(!ca||(j.completedAt||j.updatedAt||j.createdAt)>ca);});
+      // notify when something that was running finishes
+      jobs.forEach(function(j){if(lastRunning[j.id]&&!(j.status==='QUEUED'||j.status==='RUNNING')){toast('<b>'+icon(j.status)+' '+esc(LABEL[j.type]||j.type)+' finished</b><span>'+esc(summary(j))+'</span>'+link(j));}});
+      lastRunning={};run.forEach(function(j){lastRunning[j.id]=1;});
+      badge.hidden=!run.length;badge.textContent=run.length;btn.classList.toggle('busy',!!run.length);
+      var h='';
+      if(run.length){h+='<div class="tk-sec">Running '+run.length+'</div>'+run.map(function(j){var p=j.progressPercent||0;
+        return '<div class="tk run"><div class="tk-top">'+icon(j.status)+'<b>'+esc(LABEL[j.type]||j.type)+'</b><span class="tk-pc">'+p+'%</span></div>'+
+          '<div class="tk-bar"><span style="width:'+p+'%"></span></div><div class="tk-sub">'+esc(j.currentStage||'Starting…')+' · '+(j.completedItems||0)+'/'+(j.totalItems||0)+(j.estimatedSecondsRemaining!=null?' · ~'+j.estimatedSecondsRemaining+'s left':'')+'</div></div>';}).join('');}
+      else h+='<div class="tk-empty">Nothing running right now.<br><small>Bulk runs and photo uploads show here with live progress — you can keep working meanwhile.</small></div>';
+      h+='<button class="tk-fin" type="button" id="tkFin"><span>Finished '+fin.length+'</span><span class="tk-car'+(openFin?' open':'')+'">›</span></button>';
+      if(openFin)h+=fin.slice(0,30).map(function(j){return '<div class="tk"><div class="tk-top">'+icon(j.status)+'<b>'+esc(LABEL[j.type]||j.type)+'</b><span class="tk-when">'+ago(j.completedAt||j.updatedAt)+'</span></div><div class="tk-sub">'+esc(summary(j))+(j.error?' · '+esc(String(j.error).slice(0,80)):'')+'</div><div class="tk-links">'+link(j)+'</div></div>';}).join('')||'<div class="tk-empty"><small>No finished tasks.</small></div>';
+      document.getElementById('tbody').innerHTML=h;
+      document.getElementById('tkFin').onclick=function(){openFin=!openFin;render(jobs);};
+      schedule(run.length?3000:(panel.hidden?30000:8000));
+    }
+    function load(){fetch('/api/jobs',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():{jobs:[]};}).then(function(d){render(d.jobs||[]);}).catch(function(){schedule(15000);});}
+    function schedule(ms){clearTimeout(timer);timer=setTimeout(load,ms);}
+    function openP(){panel.hidden=false;requestAnimationFrame(function(){panel.classList.add('in');});load();}
+    function closeP(){panel.classList.remove('in');setTimeout(function(){panel.hidden=true;},200);}
+    btn.onclick=function(e){e.stopPropagation();panel.hidden?openP():closeP();};
+    document.getElementById('tclose').onclick=closeP;
+    document.getElementById('tclear').onclick=function(){try{localStorage.setItem(CKEY,new Date().toISOString());}catch(e){}openFin=false;load();};
+    document.getElementById('texpand').onclick=function(){location.href='/app/jobs';};
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!panel.hidden)closeP();});
+    window.alRefreshTasks=load;
+    load();
+  })();
+
   // prevent double-submit + confirm destructive actions
   document.addEventListener('submit',function(e){
     var f=e.target; if(f.dataset.confirm && !confirm(f.dataset.confirm)){e.preventDefault();return;}
@@ -356,7 +474,11 @@ function adminPage(user, d) {
 }
 function helpPage(user) {
   const q = (t, d) => `<div class="card pad" style="margin-bottom:12px"><b>${esc(t)}</b><p style="color:var(--soft);margin:6px 0 0">${esc(d)}</p></div>`;
-  const body = `<div class="phead"><div><h1>Help &amp; guide</h1><p>How AutoList AI works, in plain steps.</p></div></div>
+  const T = require("./tutorials"), vids = T.all();
+  const lib = T.PAGES.filter(p => T.youtubeId(vids[p.key])).map(p => { const id = T.youtubeId(vids[p.key]);
+    return `<button class="vcard" type="button" data-open-video="${esc(id)}" data-vlabel="${esc(p.label)}"><span class="vc-img"><img loading="lazy" src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt=""><span class="vc-play"></span></span><b>${esc(p.label)}</b></button>`; }).join("");
+  const body = `<div class="phead"><div><h1>Help &amp; guide</h1><p>How AutoList AI works, in plain steps.</p></div><div class="phead-a"><button class="btn pri" type="button" onclick="window.alStartTour&&alStartTour()">Take the tour</button></div></div>
+  ${lib ? `<div class="card pad mb"><b>Video tutorials</b><div class="vgrid">${lib}</div></div>` : ""}
     ${alertBox("info", "AutoList AI never invents product facts. Anything we're unsure about is marked so you can confirm it.")}
     <div style="margin-top:16px">
     ${q("1. Create a listing", "Go to Create Listing for one product, or Bulk Upload for a whole file. Add what you have — we ask only for what's missing.")}

@@ -36,7 +36,7 @@ async function waitJob(cookie, id) {
 
 (async () => {
   const server = spawn(process.execPath, ["--experimental-sqlite", path.join(__dirname, "..", "src", "server.js")],
-    { env: { ...process.env, PORT: String(PORT), AUTOLIST_DB: DB, FILE_STORE_DIR: STORE, SESSION_SECRET: "test-secret", NODE_ENV: "test", AI_PROVIDER: "template", CLOUDINARY_URL: "", SUPABASE_URL: "", JEV_API_KEY: "", PUBLIC_URL: "" }, stdio: ["ignore", "ignore", "inherit"] });
+    { env: { ...process.env, PORT: String(PORT), AUTOLIST_DB: DB, FILE_STORE_DIR: STORE, SESSION_SECRET: "test-secret", NODE_ENV: "test", AI_PROVIDER: "template", CLOUDINARY_URL: "", SUPABASE_URL: "", JEV_API_KEY: "", PUBLIC_URL: "", ADMIN_EMAILS: "boss" + TAG + "@x.in" }, stdio: ["ignore", "ignore", "inherit"] });
   const cleanup = () => { try { server.kill("SIGKILL"); } catch {} for (const f of [DB, DB + "-wal", DB + "-shm"]) { try { fs.unlinkSync(f); } catch {} } try { fs.rmSync(path.dirname(STORE), { recursive: true, force: true }); } catch {} };
   try {
     for (let i = 0; i < 120; i++) { try { if ((await fetch(BASE + "/api/health")).ok) break; } catch {} await new Promise(r => setTimeout(r, 200)); }
@@ -95,6 +95,24 @@ async function waitJob(cookie, id) {
     ok("billing shows 3 usage meters", /AI listings/.test(bp.text) && /Hosted photos/.test(bp.text) && /AI image credits/.test(bp.text));
     ok("4 plans with new prices + most-popular tag", /₹999/.test(bp.text) && /₹2,999/.test(bp.text) && /₹9,999/.test(bp.text) && /MOST POPULAR/.test(bp.text) && /Extra listings ₹5/.test(bp.text));
     ok("sidebar shows AI image meter", /AI images/.test(bp.text));
+
+    console.log("Premium shell: dashboard, tasks panel, profile chip, tour, videos:");
+    const dsh = await req("GET", "/app", { cookie: A });
+    ok("dashboard: next step + getting-started checklist + KPIs + quick actions", /Next step:/.test(dsh.text) && /Get started/.test(dsh.text) && /class="kpis"/.test(dsh.text) && /class="qas"/.test(dsh.text));
+    ok("dashboard shows the bulk draft and its file", dsh.text.includes("/app/drafts/" + did) && dsh.text.includes("/api/exports/" + pj.result.exportId + "/download"));
+    ok("header: background-tasks button + panel + profile chip with plan", /id="tasksBtn"/.test(dsh.text) && /id="tpanel"/.test(dsh.text) && /class="pc-plan">· Free Trial/.test(dsh.text));
+    ok("tour available from the profile menu", /id="tourBtn"/.test(dsh.text) && /alStartTour/.test(dsh.text));
+    ok("no video button for sellers until one is set", !/id="videoBtn"/.test(dsh.text));
+    const ADM = "sid=" + /sid=([^;]+)/.exec((await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "boss" + TAG + "@x.in", password: "pass1234", businessName: "Boss" }) })).headers.get("set-cookie"))[1];
+    ok("non-admin can't open the videos admin", (await req("GET", "/admin/videos", { cookie: A })).status === 403);
+    const badV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://evil.example.com/x.mp4" } });
+    ok("only YouTube links accepted", /err=/.test(badV.location || ""));
+    const okV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://youtu.be/dQw4w9WgXcQ", intro: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" } });
+    ok("admin saves tutorial videos", /ok=/.test(okV.location || ""));
+    const wz = await req("GET", "/app/wizard", { cookie: A });
+    ok("seller sees 'Watch how' on that page (privacy embed id only)", /id="videoBtn" data-vid="dQw4w9WgXcQ"/.test(wz.text) && !/evil.example/.test(wz.text));
+    ok("dashboard shows 'Watch the intro'", /Watch the intro/.test((await req("GET", "/app", { cookie: A })).text));
+    ok("help page lists the video library", /Video tutorials/.test((await req("GET", "/app/help", { cookie: A })).text));
 
     console.log("Isolation:");
     ok("B cannot open A's draft", (await req("GET", `/app/drafts/${did}`, { cookie: B })).location === "/app/listings/bulk");

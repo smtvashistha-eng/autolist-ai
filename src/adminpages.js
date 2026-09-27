@@ -9,6 +9,7 @@ const NAV = [
   ["Marketplaces", "/admin/marketplaces", "M3 9l1-5h16l1 5M4 9v10h16V9"],
   ["Audit log", "/admin/audit-log", "M9 11l3 3L22 4M4 4h9"],
   ["Health", "/admin/health", "M22 12h-4l-3 9L9 3l-3 9H2"],
+  ["Tutorial videos", "/admin/videos", "M15 10l5-3v10l-5-3M3 6h12v12H3z"],
 ];
 function layout(user, active, body) {
   const nav = NAV.map(([label, href, p]) =>
@@ -205,4 +206,18 @@ function healthPage(user, h) {
   </div>`);
 }
 
-module.exports = { dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage };
+function videosPage(user, videos, ok, err) {
+  const T = require("./tutorials");
+  const rows = T.PAGES.map(p => {
+    const v = videos[p.key] || "", id = T.youtubeId(v);
+    return `<div class="vrow"><div class="vthumb">${id ? `<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="">` : "<span>No video</span>"}</div>
+      <label class="dfl" style="flex:1"><span>${esc(p.label)} <small style="font-weight:400;color:var(--faint)">${esc(p.path)}</small></span>
+      <input class="input" name="${p.key}" value="${esc(v)}" placeholder="https://youtu.be/…  (leave empty to hide the button)"></label></div>`;
+  }).join("");
+  return layout(user, "/admin/videos", `
+  <div class="phead"><div><h1>Tutorial videos</h1><p>Paste a YouTube link for any page — sellers see a “Watch how” button in that page's header. Unlisted YouTube videos work too.</p></div></div>
+  ${ok ? `<div class="alert al-good" style="margin-bottom:12px"><span>${esc(ok)}</span></div>` : ""}${err ? `<div class="alert al-err" style="margin-bottom:12px"><span>${esc(err)}</span></div>` : ""}
+  <form class="card pad" method="POST" action="/admin/videos"><div class="vlist">${rows}</div>
+    <div class="formfoot"><span class="muted">Only YouTube links are accepted. Videos play in a privacy-enhanced player.</span><button class="btn pri">Save videos</button></div></form>`);
+}
+module.exports = { dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage, videosPage };

@@ -76,24 +76,7 @@ const cookieOf = (req) => { const c = (req.headers.cookie || "").split(";").map(
 // ---------- authenticated app ----------
 app.use("/app", auth.requireAuth);
 
-app.get("/app", (req, res) => {
-  const biz = req.user.business_id;
-  const cnt = (sql) => db.prepare(sql).get(biz).c;
-  let usageStat = null; try { usageStat = require("./usage").status(biz); } catch { }
-  const recentExports = safe(() => db.prepare("SELECT * FROM exports WHERE business_id=? ORDER BY created_at DESC LIMIT 5").all(biz), []);
-  const recentJobs = safe(() => db.prepare("SELECT * FROM jobs WHERE business_id=? ORDER BY updated_at DESC, created_at DESC LIMIT 5").all(biz), []);
-  const stats = {
-    usage: usageStat,
-    onboarded: require("./brand").isOnboarded(biz),
-    products: cnt("SELECT COUNT(*) c FROM listings WHERE business_id=?"),
-    drafts: db.prepare("SELECT COUNT(*) c FROM listings WHERE business_id=? AND status='draft'").get(biz).c,
-    review: db.prepare("SELECT COUNT(*) c FROM listings WHERE business_id=? AND status='review'").get(biz).c,
-    exports: recentExports.length,
-    recentDrafts: db.prepare("SELECT * FROM listings WHERE business_id=? ORDER BY updated_at DESC, created_at DESC LIMIT 5").all(biz),
-    recentExports, recentJobs,
-  };
-  res.send(pages.dashboard(req.user, stats));
-});
+app.get("/app", (req, res) => res.send(require("./dashboard").dashboardPage(req.user)));
 function safe(fn, dflt) { try { return fn(); } catch { return dflt; } }
 
 // real: My Listings (reads DB, tenant-scoped)
@@ -378,6 +361,14 @@ app.get("/app/admin", (req, res) => res.redirect("/admin"));
 app.use("/admin", auth.requireAuth, auth.requireAdmin);   // all /admin requires admin
 app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity(), siteMode: require("./sitegate").getMode(), ok: req.query.ok, err: req.query.err })));
 // launch switch — typed confirmation required so it can't be flipped by a stray click
+app.get("/admin/videos", (req, res) => res.send(adminUI.videosPage(req.user, require("./tutorials").all(), req.query.ok, req.query.err)));
+app.post("/admin/videos", (req, res) => {
+  try {
+    const saved = require("./tutorials").save(req.body || {}, req.user);
+    try { require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "site.videos", resourceType: "site", resourceId: "videos", metadata: { count: Object.keys(saved).length }, ip: ipOf(req) }); } catch {}
+    res.redirect("/admin/videos?ok=" + encodeURIComponent("Saved " + Object.keys(saved).length + " video(s)."));
+  } catch (e) { res.redirect("/admin/videos?err=" + encodeURIComponent(e.message)); }
+});
 app.post("/admin/site/mode", (req, res) => {
   const want = (req.body || {}).mode === "open" ? "open" : "private";
   if (want === "open" && String((req.body || {}).confirm || "").trim().toUpperCase() !== "LAUNCH") return res.redirect("/admin?err=" + encodeURIComponent('Type LAUNCH to open AutoList AI to everyone.'));

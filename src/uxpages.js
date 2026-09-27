@@ -178,4 +178,4 @@ function defaultsPage(user, marketplace, note, err) {
       <div class="formfoot"><span class="muted">${d.saved ? "Saved — used automatically in Guided Bulk." : "Not saved yet."} Fields marked * are required by ${mk(m)}.</span><button class="btn pri">Save defaults</button></div></form>`);
 }
 
-module.exports = { tabs, listingsSingle, listingsBulk, draftView, exportsFiles, exportsSingle, jobsPage, hostedPhotos, defaultsPage, IMAGE_TABS, BRAND_TABS };
+module.exports = { jparse, when, mk, pill, count, tabs, listingsSingle, listingsBulk, draftView, exportsFiles, exportsSingle, jobsPage, hostedPhotos, defaultsPage, IMAGE_TABS, BRAND_TABS };
