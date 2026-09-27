@@ -56,5 +56,17 @@ try {
   ok("assembled result passes the strict validator", validateGenerationResult(r).ok && fv("keywords").value === "hp pavilion 14 screen guard");
   let threw = false; try { assemble({ t: "", b: [], d: "" }, input); } catch { threw = true; }
   ok("empty AI text is rejected (falls back instead of shipping a blank listing)", threw);
+
+  console.log("Billing: split quotas + plan margins:");
+  const { db } = require("../src/db"); const usage = require("../src/usage"); const plans = require("../src/plans");
+  db.prepare("INSERT INTO businesses(id,name,plan,created_at) VALUES(?,?,?,?)").run("b_unit1", "Unit Biz", "FREE_TRIAL", new Date().toISOString());
+  usage.record("b_unit1", "aiImages", plans.PLANS.FREE_TRIAL.aiImages);
+  ok("AI credits used up → AI blocked…", !usage.canUse("b_unit1", "aiImages"));
+  ok("…but photo hosting and listings still work", usage.canUse("b_unit1", "images") && usage.canUse("b_unit1", "listings"));
+  usage.setPlan("b_unit1", "STARTER");
+  ok("upgrading resets all three meters", usage.status("b_unit1").aiImages.used === 0 && usage.status("b_unit1").aiImages.limit === plans.PLANS.STARTER.aiImages);
+  // measured costs (₹): listing 1.25, hosted photo 0.01, AI image 3.5 → every paid plan keeps ≥ 60% margin at 100% use
+  const margins = plans.list().filter(p => p.price).map(p => ({ id: p.id, m: 1 - (p.listings * 1.25 + p.images * 0.01 + p.aiImages * 3.5) / p.price }));
+  ok("every paid plan ≥ 60% gross margin at full use (" + margins.map(x => x.id + " " + Math.round(x.m * 100) + "%").join(", ") + ")", margins.every(x => x.m >= 0.6));
 } catch (e) { fail++; console.error("Harness error:", e); }
 finally { for (const s of ["", "-wal", "-shm"]) { try { fs.unlinkSync(process.env.AUTOLIST_DB + s); } catch {} } console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }

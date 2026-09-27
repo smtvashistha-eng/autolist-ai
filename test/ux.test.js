@@ -90,6 +90,12 @@ async function waitJob(cookie, id) {
     ok("invalid value → friendly error, nothing saved", /err=/.test(bad.location) && (await req("GET", "/api/listing-defaults/flipkart", { cookie: A })).json.values.taxCode === "GST_18");
     ok("brand page shows the tabs", /Marketplace defaults/.test((await req("GET", "/app/brand", { cookie: A })).text));
 
+    console.log("Billing page:");
+    const bp = await req("GET", "/app/billing", { cookie: A });
+    ok("billing shows 3 usage meters", /AI listings/.test(bp.text) && /Hosted photos/.test(bp.text) && /AI image credits/.test(bp.text));
+    ok("4 plans with new prices + most-popular tag", /₹999/.test(bp.text) && /₹2,999/.test(bp.text) && /₹9,999/.test(bp.text) && /MOST POPULAR/.test(bp.text) && /Extra listings ₹5/.test(bp.text));
+    ok("sidebar shows AI image meter", /AI images/.test(bp.text));
+
     console.log("Isolation:");
     ok("B cannot open A's draft", (await req("GET", `/app/drafts/${did}`, { cookie: B })).location === "/app/listings/bulk");
     ok("B's lists don't show A's data", !/UX-2/.test((await req("GET", "/app/listings/bulk", { cookie: B })).text) && !/UX-2/.test((await req("GET", "/app/images/hosted", { cookie: B })).text) && !(await req("GET", "/app/exports", { cookie: B })).text.includes(pj.result.exportId));

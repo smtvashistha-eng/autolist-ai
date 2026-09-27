@@ -247,12 +247,14 @@ function shell(user, activePath, body) {
   let u; try { u = require("./usage").status(user.business_id); } catch { u = null; }
   const used = u ? u.listings.used : 0, total = u ? u.listings.limit : (biz.listing_credits || 50);
   const imgUsed = u ? u.images.used : 0, imgTot = u ? u.images.limit : 100;
+  const aiUsed = u && u.aiImages ? u.aiImages.used : 0, aiTot = u && u.aiImages ? u.aiImages.limit : 0;
   const planName = esc((u ? u.planName : biz.plan || "Free Trial"));
   const initials = esc((user.name || user.email || "?").slice(0, 2).toUpperCase());
   const pct = (a, b) => Math.min(100, Math.round(a / Math.max(1, b) * 100));
   const usageBlock = `<a class="usage slim" href="/app/billing" title="Usage this month — manage plan">
       <div class="u1"><span>Listings</span><b class="tnum">${used}/${total}</b></div><div class="ubar"><span style="width:${pct(used, total)}%"></span></div>
-      <div class="u1"><span>Images</span><b class="tnum">${imgUsed}/${imgTot}</b></div><div class="ubar"><span style="width:${pct(imgUsed, imgTot)}%"></span></div>
+      <div class="u1"><span>Photos</span><b class="tnum">${imgUsed}/${imgTot}</b></div><div class="ubar"><span style="width:${pct(imgUsed, imgTot)}%"></span></div>
+      <div class="u1"><span>AI images</span><b class="tnum">${aiUsed}/${aiTot}</b></div><div class="ubar"><span style="width:${pct(aiUsed, aiTot)}%"></span></div>
       <div class="planlink">Plan: <b>${planName}</b></div></a>`;
   return head(title + " — AutoList AI") + `
 <div class="app">
@@ -763,31 +765,38 @@ function imageStudio(user, caps) {
 
 // ---- Phase 8: billing ----
 function billingPage(user, u, plans, razorpayOn, notice) {
-  const bar = (x) => `<div class="ubar" style="margin-top:6px"><span style="width:${Math.min(100, Math.round(x.used / x.limit * 100))}%"></span></div>`;
+  const OV = require("./plans").OVERAGE;
+  const meter = (label, hint, x) => {
+    const lim = x ? x.limit : 0, used = x ? x.used : 0, pct = lim ? Math.min(100, Math.round(used / lim * 100)) : 0;
+    return '<div class="bmeter"><div class="bm-top"><span><b>' + label + '</b><small>' + hint + '</small></span><b class="tnum">' + used.toLocaleString() + ' / ' + lim.toLocaleString() + '</b></div>' +
+      '<div class="ubar"><span style="width:' + pct + '%;' + (pct >= 90 ? "background:var(--err)" : pct >= 70 ? "background:var(--warn)" : "") + '"></span></div></div>';
+  };
+  const check = (t) => '<li>' + ic("M5 13l4 4L19 7") + '<span>' + t + '</span></li>';
   const planCards = plans.map(p => {
     const cur = p.id === u.plan;
-    const badge = cur ? '<div style="display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:10px;padding:3px 9px;border-radius:99px">CURRENT</div>' : "";
     const cta = cur
-      ? '<button class="btn ghost" style="width:100%;justify-content:center" disabled>Your plan</button>'
-      : '<form method="POST" action="/app/billing/upgrade" style="margin:0"><input type="hidden" name="plan" value="' + p.id + '"><button class="btn pri" style="width:100%;justify-content:center">' + (p.price ? "Upgrade" : "Switch") + '</button></form>';
-    return '<div class="card pad" style="' + (cur ? "border:2px solid var(--accent)" : "") + '">' + badge +
-      '<div style="font-size:16px;font-weight:800;margin-top:6px">' + esc(p.name) + '</div>' +
-      '<div style="font-size:30px;font-weight:900;margin:4px 0">₹' + p.price.toLocaleString() + '<small style="font-size:13px;color:var(--soft);font-weight:600">/mo</small></div>' +
-      '<div style="color:var(--soft);font-size:13px;margin-bottom:12px">' + p.listings.toLocaleString() + ' listings &middot; ' + p.images.toLocaleString() + ' images / month</div>' +
-      cta + '</div>';
+      ? '<button class="btn ghost bfull" disabled>Your plan</button>'
+      : '<form method="POST" action="/app/billing/upgrade" style="margin:0"><input type="hidden" name="plan" value="' + p.id + '"><button class="btn ' + (p.popular ? "pri" : "ghost") + ' bfull">' + (p.price ? (cur ? "Current" : "Choose " + esc(p.name)) : "Switch") + '</button></form>';
+    return '<div class="bplan' + (cur ? " cur" : "") + (p.popular ? " pop" : "") + '">' +
+      (cur ? '<span class="btag">CURRENT</span>' : p.popular ? '<span class="btag pop">MOST POPULAR</span>' : "") +
+      '<div class="bname">' + esc(p.name) + '</div><div class="bline">' + esc(p.tagline || "") + '</div>' +
+      '<div class="bprice">' + (p.price ? "₹" + p.price.toLocaleString("en-IN") + '<small>/month</small>' : 'Free') + '</div>' +
+      '<ul class="bfeat">' + check('<b>' + p.listings.toLocaleString("en-IN") + '</b> AI listings') + check('<b>' + p.images.toLocaleString("en-IN") + '</b> hosted photos') + check('<b>' + (p.aiImages || 0).toLocaleString("en-IN") + '</b> AI image credits') +
+      check('Bulk + Guided Bulk, marketplace files') + check('Quality check on every listing') + '</ul>' + cta + '</div>';
   }).join("");
-  const planLine = u.price ? " &middot; ₹" + u.price.toLocaleString() + "/mo" : " &middot; free";
-  const noticeHtml = notice ? '<div class="card pad" style="background:var(--good-weak);border-color:transparent;color:var(--good);margin-bottom:16px">' + esc(notice) + '</div>' : "";
-  const rzLine = razorpayOn ? "Secure checkout via Razorpay" : "Razorpay not connected — upgrades run in test mode";
+  const planLine = u.price ? " · ₹" + u.price.toLocaleString("en-IN") + "/month" : " · free";
+  const noticeHtml = notice ? alertBox("good", notice) : "";
+  const rzLine = razorpayOn ? "Secure checkout via Razorpay · cancel any time" : "Payments in test mode — no card is charged";
   const body =
-    '<div class="phead"><div><h1>Billing &amp; Plan</h1><p>Current plan: <b>' + esc(u.planName) + '</b>' + planLine + '</p></div></div>' +
-    noticeHtml +
-    '<div class="card pad" style="margin-bottom:18px"><b>Usage this month</b>' +
-      '<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--soft)">Listings generated</span><b class="tnum">' + u.listings.used.toLocaleString() + ' / ' + u.listings.limit.toLocaleString() + '</b></div>' + bar(u.listings) + '</div>' +
-      '<div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--soft)">Images processed</span><b class="tnum">' + u.images.used.toLocaleString() + ' / ' + u.images.limit.toLocaleString() + '</b></div>' + bar(u.images) + '</div>' +
-    '</div>' +
-    '<div class="phead" style="margin:6px 0 12px"><p style="margin:0;font-weight:700">Plans</p><span style="color:var(--soft);font-size:12.5px">' + rzLine + '</span></div>' +
-    '<div class="qgrid" style="grid-template-columns:repeat(4,1fr)">' + planCards + '</div>';
+    '<div class="phead"><div><h1>Billing &amp; plan</h1><p>Current plan: <b>' + esc(u.planName) + '</b>' + planLine + '</p></div></div>' + noticeHtml +
+    '<div class="card pad mb"><div class="dhead"><b>Usage this month</b><span class="muted">Resets when your plan renews</span></div><div class="bmeters">' +
+      meter("AI listings", "Single + bulk listings written by AI", u.listings) +
+      meter("Hosted photos", "ZIP uploads, white backgrounds, resizing", u.images) +
+      meter("AI image credits", "Background removal, AI studio, prompt-to-image", u.aiImages) +
+    '</div></div>' +
+    '<div class="phead" style="margin:6px 0 12px"><p style="margin:0;font-weight:700">Plans</p><span class="muted">' + rzLine + '</span></div>' +
+    '<div class="bgrid">' + planCards + '</div>' +
+    '<p class="hint">' + ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z") + ' Need more in a month? Extra listings ₹' + OV.listing + ' each · extra AI image credits ₹' + OV.aiImage + ' each (contact us to top up). Prices exclude GST.</p>';
   return shell(user, "/app/billing", body);
 }
 

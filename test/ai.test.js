@@ -136,7 +136,8 @@ async function waitJob(cookie, id) {
     ok("ChatGPT (not Gemini) made it", hits.openai === 1);
     ok("anonymous cannot use image AI", (await req("POST", "/api/image/ai", { body: { op: "generate", prompt: "x y z" } })).status === 401);
     ok("empty prompt rejected", (await req("POST", "/api/image/ai", { cookie: A, body: { op: "generate", prompt: "" } })).status === 400);
-    ok("counted against plan", (await req("GET", "/api/billing/usage", { cookie: A })).json.usage.images.used === 1);
+    const us = (await req("GET", "/api/billing/usage", { cookie: A })).json.usage;
+    ok("AI image counted as an AI credit, not a hosted photo", us.aiImages.used === 1 && us.images.used === 0);
 
     console.log("Supabase image hosting:");
     const JSZip = require("jszip"); const z = new JSZip(); z.file("SK-1_1.png", await new Jimp(200, 200, 0xff0000ff).getBufferAsync(Jimp.MIME_PNG));

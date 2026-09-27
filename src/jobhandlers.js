@@ -209,6 +209,7 @@ queue.register("image_zip", async (job, ctx) => {
   ctx.setTotal(entries.length);
   // R3 prep: "marketplace" (free white 1000x1000) or "remove_bg" (needs key; falls back to marketplace)
   const { applyEdit, canRemoveBg } = require("./ai/imageAIProvider");
+  let aiOut = false;
   let prep = ["marketplace", "remove_bg"].includes((job.input || {}).prep) ? job.input.prep : null;
   if (prep === "remove_bg" && !canRemoveBg()) { ctx.warn("Background removal key not set — using free white-background prep instead."); prep = "marketplace"; }
   ctx.stage("Uploading images (" + imagehost.provider() + ")");
@@ -226,8 +227,11 @@ queue.register("image_zip", async (job, ctx) => {
       try { const Jimp = require("jimp"); const im = await Jimp.read(buf); width = im.bitmap.width; height = im.bitmap.height; } catch {}
       const { sku, position } = imagehost.parseName(e.name);
       let hostBuf = buf, hostExt = ext;
-      if (prep) {                                     // R3: marketplace-ready photo before hosting
-        const out = await applyEdit(prep, buf, {}, { biz });
+      let usePrep = prep;
+      if (usePrep === "remove_bg" && !meter.canUse(biz, "aiImages")) { if (!aiOut) { ctx.warn("AI image credits used up — remaining photos get the free white-background prep."); aiOut = true; } usePrep = "marketplace"; }
+      if (usePrep) {                                  // R3: marketplace-ready photo before hosting
+        const out = await applyEdit(usePrep, buf, {}, { biz });
+        if (usePrep === "remove_bg") meter.record(biz, "aiImages", 1, { zip: true });
         hostBuf = out.buffer; hostExt = out.ext; width = out.width; height = out.height;
       }
       const up = await imagehost.upload(hostBuf, hostExt, biz, sku);

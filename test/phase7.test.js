@@ -38,7 +38,7 @@ function setUsed(bizId, kind, n) { const d = new DatabaseSync(DB); d.prepare(`UP
     const co = await req("POST", "/api/billing/checkout", { cookie: A, body: { plan: "STARTER" } });
     ok("test-mode checkout activates", co.status === 200 && co.json.testMode === true && co.json.subscription.plan === "STARTER");
     const u1 = await req("GET", "/api/billing/usage", { cookie: A });
-    ok("usage reflects STARTER limits", u1.json.usage.plan === "STARTER" && u1.json.usage.listings.limit >= 500 && u1.json.usage.listings.used === 0);
+    ok("usage reflects STARTER limits", u1.json.usage.plan === "STARTER" && u1.json.usage.listings.limit === require("../src/plans").PLANS.STARTER.listings && u1.json.usage.aiImages.limit === require("../src/plans").PLANS.STARTER.aiImages && u1.json.usage.listings.used === 0);
 
     console.log("Server-side enforcement:");
     const prod = (await req("POST", "/api/products", { cookie: A, body: { name: "P", brand: "B", normalizedData: { productName: "P", brand: "B" } } })).json.product;

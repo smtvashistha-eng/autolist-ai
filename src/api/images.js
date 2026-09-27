@@ -66,12 +66,12 @@ router.post("/images/generate", auth.requireAuth, async (req, res) => {
   if (!canGenerate()) return res.status(501).json({ error: "Image generation needs an image API key. Set IMAGE_API_KEY to enable it.", needsProvider: true });
   const biz = req.user.business_id, prompt = String((req.body || {}).prompt || "").trim().slice(0, 1000);
   if (!prompt) return res.status(400).json({ error: "prompt is required." });
-  try { meter.enforce(biz, "images"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
+  try { meter.enforce(biz, "aiImages"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
   try {
     const p = getImageProvider();
     const out = await p.generate({ prompt, biz });
     const gi = saveVersion(biz, req.user.id, out, { operation: "generate", provider: p.name, model: p.model, prompt });
-    meter.record(biz, "images", 1, { operation: "generate" });
+    meter.record(biz, "aiImages", 1, { operation: "generate" });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.generate", resourceType: "image", resourceId: gi.id, metadata: { model: p.model }, ip: audit.ipOf(req) });
     res.status(201).json({ image: shape(gi) });
   } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ error: e.message, code: e.code }); }
@@ -82,12 +82,13 @@ router.post("/images/edit", auth.requireAuth, async (req, res) => {
   try {
     const biz = req.user.business_id, body = req.body || {};
     if (!body.operation) return res.status(400).json({ error: "operation is required." });
-    try { meter.enforce(biz, "images"); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
+    const kind = ["remove_bg", "ai_studio"].includes(body.operation) ? "aiImages" : "images";
+    try { meter.enforce(biz, kind); } catch (e) { return res.status(402).json({ error: e.message, limit: e.limit }); }
     const src = resolveSource(biz, body);
     const provider = getImageProvider();
     const out = await applyEdit(body.operation, src.buffer, body.params || {}, { biz });
     const gi = saveVersion(biz, req.user.id, out, { ...src, operation: body.operation, provider: provider.name, model: provider.model, prompt: body.prompt, negativePrompt: body.negativePrompt, metadata: body.params });
-    meter.record(biz, "images", 1, { operation: body.operation });
+    meter.record(biz, kind, 1, { operation: body.operation });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.edit", resourceType: "image", resourceId: gi.id, metadata: { operation: body.operation, version: gi.version }, ip: audit.ipOf(req) });
     res.status(201).json({ image: shape(gi) });
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -102,12 +103,13 @@ router.post("/images/bulk-job", auth.requireAuth, async (req, res) => {
   if (items.length > 30) return res.status(413).json({ error: "Max 30 images per bulk request here; larger batches use a background job (Phase 5)." });
   const provider = getImageProvider(), results = [];
   for (const it of items) {
-    if (!meter.canUse(biz, "images")) { results.push({ ok: false, error: "Plan image limit reached.", item: it }); continue; }
+    const bk = ["remove_bg", "ai_studio"].includes(body.operation) ? "aiImages" : "images";
+    if (!meter.canUse(biz, bk)) { results.push({ ok: false, error: bk === "aiImages" ? "AI image credits used up." : "Plan image limit reached.", item: it }); continue; }
     try {
       const src = resolveSource(biz, it);
       const out = await applyEdit(body.operation, src.buffer, body.params || {}, { biz });
       const gi = saveVersion(biz, req.user.id, out, { ...src, operation: body.operation, provider: provider.name, model: provider.model, metadata: body.params });
-      meter.record(biz, "images", 1, { operation: body.operation, bulk: true });
+      meter.record(biz, bk, 1, { operation: body.operation, bulk: true });
       results.push({ ok: true, imageId: gi.id, version: gi.version });
     } catch (e) { results.push({ ok: false, error: e.message, item: it }); }
   }

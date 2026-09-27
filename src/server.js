@@ -300,7 +300,7 @@ app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), asy
   const STYLES = { white_studio: "clean white studio product photo, soft even light, subtle shadow", lifestyle: "realistic lifestyle product photo in a tasteful everyday setting", enhance: "sharper, well-lit, colour-accurate product photo on the same background" };
   const prompt = String(b.prompt || "").trim().slice(0, 800);
   if (!["remove_bg", "white_studio", "lifestyle", "enhance", "generate"].includes(b.op)) return res.status(400).json({ ok: false, message: "Unknown AI action." });
-  if (!meter.canUse(biz, "images")) return res.status(402).json({ ok: false, message: "You've used all images in your plan this month." });
+  if (!meter.canUse(biz, "aiImages")) return res.status(402).json({ ok: false, message: "You've used all AI image credits in your plan this month." });
   try {
     let out;
     if (b.op === "generate") {
@@ -315,7 +315,7 @@ app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), asy
       out = b.op === "remove_bg" ? await ia.applyEdit("remove_bg", buf, {}, { biz })
         : await ia.applyEdit("ai_studio", buf, { style: (STYLES[b.op] + (prompt ? ", " + prompt : "")) }, { biz });
     }
-    meter.record(biz, "images", 1, { operation: "studio_" + b.op });
+    meter.record(biz, "aiImages", 1, { operation: "studio_" + b.op });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.studio_ai", resourceType: "image", resourceId: null, metadata: { op: b.op }, ip: audit.ipOf(req) });
     res.json({ ok: true, message: "Done", image: "data:" + out.mime + ";base64," + out.buffer.toString("base64"), width: out.width, height: out.height });
   } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ ok: false, message: e.message }); }
