@@ -624,3 +624,4 @@ body{font-size:13.5px}
   select.input,select{max-width:100%}
   .step,.steps{min-width:0}
 }
+@media(max-width:760px){.content{overflow-x:hidden}}
