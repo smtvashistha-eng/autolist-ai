@@ -33,14 +33,13 @@ function parseReason(text) {
 
 function snapTo(value, allowed) {
   const v = String(value == null ? "" : value).trim(); if (!v || !allowed.length) return null;
-  const exact = allowed.find(a => a === v); if (exact) return exact;
-  const ci = allowed.find(a => a.toLowerCase() === v.toLowerCase()); if (ci) return ci;
+  const ci = allowed.find(a => a.toLowerCase() === v.toLowerCase()); if (ci) return ci;   // first = preferred spelling
   const nv = norm(v); const nn = allowed.find(a => norm(a) === nv); if (nn) return nn;
   return null;   // not safely mappable → leave for the seller
 }
 
 // pick the sheet column an error refers to
-function locateColumn(headers, row, err) {
+function locateColumn(headers, row, err, rules = {}) {
   const keys = [err.attr, err.attrAlt].filter(Boolean).map(norm);
   for (const k of keys) if (ALIAS[k]) { const h = headers.find(h => norm(h.name) === ALIAS[k]); if (h) return h; }
   let best = null, bestScore = 0;
@@ -48,8 +47,10 @@ function locateColumn(headers, row, err) {
     let score = Math.max(...keys.map(k => similar(k, h.name)));
     const cell = row[h.col];
     if (err.allowed.length && cell !== "" && cell != null) {
-      if (err.allowed.includes(String(cell).trim())) score -= 0.5;            // already valid → not this column
-      else if (snapTo(cell, err.allowed)) score += 0.6;                         // looks like an allowed value in the wrong form
+      const list = [...new Set([...(rules[norm(h.name)] || []), ...err.allowed])];
+      const canon = snapTo(cell, list);
+      if (canon && canon === String(cell).trim() && !(rules[norm(h.name)] || []).length && err.allowed.includes(canon)) score -= 0.5;   // already valid → not this column
+      else if (canon) score += 0.6;                                             // an allowed value in the wrong form
     }
     if (score > bestScore) { bestScore = score; best = h; }
   }
@@ -66,7 +67,9 @@ function learnRule(marketplace, column, allowed, source) {
 }
 // learned allowed lists for a marketplace: { normColumn: [values] }
 // rules already confirmed by real marketplace QC (seed; learned rules add to these)
-const BUILTIN = { flipkart: { fullfilmentby: ["FA", "seller", "SellerSmart"] } };
+// order matters: the first case-insensitive match is the spelling we write. "Seller" confirmed by the seller's own
+// Flipkart upload (Sept 2026) even though Flipkart's error text lists "seller".
+const BUILTIN = { flipkart: { fullfilmentby: ["FA", "Seller", "SellerSmart"] } };
 function rulesFor(marketplace) {
   try {
     const out = JSON.parse(JSON.stringify(BUILTIN[marketplace] || {}));
@@ -100,10 +103,11 @@ function fixErrorFile(buffer, marketplace, sourceLabel) {
     const item = { sku, fixes: [], open: [] };
     for (const e of errs) {
       report.errors++;
-      const h = locateColumn(headers, row, e);
+      const h = locateColumn(headers, row, e, rulesFor(marketplace));
       if (h && e.allowed.length) {
         if (!learned.has(h.name)) { learnRule(marketplace, h.name, e.allowed, sourceLabel); learned.add(h.name); report.learned.push({ column: h.name, allowed: e.allowed }); }
-        const to = snapTo(row[h.col], e.allowed);
+        const pref = rulesFor(marketplace)[norm(h.name)] || [];
+        const to = snapTo(row[h.col], [...new Set([...pref, ...e.allowed])]);
         if (to && to !== row[h.col]) {
           ws[XLSX.utils.encode_cell({ r, c: h.col })] = { t: "s", v: to };
           item.fixes.push({ column: h.name, from: String(row[h.col]), to }); report.fixed++; continue;

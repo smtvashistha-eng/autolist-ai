@@ -7,7 +7,7 @@ const { db, nowISO } = require("./db");
 const FIELDS = {
   flipkart: [
     { key: "listingStatus", label: "Listing status", cols: ["listingstatus"], required: true, options: ["Active", "Inactive"], def: "Active" },
-    { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, options: ["seller", "FA", "SellerSmart"], def: "seller", hint: "seller = you ship · FA = Flipkart Assured" },
+    { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, options: ["Seller", "FA", "SellerSmart"], def: "Seller", hint: "Seller = you ship · FA = Flipkart Assured" },
     { key: "procurementType", label: "Procurement type", cols: ["procurementtype"], def: "instock", hint: "instock or express" },
     { key: "procurementSla", label: "Procurement SLA (days)", cols: ["procurementsladay", "procurementsla"], required: true, type: "number", hint: "Days to get ready for dispatch, e.g. 1" },
     { key: "stock", label: "Stock per SKU", cols: ["stock"], required: true, type: "number", hint: "Minimum 5 for visibility" },
@@ -46,7 +46,11 @@ function get(biz, marketplace) {
   const r = db.prepare("SELECT data_json FROM listing_defaults WHERE business_id=? AND marketplace=?").get(biz, marketplace);
   const saved = r ? (JSON.parse(r.data_json || "{}") || {}) : {};
   const out = {};
-  for (const f of fieldsFor(marketplace)) out[f.key] = saved[f.key] !== undefined ? saved[f.key] : (f.def || "");
+  for (const f of fieldsFor(marketplace)) {
+    let v = saved[f.key] !== undefined ? saved[f.key] : (f.def || "");
+    if (v && f.options) v = f.options.find(o => o.toLowerCase() === String(v).toLowerCase()) || v;   // old "SELLER" → "Seller"
+    out[f.key] = v;
+  }
   return { values: out, saved: !!r };
 }
 function save(biz, marketplace, body) {

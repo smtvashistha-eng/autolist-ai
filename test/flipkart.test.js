@@ -109,7 +109,7 @@ function makeTemplate() {
     const fset = (v) => String(v).split("::").sort().join("|");
     ok("features = sheet values ∪ text-supported picks, nothing else", fset(get(r1, "Features")) === "Air-bubble Proof|Anti Fingerprint|Scratch Resistant" && get(r2, "Features") === "Scratch Resistant");
     ok("Flipkart-owned columns left alone", get(r1, "Flipkart Serial Number") === "" && get(r1, "Catalog QC Status") === "" && get(r1, "Supplier Image") === "");
-    ok("fulfilment written in Flipkart's exact spelling (SELLER → seller)", get(r1, "Fullfilment by") === "seller");
+    ok("fulfilment written in the accepted spelling (SELLER → Seller)", get(r1, "Fullfilment by") === "Seller");
     ok("multi-values use Flipkart's :: separator", /::/.test(get(r1, "Key Features") + get(r1, "Search Keywords")));
 
     console.log("Learn from Flipkart's QC error file:");
@@ -131,7 +131,7 @@ function makeTemplate() {
     const fixedRes = await fetch(fx.json.downloadUrl.startsWith("http") ? fx.json.downloadUrl : BASE + fx.json.downloadUrl);
     ok("corrected file keeps the marketplace's file name", (fixedRes.headers.get("content-disposition") || "").includes("filename=\"C_screen-guard_ERRREQ.xls\"") && /./.test(fixedRes.headers.get("content-disposition") || ""));
     const fr = XLSX.utils.sheet_to_json(XLSX.read(Buffer.from(await fixedRes.arrayBuffer())).Sheets.screen_guard, { header: 1, defval: "" });
-    ok("cells fixed + QC verdict cleared on fully-fixed rows", fr[4][colOf("Fullfilment by")] === "seller" && fr[4][colOf("Catalog QC Status")] === "" && fr[5][colOf("Catalog QC Status")] === "Failed");
+    ok("cells fixed + QC verdict cleared on fully-fixed rows", fr[4][colOf("Fullfilment by")] === "Seller" && fr[4][colOf("Catalog QC Status")] === "" && fr[5][colOf("Catalog QC Status")] === "Failed");
     ok("B cannot run A's error file", (await req("POST", "/api/qc/fix", { cookie: B, body: { fileId: efid } })).status === 400);
   } catch (e) { fail++; console.error("Harness error:", e); }
   finally { cleanup(); console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }

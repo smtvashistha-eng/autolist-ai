@@ -68,5 +68,13 @@ try {
   // measured costs (₹): listing 1.25, hosted photo 0.01, AI image 3.5 → every paid plan keeps ≥ 60% margin at 100% use
   const margins = plans.list().filter(p => p.price).map(p => ({ id: p.id, m: 1 - (p.listings * 1.25 + p.images * 0.01 + p.aiImages * 3.5) / p.price }));
   ok("every paid plan ≥ 60% gross margin at full use (" + margins.map(x => x.id + " " + Math.round(x.m * 100) + "%").join(", ") + ")", margins.every(x => x.m >= 0.6));
+
+  console.log("QC learning — preferred marketplace spelling:");
+  const q = require("../src/qcLearn"); const rules = q.rulesFor("flipkart");
+  ok("SELLER / seller both snap to 'Seller' (the spelling Flipkart accepted)", q.snapTo("SELLER", rules.fullfilmentby) === "Seller" && q.snapTo("seller", rules.fullfilmentby) === "Seller");
+  const hdrs = [{ col: 0, name: "Seller SKU ID" }, { col: 1, name: "Fullfilment by" }, { col: 2, name: "Procurement type" }];
+  const col = q.locateColumn(hdrs, ["X-1", "seller", "instock"], q.parseReason("1. [fulfilled_by]: Invalid value given for attribute: service_profile. Allowed values are: FA,seller,SellerSmart")[0], rules);
+  ok("a rejected lowercase 'seller' is still traced to 'Fullfilment by'", col && col.name === "Fullfilment by");
+  ok("defaults offer 'Seller' first", require("../src/listingDefaults").fieldsFor("flipkart").find(x => x.key === "fulfilmentBy").def === "Seller");
 } catch (e) { fail++; console.error("Harness error:", e); }
 finally { for (const s of ["", "-wal", "-shm"]) { try { fs.unlinkSync(process.env.AUTOLIST_DB + s); } catch {} } console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0); }
