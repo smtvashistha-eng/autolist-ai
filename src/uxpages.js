@@ -125,6 +125,7 @@ function qcFixPage(user) {
         <input type="file" id="qc-file" accept=".xls,.xlsx" hidden></div>
       <div class="wz-msg" id="qc-msg" style="margin-top:10px"></div>
     </div>
+    <p class="hint">${ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z")} Flipkart accepts each file <b>only once</b> — the code at the end of its name (…REQ…) is a one-time upload ID. If you see “Feed is already present”, download a <b>fresh</b> error file from Flipkart and fix that one. Never rename files.</p>
     <div class="card pad" id="qc-out" hidden><b>Result</b><div id="qc-res"></div></div>
     <script>${script}</script>`);
 }
@@ -140,7 +141,7 @@ function exportsFiles(user) {
       <td data-l="Status">${expired ? pill("Expired", "draft") : pill("Ready", "good")}</td>
       <td class="tright">${expired ? '<span class="muted">Run again to rebuild</span>' : `<div class="acts"><a class="btn pri sm" href="/api/exports/${esc(r.id)}/download">${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} File</a>${r.report_file_id ? `<a class="btn ghost sm" href="/app/exports/${esc(r.id)}/report">Report</a>` : ""}${r.image_zip_file_id ? `<a class="btn ghost sm" href="/app/exports/${esc(r.id)}/images">Images</a>` : ""}</div>`}</td></tr>`;
   }).join("")}</tbody></table></div>
-  <p class="hint">${ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z")} Upload the file to the marketplace <b>without renaming it</b> — Flipkart rejects renamed templates. Files are kept for 7 days.</p>`
+  <p class="hint">${ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z")} Upload the file to the marketplace <b>without renaming it</b> — Flipkart rejects renamed templates, and each file can be uploaded <b>only once</b> (for another try, download a fresh template or error file). Files are kept for 7 days.</p>`
     : empty("No marketplace files yet.", "Guided Bulk and Bulk Upload build your upload-ready files here.", `<a class="btn pri" href="/app/wizard">Start Guided Bulk</a>`);
   return shell(user, "/app/exports", `<div class="phead"><div><h1>Exports</h1><p>Upload-ready marketplace files — download any time in the next 7 days.</p></div></div>${tabs(EXPORT_TABS(biz), "/app/exports")}${table}`);
 }
