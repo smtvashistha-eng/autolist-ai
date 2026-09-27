@@ -9,7 +9,8 @@ const { db, nowISO } = require("../db");
 const router = express.Router();
 const own = (req, id) => db.prepare("SELECT * FROM marketplace_exports WHERE id=? AND business_id=?").get(id, req.user.business_id);
 function shape(x) {
-  return { id: x.id, marketplace: x.marketplace, fileType: x.file_type, status: x.status, rowCount: x.row_count,
+  const fname = x.file_id ? (db.prepare("SELECT original_name FROM files WHERE id=?").get(x.file_id) || {}).original_name : null;
+  return { id: x.id, marketplace: x.marketplace, fileType: x.file_type, fileName: fname || null, status: x.status, rowCount: x.row_count,
     createdAt: x.created_at, expiresAt: x.expires_at,
     downloadUrl: x.file_id ? storage.signedUrl(x.file_id, 300) : null,
     imagesUrl: x.image_zip_file_id ? storage.signedUrl(x.image_zip_file_id, 300) : null,

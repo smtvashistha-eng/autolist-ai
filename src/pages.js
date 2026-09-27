@@ -419,6 +419,53 @@ function shell(user, activePath, body) {
     load();
   })();
 
+  // ---- exact-name saving for marketplace files (avoids the browser's " (1)" rename that Flipkart rejects) ----
+  (function(){
+    function nameTip(name,how){
+      var m=document.createElement('div');m.className='mdl';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
+      m.innerHTML='<div class="mdl-box sv-box"><div class="mdl-head"><b></b><button class="mdl-x" aria-label="Close">×</button></div><div class="sv-body"></div></div>';
+      m.querySelector('b').textContent=how==='saved'?'Saved with the exact name ✅':'Check the file name before uploading';
+      var body=m.querySelector('.sv-body');
+      body.innerHTML=(how==='saved'
+        ?'<p>Your file is saved as:</p>'
+        :'<p>Your browser saved the file. If a file with the same name was already in your folder, it may have added <b>“ (1)”</b> to the name — <b>Flipkart rejects renamed files.</b></p><p>The file must be named exactly:</p>')+
+        '<div class="sv-name"><code></code><button type="button" class="btn ghost sm" data-copyname>Copy name</button></div>'+
+        (how==='saved'?'<p class="muted">Upload it on Flipkart with <b>Upload Corrected Excel</b> / <b>Upload filled template</b>, then <b>Send to QC</b>.</p>'
+          :'<ol class="sv-steps"><li>Open your <b>Downloads</b> folder.</li><li>Delete the older file with this name (the one from Flipkart).</li><li>Rename the new file: remove <b>“ (1)”</b> so it matches exactly.</li><li>Upload it on Flipkart, then <b>Send to QC</b>.</li></ol><p class="muted">Tip: use Chrome or Edge on a computer — we can then save it with the exact name for you.</p>')+
+        '<div class="sv-foot"><button type="button" class="btn pri" data-ok>Got it</button></div>';
+      body.querySelector('code').textContent=name;
+      function close(){m.remove();document.removeEventListener('keydown',k);}
+      function k(e){if(e.key==='Escape')close();}
+      m.addEventListener('click',function(e){if(e.target===m)close();});m.querySelector('.mdl-x').onclick=close;body.querySelector('[data-ok]').onclick=close;
+      body.querySelector('[data-copyname]').onclick=function(){var b=this;try{navigator.clipboard.writeText(name).then(function(){b.textContent='Copied';});}catch(e){}};
+      document.addEventListener('keydown',k);document.body.appendChild(m);body.querySelector('[data-ok]').focus();
+    }
+    window.alNameTip=nameTip;
+    async function saveExact(url,name,btn){
+      var label=btn&&btn.innerHTML;
+      try{
+        if(window.showSaveFilePicker&&window.isSecureContext){
+          var ext=(name.split('.').pop()||'xls').toLowerCase();
+          var handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:'Marketplace file',accept:ext==='xls'?{'application/vnd.ms-excel':['.xls']}:ext==='csv'?{'text/csv':['.csv']}:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
+          if(btn){btn.innerHTML='Saving…';btn.setAttribute('aria-busy','true');}
+          var r=await fetch(url,{credentials:'same-origin'});if(!r.ok)throw new Error('download failed');
+          var w=await handle.createWritable();await w.write(await r.blob());await w.close();
+          nameTip(handle.name||name,handle.name===name?'saved':'check');
+        } else {
+          var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+          setTimeout(function(){nameTip(name,'check');},700);
+        }
+      }catch(e){ if(e&&e.name==='AbortError')return; var a2=document.createElement('a');a2.href=url;a2.download=name;document.body.appendChild(a2);a2.click();a2.remove();setTimeout(function(){nameTip(name,'check');},700); }
+      finally{ if(btn&&label){btn.innerHTML=label;btn.removeAttribute('aria-busy');} }
+    }
+    window.alSaveExact=saveExact;
+    // any link marked data-saveas="exact file name" saves through the exact-name flow
+    document.addEventListener('click',function(e){
+      var a=e.target.closest&&e.target.closest('a[data-saveas]');if(!a)return;
+      e.preventDefault();saveExact(a.getAttribute('href'),a.getAttribute('data-saveas'),a);
+    });
+  })();
+
   // prevent double-submit + confirm destructive actions
   document.addEventListener('submit',function(e){
     var f=e.target; if(f.dataset.confirm && !confirm(f.dataset.confirm)){e.preventDefault();return;}

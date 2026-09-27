@@ -197,7 +197,7 @@ function script() {
     "   if(r.imageMatch&&r.imageMatch.unmatchedSkus.length)h+='<br><small style=\"color:var(--soft)\">Photo SKUs not in your sheet: '+esc(r.imageMatch.unmatchedSkus.slice(0,10).join(', '))+'</small>';",
     "   var fx=r.needsFix||[]; if(fx.length)h+='<table class=\"tbl\" style=\"margin-top:10px\"><tr><th>SKU</th><th>What to fix</th></tr>'+fx.map(function(f){return '<tr><td>'+esc(f.sku||'-')+'</td><td>'+esc((f.errors||[]).join('; '))+'</td></tr>';}).join('')+'</table><a href=\"/app/listings\">Fix in Drafts \\u2192</a>';",
     "   msg('wz-run-msg',''); $('wz-done').hidden=false; $('wz-done').innerHTML=h;",
-    "   if(r.exportId)api('GET','/api/exports/'+r.exportId).then(function(e){ if(e.export&&e.export.downloadUrl){var a=$('wz-dl');a.href=e.export.downloadUrl;a.hidden=false;$('wz-go').hidden=true;} });",
+    "   if(r.exportId)api('GET','/api/exports/'+r.exportId).then(function(e){ if(e.export&&e.export.downloadUrl){var a=$('wz-dl');a.href=e.export.downloadUrl;if(e.export.fileName)a.setAttribute('data-saveas',e.export.fileName);a.hidden=false;$('wz-go').hidden=true;} });",
     "  }).catch(function(e){ $('wz-back4').disabled=false; $('wz-confirm').disabled=false; msg('wz-run-msg',esc(e.message),1); }); };",
     "go(0);",
     "})();",

@@ -70,7 +70,7 @@ function dashboardPage(user) {
   const now = Date.now();
   const recentFiles = files.length ? `<ul class="rlist">${files.map(x => {
     const expired = x.expires_at && Date.parse(x.expires_at) < now;
-    return `<li><div class="rl-row"><span class="rl-t"><b class="mono">${esc(x.original_name || "file")}</b><small>${mk(x.marketplace)} · ${x.row_count || 0} rows · ${when(x.created_at)}</small></span>${expired ? pill("Expired", "draft") : `<a class="btn ghost sm" href="/api/exports/${esc(x.id)}/download">${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} File</a>`}</div></li>`;
+    return `<li><div class="rl-row"><span class="rl-t"><b class="mono">${esc(x.original_name || "file")}</b><small>${mk(x.marketplace)} · ${x.row_count || 0} rows · ${when(x.created_at)}</small></span>${expired ? pill("Expired", "draft") : `<a class="btn ghost sm" href="/api/exports/${esc(x.id)}/download" data-saveas="${esc(x.original_name || "file")}">${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} File</a>`}</div></li>`;
   }).join("")}</ul>` : `<div class="rempty">Your upload-ready files will appear here.</div>`;
 
   const banners = (!brandOn ? `<div class="alert al-warn dsec"><span>Set up Brand Memory so every listing matches your brand — takes 1 minute. <a href="/app/onboarding"><b>Set up now →</b></a></span></div>` : "")

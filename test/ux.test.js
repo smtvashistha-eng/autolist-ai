@@ -71,6 +71,8 @@ async function waitJob(cookie, id) {
     const dv = await req("GET", `/app/drafts/${did}`, { cookie: A });
     ok("draft detail shows content, facts, photos + copy buttons", dv.status === 200 && /data-copy/.test(dv.text) && /UX-2/.test(dv.text) && /Photos \(1\)/.test(dv.text));
     const xf = await req("GET", "/app/exports", { cookie: A });
+    ok("File button saves with the exact marketplace file name (no browser ' (1)')", /data-saveas="autolist_amazon.csv"/.test(xf.text) || /data-saveas="[^"]+"/.test(xf.text));
+    ok("export API returns the file name", !!(await req("GET", "/api/exports/" + pj.result.exportId, { cookie: A })).json.export.fileName);
     ok("marketplace file listed with File + Report buttons", xf.text.includes(`/api/exports/${pj.result.exportId}/download`) && xf.text.includes(`/app/exports/${pj.result.exportId}/report`));
     const dl = await req("GET", `/api/exports/${pj.result.exportId}/download`, { cookie: A });
     ok("File button really downloads", dl.status === 302 && (await req("GET", dl.location)).status === 200);
