@@ -200,6 +200,11 @@ function hostedPhotos(user, q = {}) {
     : empty(s || q.job ? "No photos match." : "No hosted photos yet.", "Upload a ZIP of photos named by SKU in Guided Bulk — we host them and put the links in your file.", `<a class="btn pri" href="/app/wizard">Upload photos</a>`);
   return shell(user, "/app/images", `<div class="phead"><div><h1>Images</h1><p>Public photo links hosted for your listings, grouped by SKU.</p></div></div>
     ${tabs(IMAGE_TABS, "/app/images/hosted")}
+    <div class="card pad hz-card"><label class="hz-drop" id="hzDrop" for="hzFile"><span class="is-drop-ic">${ic("M21 8v13H3V8M1 3h22v5H1zM10 12h4")}</span>
+      <span class="hz-t"><b>Upload a ZIP of product photos</b><small>Name photos by SKU — <code>ABC123_1.jpg</code>, <code>ABC123_2.jpg</code> — or one folder per SKU. Each gets a public link.</small></span>
+      <span class="btn pri sm">Choose ZIP</span></label><input id="hzFile" type="file" accept=".zip,application/zip" hidden>
+      <label class="hz-opt"><input type="checkbox" id="hzWhite" checked> Put each photo on a white 1000×1000 background (free)</label>
+      <div id="hzProg"></div><div class="is-msg" id="hzMsg" role="status"></div></div><script src="/hostedzip.js?v=${require("./pages").ASSET_V}" defer></script>
     <form class="fbar" method="GET" action="/app/images/hosted"><input class="input" name="q" value="${esc(s)}" placeholder="Search SKU or file name" style="max-width:280px">${q.job ? `<input type="hidden" name="job" value="${esc(q.job)}"><a class="fchip" href="/app/images/hosted">Clear job filter</a>` : ""}<button class="btn ghost sm">Search</button></form>
     ${grid}
     <script>document.querySelectorAll('[data-copy]').forEach(function(b){b.onclick=function(){navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function(){var t=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=t},1200)})}})</script>`);

@@ -220,7 +220,7 @@ queue.register("image_zip", async (job, ctx) => {
   const { applyEdit, canRemoveBg } = require("./ai/imageAIProvider");
   let aiOut = false;
   let prep = ["marketplace", "remove_bg"].includes((job.input || {}).prep) ? job.input.prep : null;
-  if (prep === "remove_bg" && !canRemoveBg()) { ctx.warn("Background removal key not set — using free white-background prep instead."); prep = "marketplace"; }
+  if (prep === "remove_bg" && !canRemoveBg()) { ctx.warn("Background removal isn't available right now — used the free white background instead."); prep = "marketplace"; }
   ctx.stage("Uploading images (" + imagehost.provider() + ")");
   const ins = db.prepare(`INSERT INTO image_assets(id,business_id,job_id,filename,sku,position,url,provider,public_id,width,height,bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   let completed = job.completed_items || 0, failed = job.failed_items || 0;

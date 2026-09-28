@@ -682,7 +682,7 @@ function createForm(user, error, values) {
     <a class="wf" href="/app/bulk"><div class="wf-ic">${ic("M12 16V4M8 8l4-4 4 4M4 20h16")}</div><div><b>Bulk upload</b><span>Many products from a file.</span></div>${ic("M9 6l6 6-6 6")}</a>
   </div>
 
-  <form method="POST" action="/app/create">
+  <form method="POST" action="/app/create" class="cr-grid" id="crForm" data-progress="Writing your listing" data-progress-est="20"><div class="cr-main">
     <div class="card pad section">
       <div class="sec-h"><span class="sec-n">1</span><div><b>Marketplace &amp; category</b><p>Where will this listing go?</p></div></div>
       <div class="seg-row">${seg("amazon", "Amazon", "")}${seg("flipkart", "Flipkart", "")}${seg("meesho", "Meesho", "")}${seg("shopify", "Shopify", "")}</div>
@@ -723,11 +723,25 @@ function createForm(user, error, values) {
       <textarea name="images" rows="3" class="ta" placeholder="https://res.cloudinary.com/.../main.jpg&#10;https://res.cloudinary.com/.../side.jpg">${val("images")}</textarea>
     </div>
 
-    <div class="create-foot">
-      <a class="btn ghost" href="/app">Cancel</a>
-      <button class="btn pri lg" type="submit">${ic("M5 3l14 9-14 9z")} Generate listing with AI</button>
     </div>
-  </form>`);
+    <aside class="cr-side" aria-label="Live preview">
+      <div class="card pad cr-prev">
+        <div class="cr-ph"><b>Live preview</b><span class="cr-mk" id="pvMk">Amazon</span></div>
+        <div class="cr-img" id="pvImg"><span>${ic("M3 3h18v18H3zM21 15l-5-5L5 21")}</span></div>
+        <div class="cr-brand" id="pvBrand">Your brand</div>
+        <div class="cr-title" id="pvTitle">Your product name appears here</div>
+        <div class="cr-price"><b id="pvPrice">₹—</b><s id="pvMrp"></s><em id="pvOff"></em></div>
+        <ul class="cr-feats" id="pvFeats"></ul>
+        <div class="cr-meter"><div class="cr-mt"><span>Details filled</span><b id="pvPct">0%</b></div><div class="pg-bar"><span id="pvBar" style="width:0"></span></div><small id="pvMiss">Add a product name to start.</small></div>
+      </div>
+      <div class="cr-actions">
+        <button class="btn pri lg" type="submit">${ic("M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z")} Generate listing</button>
+        <a class="btn ghost" href="/app">Cancel</a>
+        <p class="muted">AutoList AI writes the title, bullets, description and keywords. Takes about 20 seconds.</p>
+      </div>
+    </aside>
+  </form>
+  <script src="/createpreview.js?v=${ASSET_V}" defer></script>`);
 }
 
 // ---- Phase 2: review / edit generated listing ----
