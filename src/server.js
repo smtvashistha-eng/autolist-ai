@@ -229,10 +229,7 @@ const template = require("./template");
 const TPL_DIR = path.join(__dirname, "..", "data", "templates");
 fs.mkdirSync(TPL_DIR, { recursive: true });
 
-app.get("/app/templates", (req, res) => {
-  const rows = db.prepare("SELECT * FROM templates WHERE business_id=? ORDER BY created_at DESC").all(req.user.business_id);
-  res.send(pages.templatesPage(req.user, rows, req.query.err, req.query.ok));
-});
+app.get("/app/templates", (req, res) => res.send(require("./templatespage").templatesPage(req.user)));
 app.post("/app/templates/upload", upload.single("file"), (req, res) => {
   try {
     if (!req.file) throw new Error("Choose a template file.");

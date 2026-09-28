@@ -794,25 +794,7 @@ function reviewListing(user, L, v) {
 }
 
 // ---- Phase 7: bulk images ----
-function bulkImages(user, error) {
-  const presets = [["amazon", "Amazon 1000×1000"], ["flipkart", "Flipkart 1000×1000"], ["instagram", "Instagram 1080×1080"], ["website", "Website 1600×1200"], ["square", "Square 1200×1200"]];
-  return shell(user, "/app/images", `
-  <div class="phead"><div><h1>Bulk Images</h1><p>Drop many product photos → get them all resized onto a clean white marketplace canvas → download a ZIP.</p></div>
-</div>
-  ${require("./uxpages").tabs(require("./uxpages").IMAGE_TABS, "/app/images/bulk")}
-  ${error ? `<div class="err">${esc(error)}</div>` : ""}
-  <form method="POST" action="/api/images/bulk" enctype="multipart/form-data" class="card pad">
-    <b>1 · Marketplace size</b>
-    <div style="margin:10px 0 16px"><select name="preset" style="border:1px solid var(--line);border-radius:9px;padding:9px 12px;font:inherit">${presets.map(p => `<option value="${p[0]}">${p[1]}</option>`).join("")}</select></div>
-    <b>2 · Product photos</b>
-    <label class="drop" style="display:block;border:2px dashed var(--line);border-radius:12px;padding:28px;text-align:center;background:var(--panel);margin-top:10px;cursor:pointer">
-      <input type="file" name="files" accept="image/*" multiple required onchange="document.getElementById('cnt').textContent=this.files.length+' image(s) selected'">
-      <div style="font-weight:600">Choose up to 60 images</div><div id="cnt" style="color:var(--accent-ink);font-size:13px;margin-top:6px"></div>
-      <div style="color:var(--soft);font-size:13px;margin-top:4px">PNG/JPG · processed on the server · white background, contained &amp; centered</div></label>
-    <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn pri lg" type="submit">Process &amp; download ZIP ⬇</button></div>
-    <div style="color:var(--faint);font-size:12.5px;margin-top:10px">AI edits (background removal, lifestyle) need an image key — coming when connected. Resize &amp; white-background work now, free.</div>
-  </form>`);
-}
+function bulkImages(user, error) { return require("./bulkimagespage").bulkImages(user, error); }
 
 // ---- Phase 6: marketplace templates ----
 function templatesPage(user, rows, error, notice) {
@@ -946,7 +928,27 @@ function simple(user, active, title, sub, note) {
 }
 
 // ---- Phase 9: marketplace connections + publish ----
+// sellers: a plain "how to list on each marketplace" page; admins keep the technical connection tools below
+function marketsSellerPage(user) {
+  let files = 0, live = 0;
+  try { const { db } = require("./db"); files = db.prepare("SELECT COUNT(*) c FROM marketplace_exports WHERE business_id=?").get(user.business_id).c; live = db.prepare("SELECT COUNT(*) c FROM seller_listings WHERE business_id=?").get(user.business_id).c; } catch {}
+  const tick = ic("M5 13l4 4L19 7"), soon = '<span class="mk-soon">Coming soon</span>';
+  const card = (name, color, letter, ready, steps, extra) => `<div class="card pad mkt-card">
+    <div class="mkt-h"><span class="mkt-logo" style="background:${color}">${letter}</span><div><b>${name}</b><small>${ready ? '<span class="mkt-ok">' + tick + " Ready — upload-file method</span>" : "Coming soon"}</small></div></div>
+    ${ready ? `<ol class="mkt-steps">${steps.map(s => `<li>${s}</li>`).join("")}</ol>` : `<p class="muted" style="margin:10px 0 0">${steps}</p>`}${extra || ""}</div>`;
+  const body = `<div class="phead"><div><h1>Marketplaces</h1><p>Where AutoList AI can list your products, and how.</p></div></div>
+  <div class="mkt-sum"><div><b class="tnum">${files}</b><span>upload-ready files made</span></div><div><b class="tnum">${live}</b><span>products known to be live</span></div><div><a class="btn pri" href="/app/wizard">${ic("M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3")} Start Guided Bulk</a></div></div>
+  <div class="mkt-grid">
+    ${card("Flipkart", "var(--flip)", "F", true, ["Run <a href='/app/wizard'>Guided Bulk</a> with Flipkart's blank template.", "Download the file from <a href='/app/exports'>Exports</a> — don't rename it.", "Seller Hub → Listings → Add in bulk → upload → Send to QC.", "Got QC errors? Upload the error file in <a href='/app/exports/fix'>Fix QC errors</a>."])}
+    ${card("Amazon", "var(--amazon)", "a", true, ["Run <a href='/app/wizard'>Guided Bulk</a> with Amazon's category template.", "Download the file from <a href='/app/exports'>Exports</a>.", "Seller Central → Catalog → Add products via upload → upload the file."])}
+    ${card("Meesho", "var(--meesho)", "M", false, "Meesho catalog files are next on our list. You can already write listings for Meesho in Create Listing.")}
+    ${card("Shopify", "#16a34a", "S", false, "Shopify product import is planned. Listings you write can be copied into Shopify today.")}
+  </div>
+  <div class="card pad mkt-next"><div><b>Direct publishing ${soon}</b><p class="muted">Soon you'll be able to connect your seller account and publish straight from AutoList AI — no file upload. Until then, the upload file is the safest way and keeps you in control.</p></div></div>`;
+  return shell(user, "/app/market", body);
+}
 function connectionsPage(user, adapters, conns, listings, history, live, notice) {
+  if (!isAdmin(user)) return marketsSellerPage(user);
   const byId = {}; conns.forEach(c => byId[c.marketplace] = c);
   const noticeHtml = notice ? '<div class="card pad" style="background:var(--good-weak);border-color:transparent;color:var(--good);margin-bottom:16px">' + esc(notice) + '</div>' : "";
   const liveBanner = live
