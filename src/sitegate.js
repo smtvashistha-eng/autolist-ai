@@ -28,7 +28,7 @@ const adminEmail = (email) => (process.env.ADMIN_EMAILS || "").split(",").map(s 
 const ALWAYS = [/^\/api\/health$/, /^\/api\/billing\/webhook\//, /^\/i\//, /^\/api\/files\/[^/]+\/download$/, /^\/logout$/, /^\/api\/auth\/logout$/, /^\/favicon/, /\.(css|js|png|jpe?g|svg|ico|webp|woff2?|mp4)$/i];
 
 function comingSoon() {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"><meta name="theme-color" content="#ffffff">
 <title>AutoList AI — Coming soon</title><meta name="robots" content="noindex">
 <style>
 :root{--bg:#f7f8fb;--ink:#0f172a;--soft:#586274;--card:#fff;--line:#e5e8ef;--acc:#2563eb}

@@ -745,8 +745,8 @@ html:not(.sh-on) #sh-hl{display:none}
 /* ---- brand: new AutoList AI logo (public/logo-mark.svg) ---- */
 .mark{background:url(/logo-mark.svg) center/contain no-repeat!important;border-radius:0!important;box-shadow:none!important}
 .mark::before,.mark::after{display:none!important}
-.logo,.ms-logo{font-family:"Nunito",Inter,system-ui,sans-serif;font-weight:900;letter-spacing:-.01em;color:#16162a}
-.logo .lai,.ms-logo .lai{font-style:normal;color:#6c3bf4}
+.logo,.ms-logo{font-family:"Fredoka",Inter,system-ui,sans-serif;font-weight:600;letter-spacing:-.01em;color:#17172b}.logo .mark{width:34px;height:34px}
+.logo .lai,.ms-logo .lai{font-style:normal;color:#6c3bf4;margin-left:-.05em}
 .authL .logo{color:#fff}.authL .logo .lai{color:#c4b5fd}
 /* ---- laptop density: at 100% browser zoom the app renders like ~85% (roomier, less oversized); phones/tablets unchanged ---- */
 @media (min-width:1100px) and (pointer:fine){

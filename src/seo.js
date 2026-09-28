@@ -34,15 +34,15 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
   const graph = [ORG(), { "@type": "WebSite", "@id": SITE() + "/#site", url: SITE(), name: BRAND, publisher: { "@id": SITE() + "/#org" }, inLanguage: "en-IN" }, ...ld];
   if (crumbs) graph.push({ "@type": "BreadcrumbList", itemListElement: [["Home", "/"], ...crumbs].map(([n, p], i) => ({ "@type": "ListItem", position: i + 1, name: n, item: SITE() + p })) });
   const c = cta();
-  return `<!doctype html><html lang="en-IN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="en-IN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"><meta name="theme-color" content="#ffffff">
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${esc(url)}"><meta name="robots" content="index,follow,max-image-preview:large,max-video-preview:-1">
 <meta property="og:type" content="${ogType}"><meta property="og:site_name" content="${BRAND}"><meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${esc(url)}"><meta property="og:image" content="${esc(img)}"><meta property="og:locale" content="en_IN">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(description)}"><meta name="twitter:image" content="${esc(img)}">
-<link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fredoka:wght@600&display=swap">
 <link rel="stylesheet" href="/app.css?v=${require("./pages").ASSET_V || "1"}">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c")}</script></head><body class="mk">
 <header class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
@@ -340,5 +340,5 @@ function landingHtml(html) {
   if (!isOpen()) h = h.replace(/href="\/signup">[^<]*</g, 'href="/early-access">Join early access<').replace(/Create your first AI listing in the next two minutes — free\./, "We're in private testing. Join the list and we'll invite you first.");
   return h;
 }
-const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg)\/?$/;
+const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest)\/?$/;
 module.exports = { router, landingHtml, MARKETING_RE, PUBLIC_PATHS, llms, ARTICLES };
