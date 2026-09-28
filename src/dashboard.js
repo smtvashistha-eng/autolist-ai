@@ -1,6 +1,6 @@
 // src/dashboard.js — the post-login home: next-step greeting, getting-started checklist, KPIs, quick actions and
 // recent work — all read from the current data model (drafts, marketplace files, jobs, hosted photos).
-const { shell, esc, ic } = require("./pages");
+const { shell, esc, ic, ASSET_V } = require("./pages");
 const { db } = require("./db");
 const { jparse, when, mk, pill, count } = require("./uxpages");
 
@@ -73,10 +73,20 @@ function dashboardPage(user) {
     return `<li><div class="rl-row"><span class="rl-t"><b class="mono">${esc(x.original_name || "file")}</b><small>${mk(x.marketplace)} · ${x.row_count || 0} rows · ${when(x.created_at)}</small></span>${expired ? pill("Expired", "draft") : `<a class="btn ghost sm" href="/api/exports/${esc(x.id)}/download" data-saveas="${esc(x.original_name || "file")}">${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} File</a>`}</div></li>`;
   }).join("")}</ul>` : `<div class="rempty">Your upload-ready files will appear here.</div>`;
 
+  // adaptive plan: the seller says what they want; the plan is built from their own data (src/adaptive.js)
+  const { PRESETS } = require("./adaptive");
+  const adapt = `<section class="card pad dsec ad" id="adapt" data-uid="${esc(user.id)}" aria-labelledby="ad-h">
+    <div class="ad-head"><div><h3 id="ad-h">What do you want to do today?</h3><p class="muted">Pick one or type it — you'll get a short plan built from your account.</p></div>
+      <button type="button" class="btn ghost sm" id="adReset" hidden>Reset</button></div>
+    <form class="ad-form" id="adForm" autocomplete="off">
+      <div class="ad-chips" role="group" aria-label="Quick options">${PRESETS.map(p => `<button type="button" class="ad-chip" data-preset="${p.id}">${esc(p.label)}</button>`).join("")}</div>
+      <div class="ad-row"><input class="input" id="adIntent" name="intent" maxlength="200" placeholder="e.g. list 50 laptop screen guards on Flipkart this week" aria-label="What do you want to do?"><button class="btn pri" id="adGo" type="submit">Make my plan</button></div>
+    </form>
+    <div id="adOut" aria-live="polite"></div></section><script src="/adaptive.js?v=${ASSET_V}" defer></script>`;
   const banners = (!brandOn ? `<div class="alert al-warn dsec"><span>Set up Brand Memory so every listing matches your brand — takes 1 minute. <a href="/app/onboarding"><b>Set up now →</b></a></span></div>` : "")
     + (running ? `<div class="alert al-info dsec"><span>${running} job${running > 1 ? "s" : ""} running now — <a href="/app/jobs"><b>see progress</b></a></span></div>` : "");
 
-  return shell(user, "/app", `${hello}${banners}${checklist}${kpis}${actions}
+  return shell(user, "/app", `${hello}${adapt}${banners}${checklist}${kpis}${actions}
     <div class="dcols">
       <div class="card"><div class="cardhead"><h3>Recent listings</h3><a class="viewall" href="/app/listings/bulk">View all →</a></div>${recentDrafts}</div>
       <div class="card"><div class="cardhead"><h3>Upload-ready files</h3><a class="viewall" href="/app/exports">View all →</a></div>${recentFiles}</div>

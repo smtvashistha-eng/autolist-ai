@@ -106,6 +106,12 @@ async function waitJob(cookie, id) {
     ok("account menu shows usage meters + plan", /Hosted photos/.test(dsh.text) && /AI images/.test(dsh.text) && /Free Trial plan/.test(dsh.text));
     ok("tour available from the profile menu", /id="tourBtn"/.test(dsh.text) && /alStartTour/.test(dsh.text));
     ok("AI Help button + SmartHelpLayer script + context on every app page", /id="shBtn"/.test(dsh.text) && /src="\/smarthelp\.js/.test(dsh.text) && /id="sh-ctx">\{"role":"seller"/.test(dsh.text));
+    ok("adaptive plan card on the dashboard with quick options", /id="adapt"/.test(dsh.text) && /data-preset="list_flipkart"/.test(dsh.text) && /src="\/adaptive\.js/.test(dsh.text));
+    ok("adaptive script compiles", (() => { try { new (require("vm").Script)(fs.readFileSync(path.join(__dirname, "..", "public", "adaptive.js"), "utf8")); return true; } catch { return false; } })());
+    const adp = await req("POST", "/api/adaptive/plan", { cookie: A, body: { intent: "improve my listing quality" } });
+    ok("without AI the rule planner answers from real account data", adp.status === 200 && adp.json.plan.source === "rules" && adp.json.plan.steps.length >= 1 && adp.json.plan.steps.every(x => x.route && x.route.startsWith("/app/")));
+    const rf = await req("POST", "/api/adaptive/plan", { cookie: A, body: { intent: "book me a flight to goa" } });
+    ok("unrelated intent gets a helpful fallback, not made-up steps", rf.status === 200 && rf.json.plan.steps.length === 0 && !!rf.json.plan.fallback);
     ok("SmartHelpLayer script compiles", (() => { try { new (require("vm").Script)(fs.readFileSync(path.join(__dirname, "..", "public", "smarthelp.js"), "utf8")); return true; } catch { return false; } })());
     ok("built-in guide video plays until a YouTube link is set", /data-(vid|open-video)="\/guides\/[a-z]+\.mp4"/.test(dsh.text));
     const ADM = "sid=" + /sid=([^;]+)/.exec((await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "boss" + TAG + "@x.in", password: "pass1234", businessName: "Boss" }) })).headers.get("set-cookie"))[1];
