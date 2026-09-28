@@ -290,7 +290,7 @@ app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), asy
     let out;
     if (b.op === "generate") {
       if (prompt.length < 3) return res.status(400).json({ ok: false, message: "Describe the image you want." });
-      if (!ia.canGenerate()) return res.status(501).json({ ok: false, message: "Image generation needs the ChatGPT (OpenAI) key on the server." });
+      if (!ia.canGenerate()) return res.status(501).json({ ok: false, message: "Image generation isn't switched on yet." });
       out = await ia.getImageProvider().generate({ prompt: prompt + ". Photorealistic e-commerce product image. No text, no watermark, no logos of other brands.", biz });
     } else {
       const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(String(b.imageBase64 || ""));
@@ -303,7 +303,7 @@ app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), asy
     meter.record(biz, "aiImages", 1, { operation: "studio_" + b.op });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.studio_ai", resourceType: "image", resourceId: null, metadata: { op: b.op }, ip: audit.ipOf(req) });
     res.json({ ok: true, message: "Done", image: "data:" + out.mime + ";base64," + out.buffer.toString("base64"), width: out.width, height: out.height });
-  } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ ok: false, message: e.message }); }
+  } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ ok: false, message: require("./brandsafe").brandSafe(e.message) }); }
 });
 // ---- Phase 7: bulk image resize -> ZIP ----
 const images = require("./images");

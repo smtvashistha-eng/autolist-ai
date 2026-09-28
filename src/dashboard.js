@@ -50,7 +50,7 @@ function dashboardPage(user) {
   const kpi = (label, value, sub, href) => `<a class="kpi" href="${href}"><span>${label}</span><b class="tnum">${value}</b><small>${sub}</small></a>`;
   const kpis = `<div class="kpis">
     ${kpi("AI listings this month", u ? u.listings.used.toLocaleString("en-IN") : "—", u ? "of " + u.listings.limit.toLocaleString("en-IN") + " in your plan" : "", "/app/billing")}
-    ${kpi("Average quality", avgQ != null ? `${avgQ}<em>/100</em>` : "—", avgQ != null ? "last 30 days, checked by Jev" : "shows after your first run", "/app/listings/bulk")}
+    ${kpi("Average quality", avgQ != null ? `${avgQ}<em>/100</em>` : "—", avgQ != null ? "last 30 days, checked by AutoList AI" : "shows after your first run", "/app/listings/bulk")}
     ${kpi("Upload-ready files", nFiles.toLocaleString("en-IN"), "Flipkart, Amazon & more", "/app/exports")}
     ${kpi("Hosted photos", nPhotos.toLocaleString("en-IN"), "public links for your listings", "/app/images/hosted")}</div>`;
 

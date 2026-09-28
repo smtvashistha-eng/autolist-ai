@@ -74,7 +74,7 @@ router.post("/images/generate", auth.requireAuth, async (req, res) => {
     meter.record(biz, "aiImages", 1, { operation: "generate" });
     audit.record({ businessId: biz, userId: req.user.id, action: "image.generate", resourceType: "image", resourceId: gi.id, metadata: { model: p.model }, ip: audit.ipOf(req) });
     res.status(201).json({ image: shape(gi) });
-  } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ error: e.message, code: e.code }); }
+  } catch (e) { res.status(e.code === "NEEDS_PROVIDER" ? 501 : 502).json({ error: require("../brandsafe").brandSafe(e.message), code: e.code }); }
 });
 
 // non-destructive edit → new version

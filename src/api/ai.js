@@ -70,13 +70,15 @@ async function run(req, res, type, onlyFields) {
     meter.record(draft.business_id, "listings", 1, { type, provider: provider.name });
     airequests.complete(reqId, { tokensIn: result._usage?.input ?? null, tokensOut: result._usage?.output ?? null, model: provider.model, output: result });
     audit.record({ businessId: draft.business_id, userId: req.user.id, action: "ai." + type, resourceType: "draft", resourceId: draft.id, metadata: { provider: provider.name, fallback: !!result._fallback }, ip: audit.ipOf(req) });
-    res.json({ requestId: reqId, provider: provider.name, model: provider.model, result, content, summary });
+    res.json({ requestId: reqId, provider: "autolist-ai", result: scrub(result), content, summary });
   } catch (e) {
     airequests.fail(reqId, e.message);
     res.status(502).json({ error: "AI generation failed. Please try again.", requestId: reqId });
   }
 }
 
+// sellers see one brand: drop internal provider/model fields from the payload
+function scrub(r) { if (!r || typeof r !== "object") return r; const { _provider, _model, _usage, ...rest } = r; return { ...rest, _provider: _provider === "template" ? "template" : "autolist-ai" }; }
 router.post("/ai/listing/generate", auth.requireAuth, (req, res) => run(req, res, "generate", null));
 router.post("/ai/listing/regenerate", auth.requireAuth, (req, res) => {
   const fields = Array.isArray(req.body?.fields) && req.body.fields.length ? req.body.fields : null;

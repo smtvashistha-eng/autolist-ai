@@ -117,7 +117,7 @@ async function waitJob(cookie, id) {
     const draft = (await req("POST", "/api/drafts", { cookie: A, body: { productId: prod.id, marketplace: "amazon" } })).json.draft;
     const gen = await req("POST", "/api/ai/listing/generate", { cookie: A, body: { draftId: draft.id } });
     ok("Claude tried first (it was down)", hits.claude >= 1);
-    ok("Gemini answered instead", hits.gemini >= 1 && gen.status === 200 && gen.json.result._provider === "gemini");
+    ok("backup AI answered instead — and the seller only sees AutoList AI", hits.gemini >= 1 && gen.status === 200 && gen.json.result._provider === "autolist-ai" && gen.json.provider === "autolist-ai" && !gen.json.model);
     ok("listing came from the AI, not the fallback writer", !gen.json.result._fallback && /9H Hardness/.test(gen.json.result.fields.find(f => f.name === "title").value));
     ok("missing facts still flagged, not invented", gen.json.summary.missingFields.includes("material"));
     const writes = (hits.geminiReqs || []).filter(g => /You write marketplace product listings/.test(g.systemInstruction.parts[0].text));
@@ -187,7 +187,8 @@ async function waitJob(cookie, id) {
     console.log("Security + admin:");
     ok("keys only sent to their own vendor", hits.keys.every(k => ["test-claude-key", "test-gemini-key", "Bearer test-openai-key", "Bearer test-supa-key", "Bearer test-jev-key"].includes(k)));
     const page = (await req("GET", "/app/images", { cookie: A })).text;
-    ok("no key ever rendered to the browser", !/test-(claude|gemini|openai|supa|jev)-key/.test(page) && page.includes("Generate image"));
+    ok("no key ever rendered to the browser", !/test-(claude|gemini|openai|supa|jev)-key/.test(page) && page.includes("Create image"));
+    ok("no AI vendor name shown to sellers on the image page", !/chatgpt|openai|gemini|claude|\bjev\b/i.test(page.replace(/<script[\s\S]*?<\/script>/g, "")));
     const ADM = await signup("adm");
     const health = ((await req("GET", "/admin/health", { cookie: ADM })).text || "").replace(/&rarr;|&#8594;/g, "→");
     ok("admin shows Claude → Gemini chain + Supabase + spend", /Claude \(claude-sonnet-5\) → Gemini/.test(health) && health.includes("supabase") && health.includes("TypeSafe Jev") && /AI spend/.test(health));

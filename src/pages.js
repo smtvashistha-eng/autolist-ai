@@ -477,6 +477,7 @@ function shell(user, activePath, body) {
 })();
 </script>
 <script type="application/json" id="sh-ctx">${JSON.stringify({ role: isAdmin(user) ? "admin" : "seller", plan: String(u ? u.planName : biz.plan || "Free Trial"), level: used >= 25 ? "advanced" : "beginner" }).replace(/</g, "\\u003c")}</script>
+<script src="/progress.js?v=${ASSET_V}"></script>
 <script src="/smarthelp.js?v=${ASSET_V}" defer></script>
 <script src="/install.js?v=${ASSET_V}" defer></script>` + foot;
 }
@@ -761,7 +762,7 @@ function reviewListing(user, L, v) {
         </div>
         <div>
           <div class="card pad" style="margin-bottom:14px"><b>Attributes</b><div style="margin-top:8px">${attrs || '<span style="color:var(--soft)">None</span>'}</div></div>
-          ${r.quality ? `<div class="card pad" style="margin-bottom:14px"><b>Quality check</b> <span style="color:var(--soft);font-size:12px">by Jev</span>
+          ${r.quality ? `<div class="card pad" style="margin-bottom:14px"><b>Quality check</b> <span style="color:var(--soft);font-size:12px">by AutoList AI</span>
             <div style="font-size:28px;font-weight:800;margin-top:4px;color:${r.quality.score >= 70 ? "var(--good)" : r.quality.score >= 50 ? "var(--warn)" : "var(--err)"}">${r.quality.score}<small style="font-size:14px;color:var(--soft)">/100</small></div>
             ${(r.quality.warnings || []).map(w => `<div style="font-size:13px;color:var(--warn);margin-top:6px">⚠ ${esc(w.replace(/^Quality check: /, ""))}</div>`).join("")}</div>` : ""}
           <div class="card pad" style="background:var(--accent-weak);border-color:transparent;font-size:13px;color:var(--accent-ink)">${esc(r.note)}</div>
@@ -885,61 +886,8 @@ function bulkProgress(user, job) {
   </script>`);
 }
 
-// ---- Phase 3: AI Image Studio ----
-function imageStudio(user, caps) {
-  const PRESETS = [["Amazon Main", 1000, 1000], ["Flipkart Gallery", 1000, 1000], ["Instagram", 1080, 1080], ["Website Hero", 1600, 1200]];
-  const aiChip = (id, label) => { const on = id === "remove_bg" ? caps.bgEnabled : caps.aiEnabled; return `<button class="fchip" data-ai="${id}" style="cursor:pointer">${label}${on ? "" : ' <span style="font-size:10px;color:var(--faint)">key</span>'}</button>`; };
-  return shell(user, "/app/images", `
-  <div class="phead"><div><h1>AI Image Studio</h1><p>Marketplace-perfect images. Resize &amp; white background are free; AI edits and prompt-to-image use ChatGPT${caps.aiEnabled ? " (connected)" : " (needs the OpenAI key)"}.</p></div></div>
-  ${require("./uxpages").tabs(require("./uxpages").IMAGE_TABS, "/app/images")}
-  <div class="studio-grid">
-    <div class="card pad">
-      <b>1 · Upload a product photo</b>
-      <label class="drop" style="display:block;border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;background:var(--panel);margin-top:10px;cursor:pointer">
-        <input id="file" type="file" accept="image/*" hidden>
-        <div style="font-weight:600">Click to choose an image</div><div style="color:var(--soft);font-size:13px;margin-top:4px">PNG or JPG · processed in your browser</div>
-      </label>
-      <div style="margin-top:14px"><b>2 · Marketplace size</b>
-        <div class="flowline" style="margin:8px 0 0">${PRESETS.map((p, i) => `<button class="fchip ${i === 0 ? "on" : ""}" data-w="${p[1]}" data-h="${p[2]}">${p[0]} · ${p[1]}×${p[2]}</button>`).join("")}</div></div>
-      <div style="margin-top:14px"><b>3 · AI edits</b> <span style="color:var(--soft);font-size:12px">${caps.aiEnabled ? "provider connected" : "needs an image key"}</span>
-        <div class="flowline" style="margin:8px 0 0">${["remove_bg:Remove background", "white_studio:White studio", "lifestyle:Lifestyle", "enhance:Enhance"].map(x => aiChip(x.split(":")[0], x.split(":")[1])).join("")}</div>
-        <div class="field" style="margin-top:10px"><input id="prompt" placeholder="Optional prompt e.g. 'on a marble kitchen counter'"></div>
-      </div>
-      <div id="aimsg" style="font-size:13px;color:var(--warn);margin-top:6px"></div>
-      <div style="margin-top:18px;border-top:1px solid var(--line2);padding-top:14px"><b>Or generate an image from a prompt</b> <span style="color:var(--soft);font-size:12px">ChatGPT · no watermark</span>
-        <div class="field" style="margin-top:8px"><textarea id="genprompt" rows="3" maxlength="800" placeholder="e.g. A clear tempered-glass screen guard on a laptop screen, white background, soft light"></textarea></div>
-        <button class="btn pri" id="genbtn" style="margin-top:8px"${caps.aiEnabled ? "" : " disabled"}>Generate image</button>
-        <span style="font-size:12px;color:var(--soft);margin-left:8px">${caps.aiEnabled ? "Uses 1 image from your plan." : "Needs the OpenAI key on the server."}</span>
-        <p style="font-size:12px;color:var(--soft);margin-top:6px">Tip: use generated images for banners &amp; lifestyle shots. Marketplaces require the main image to be a real photo of your product.</p>
-      </div>
-    </div>
-    <div class="card pad">
-      <b>Preview <span style="color:var(--soft);font-weight:400" id="dim"></span></b>
-      <div style="margin-top:10px;border:1px solid var(--line);border-radius:12px;background:#fff;aspect-ratio:1;display:grid;place-items:center;overflow:hidden">
-        <canvas id="cv" width="1000" height="1000" style="max-width:100%;max-height:100%"></canvas></div>
-      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="dl" disabled>⬇ Download image</button><span id="hint" style="color:var(--soft);font-size:13px;align-self:center">Upload a photo to start</span></div>
-    </div>
-  </div>
-  <script>
-  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');let img=null,W=1000,H=1000;
-  function draw(){cv.width=W;cv.height=H;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);document.getElementById('dim').textContent=' · '+W+'×'+H;
-    if(!img)return;const pad=Math.round(Math.min(W,H)*0.08);const aw=W-pad*2,ah=H-pad*2;const s=Math.min(aw/img.width,ah/img.height);
-    const w=img.width*s,h=img.height*s;ctx.drawImage(img,(W-w)/2,(H-h)/2,w,h);document.getElementById('dl').disabled=false;document.getElementById('hint').textContent='Ready — white background, contained &amp; centered';}
-  document.getElementById('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{img=new Image();img.onload=draw;img.src=r.result;};r.readAsDataURL(f);});
-  document.querySelectorAll('[data-w]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-w]').forEach(x=>x.classList.remove('on'));b.classList.add('on');W=+b.dataset.w;H=+b.dataset.h;draw();}));
-  document.getElementById('dl').addEventListener('click',()=>{const a=document.createElement('a');a.download='autolist-image-'+W+'x'+H+'.png';a.href=cv.toDataURL('image/png');a.click();});
-  async function ai(op,prompt,btn){const m=document.getElementById('aimsg');
-    if(op!=='generate'&&!img){m.textContent='Upload a photo first.';return;}
-    m.textContent=op==='generate'?'Generating with ChatGPT… (about 20–40 s)':'Working…';if(btn)btn.disabled=true;
-    try{const src=op==='generate'?null:(()=>{const c=document.createElement('canvas');const s=Math.min(1,1536/Math.max(img.width,img.height));c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);return c.toDataURL('image/png');})();
-      const r=await fetch('/api/image/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op,prompt,imageBase64:src})}).then(x=>x.json());
-      if(!r.ok){m.textContent=r.message||'Not available';return;}
-      const n=new Image();n.onload=()=>{img=n;draw();m.textContent='Done — preview updated. Download when ready.';};n.src=r.image;
-    }catch(e){m.textContent='Something went wrong. Try again.';}finally{if(btn)btn.disabled=false;}}
-  document.querySelectorAll('[data-ai]').forEach(b=>b.addEventListener('click',()=>ai(b.dataset.ai,document.getElementById('prompt').value,b)));
-  document.getElementById('genbtn').addEventListener('click',e=>ai('generate',document.getElementById('genprompt').value,e.currentTarget));
-  </script>`);
-}
+// ---- Image studio (markup in src/imagestudio.js, behaviour in public/imagestudio.js) ----
+function imageStudio(user, caps) { return require("./imagestudio").imageStudio(user, caps); }
 
 // ---- Phase 8: billing ----
 function billingPage(user, u, plans, razorpayOn, notice, lock = {}) {
@@ -1224,7 +1172,7 @@ function bulkProScript() {
     "   $('bp-zip-result').hidden=false;",
     "   $('bp-zip-summary').innerHTML='\\u2705 <b>'+a.total+' images</b> hosted for <b>'+a.skus+' SKUs</b>'+(j.failedItems?(' \\u00b7 \\u26A0 '+j.failedItems+' could not be used'):'')+'. Check the thumbnails, then tick the box.';",
     "   $('bp-zip-thumbs').innerHTML=a.assets.slice(0,30).map(function(x){return '<a href=\"'+esc(x.url)+'\" target=\"_blank\" rel=\"noopener\" title=\"'+esc(x.filename)+'\" style=\"display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff\"><img src=\"'+esc(x.url)+'\" alt=\"'+esc(x.sku)+'\" loading=\"lazy\" style=\"width:100%;height:80px;object-fit:contain\"><div style=\"font-size:10.5px;padding:3px 6px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">'+esc(x.sku)+(x.position?(' #'+x.position):'')+'</div></a>';}).join('');",
-    "   imgJobId=id; zstat('Images ready ('+a.assets[0].provider+' hosting).'); });",
+    "   imgJobId=id; zstat('Images ready and hosted.'); });",
     "}",
     "$('bp-go').onclick=function(){ if(!fileId||busy)return;",
     "  var mkt=(document.querySelector('input[name=bpmkt]:checked')||{}).value||'amazon';",
