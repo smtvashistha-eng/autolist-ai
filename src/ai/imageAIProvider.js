@@ -10,8 +10,8 @@ const COST = { removebg: 0.20, openai_generate: 0.04, openai_edit: 0.04 };   // 
 
 const openaiKey = () => process.env.OPENAI_API_KEY || process.env.IMAGE_API_KEY || "";
 const removeBgKey = () => process.env.REMOVEBG_API_KEY || "";
-const canGenerate = () => !!openaiKey();
-const canRemoveBg = () => !!(removeBgKey() || openaiKey());
+const canGenerate = () => (() => { try { return require("../settings").flag("ai_images"); } catch { return true; } })() && !!openaiKey();
+const canRemoveBg = () => (() => { try { return require("../settings").flag("ai_images"); } catch { return true; } })() && !!(removeBgKey() || openaiKey());
 
 function logCost(biz, provider, operation, costUsd, ok = true) {
   try {

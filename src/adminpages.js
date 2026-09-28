@@ -9,6 +9,8 @@ const NAV = [
   ["Marketplaces", "/admin/marketplaces", "M3 9l1-5h16l1 5M4 9v10h16V9"],
   ["Audit log", "/admin/audit-log", "M9 11l3 3L22 4M4 4h9"],
   ["Health", "/admin/health", "M22 12h-4l-3 9L9 3l-3 9H2"],
+  ["Control centre", "/admin/control", "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"],
+  ["AI usage & cost", "/admin/ai", "M3 3v18h18M7 14l4-4 3 3 5-6"],
   ["Tutorial videos", "/admin/videos", "M15 10l5-3v10l-5-3M3 6h12v12H3z"],
   ["Early access", "/admin/waitlist", "M4 4h16v16H4zM4 8l8 5 8-5"],
 ];
@@ -122,6 +124,7 @@ function userDetail(user, d, plansList) {
         <select name="plan" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px">${planOpts}</select>
         <input name="reason" placeholder="Reason (required)" required style="flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:8px 10px">
         <button class="btn pri">Change plan</button></form>
+      ${require("./admincontrol").creditsCard(b.id)}
       ${b.status === "suspended"
       ? `<form method="POST" action="/admin/users/${esc(u.id)}/reactivate" data-confirm="Reactivate ${esc(b.name)}?" style="margin:0"><button class="btn ghost">Reactivate account</button></form>`
       : `<form method="POST" action="/admin/users/${esc(u.id)}/suspend" data-confirm="Suspend ${esc(b.name)}? All its users will be logged out and blocked." style="margin:0;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input name="reason" placeholder="Reason (required)" required style="flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:8px 10px"><button class="btn" style="background:var(--err);color:#fff;border-color:var(--err)">Suspend</button></form>`}
@@ -150,7 +153,7 @@ function jobs(user, data, query) {
     <td style="text-align:center">${fmt(j.completed)}/${fmt(j.total)}${j.failed ? ` <span style="color:var(--err)">(${j.failed})</span>` : ""}</td>
     <td>${j.category ? `<span class="badge b-warn">${esc(j.category)}</span>` : "-"}</td>
     <td style="color:var(--soft);font-size:12px">${when(j.created_at)}</td>
-    <td>${j.retryable ? `<form method="POST" action="/admin/jobs/${esc(j.id)}/retry" data-confirm="Retry this job? It safely resumes without duplicating work." style="margin:0"><button class="btn ghost" style="padding:5px 10px;font-size:12px">Retry</button></form>` : ""}</td></tr>`).join("");
+    <td>${/QUEUED|PROCESSING|RUNNING/.test(j.status || "") ? `<form method="POST" action="/admin/jobs/${esc(j.id)}/cancel" data-confirm="Cancel this job? Finished items are kept." style="margin:0 0 4px"><button class="btn ghost" style="padding:5px 10px;font-size:12px;color:var(--err)">Cancel</button></form>` : ""}${j.retryable ? `<form method="POST" action="/admin/jobs/${esc(j.id)}/retry" data-confirm="Retry this job? It safely resumes without duplicating work." style="margin:0"><button class="btn ghost" style="padding:5px 10px;font-size:12px">Retry</button></form>` : ""}</td></tr>`).join("");
   const f = (s) => `<a class="btn ghost ${query.status === s ? "pri" : ""}" style="padding:6px 12px;font-size:12px" href="/admin/jobs${s ? "?status=" + s : ""}">${s || "All"}</a>`;
   return layout(user, "/admin/jobs", `
   <div class="phead"><div><h1>Jobs</h1><p>${data.total} total</p></div></div>
@@ -235,4 +238,4 @@ function waitlistPage(user, rows, reserved = []) {
   return layout(user, "/admin/waitlist", `<div class="phead"><div><h1>Early access</h1><p>Sellers waiting for launch and for paid plans — convert these first.</p></div></div>
   ${resCard}<div class="card"><div class="cardhead"><h3>Early-access sign-ups (${rows.length})</h3></div>${rows.length ? `<table><thead><tr><th>Email</th><th>What they sell</th><th>From page</th><th>Joined</th></tr></thead><tbody>${tr}</tbody></table>` : `<div class="pad muted">No sign-ups yet.</div>`}</div>`);
 }
-module.exports = { waitlistPage, dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage, videosPage };
+module.exports = { layout, waitlistPage, dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage, videosPage };

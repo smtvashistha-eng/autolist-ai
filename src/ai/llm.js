@@ -50,6 +50,7 @@ function order() {
 }
 function available() {
   if (process.env.AI_PROVIDER === "template") return [];
+  try { if (!require("../settings").flag("ai_text")) return []; } catch {}   // admin switched AI writing off → built-in writer
   return order().filter(n => PROVIDERS[n].key());
 }
 const enabled = () => available().length > 0;

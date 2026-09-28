@@ -86,7 +86,7 @@ function dashboardPage(user) {
   const banners = (!brandOn ? `<div class="alert al-warn dsec"><span>Set up Brand Memory so every listing matches your brand — takes 1 minute. <a href="/app/onboarding"><b>Set up now →</b></a></span></div>` : "")
     + (running ? `<div class="alert al-info dsec"><span>${running} job${running > 1 ? "s" : ""} running now — <a href="/app/jobs"><b>see progress</b></a></span></div>` : "");
 
-  return shell(user, "/app", `${hello}${adapt}${banners}${checklist}${kpis}${actions}
+  return shell(user, "/app", `${hello}${require("./settings").flag("adaptive") ? adapt : ""}${banners}${checklist}${kpis}${actions}
     <div class="dcols">
       <div class="card"><div class="cardhead"><h3>Recent listings</h3><a class="viewall" href="/app/listings/bulk">View all →</a></div>${recentDrafts}</div>
       <div class="card"><div class="cardhead"><h3>Upload-ready files</h3><a class="viewall" href="/app/exports">View all →</a></div>${recentFiles}</div>

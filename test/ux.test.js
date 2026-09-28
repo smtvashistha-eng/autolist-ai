@@ -119,6 +119,34 @@ async function waitJob(cookie, id) {
     const badV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://evil.example.com/x.mp4" } });
     ok("only YouTube links accepted", /err=/.test(badV.location || ""));
 
+    console.log("Admin Control centre:");
+    ok("Control centre opens for admin, not for sellers", (await req("GET", "/admin/control", { cookie: ADM })).status === 200 && (await req("GET", "/admin/control", { cookie: A })).status === 403);
+    await req("POST", "/admin/control/announcement", { cookie: ADM, form: { on: "on", text: "Flipkart is slow today", kind: "warn", link: "/app/exports" } });
+    ok("announcement shows on every seller page", /Flipkart is slow today/.test((await req("GET", "/app/jobs", { cookie: A })).text));
+    const allOn = { ai_text: "on", ai_images: "on", create_image: "on", smart_help: "on", adaptive: "on", install_popup: "on" };
+    { const f2 = { ...allOn }; delete f2.smart_help; delete f2.adaptive; await req("POST", "/admin/control/flags", { cookie: ADM, form: f2 }); }
+    const offDash = (await req("GET", "/app", { cookie: A })).text;
+    ok("switching AI Help + planner off removes them", !/id="shBtn"/.test(offDash) && !/id="adapt"/.test(offDash));
+    await req("POST", "/admin/control/flags", { cookie: ADM, form: { ...allOn, maintenance: "on" } });
+    ok("maintenance pause blocks seller AI work with a friendly message", (await req("POST", "/api/adaptive/plan", { cookie: A, body: { intent: "list products" } })).status === 503);
+    ok("maintenance banner shown to sellers", /being updated/.test((await req("GET", "/app", { cookie: A })).text));
+    ok("admins are not blocked by maintenance", (await req("POST", "/api/adaptive/plan", { cookie: ADM, body: { intent: "list products" } })).status === 200);
+    await req("POST", "/admin/control/flags", { cookie: ADM, form: allOn });
+    ok("switches back on restore everything", /id="shBtn"/.test((await req("GET", "/app", { cookie: A })).text));
+    await req("POST", "/admin/control/plans", { cookie: ADM, form: { "STARTER.price": "999", "STARTER.listings": "175", "STARTER.images": "500", "STARTER.aiImages": "20" } });
+    ok("plan limit changed without a deploy", /<b>175<\/b> AI listings/.test((await req("GET", "/app/billing", { cookie: A })).text));
+    await req("POST", "/admin/control/plans", { cookie: ADM, form: { "STARTER.price": "999", "STARTER.listings": "150", "STARTER.images": "500", "STARTER.aiImages": "20" } });
+    await req("POST", "/admin/control/announcement", { cookie: ADM, form: { text: "" } });
+    const bizA = (await req("GET", "/api/auth/me", { cookie: A })).json;
+    const bizId = bizA.user && bizA.user.business && bizA.user.business.id;
+    const limBefore = (await req("GET", "/api/billing/usage", { cookie: A })).json;
+    await req("POST", "/admin/businesses/" + bizId + "/bonus", { cookie: ADM, form: { kind: "listings", n: "10", reason: "launch gift" } });
+    const limAfter = (await req("GET", "/api/billing/usage", { cookie: A })).json;
+    const L = (x) => (x.usage || x).listings ? (x.usage || x).listings.limit : null;
+    ok("bonus credits raise the seller's limit", bizId && L(limAfter) === L(limBefore) + 10);
+    ok("non-admin cannot give bonus", (await req("POST", "/admin/businesses/" + bizId + "/bonus", { cookie: A, form: { kind: "listings", n: "999", reason: "x" } })).status === 403);
+    ok("AI usage page opens", /AI usage &amp; cost/.test((await req("GET", "/admin/ai", { cookie: ADM })).text));
+
     console.log("Paid plans locked (pre-launch):");
     ok("opening paid plans needs typed OPEN", /err=/.test((await req("POST", "/admin/paid-plans", { cookie: ADM, form: { state: "open", confirm: "" } })).location || ""));
     ok("non-admin can't switch the lock", (await req("POST", "/admin/paid-plans", { cookie: A, form: { state: "locked" } })).status === 403);

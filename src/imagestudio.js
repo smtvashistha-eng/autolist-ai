@@ -63,7 +63,7 @@ function imageStudio(user, caps) {
         <h4>Describe the image</h4>
         <textarea class="input" id="genprompt" rows="4" maxlength="800" placeholder="e.g. A clear tempered-glass screen guard on a laptop screen, white background, soft light"></textarea>
         <div class="is-chips">${["Studio white background", "Lifestyle, natural light", "Banner with empty space on the left", "Top-down flat lay"].map(x => `<button type="button" class="ad-chip" data-add="${esc(x)}">+ ${esc(x)}</button>`).join("")}</div>
-        <button type="button" class="btn pri is-gen" id="genbtn"${aiOn ? "" : " disabled"}>${ic("M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z")} ${aiOn ? "Create image · 1 credit" : "Coming soon"}</button>
+        <button type="button" class="btn pri is-gen" id="genbtn"${caps.createEnabled ? "" : " disabled"}>${ic("M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z")} ${caps.createEnabled ? "Create image · 1 credit" : "Coming soon"}</button>
         <p class="hint"><span>Marketplaces need the <b>main</b> image to be a real photo of your product — use created images for banners and extra gallery shots.</span></p>
       </div>
       <div class="is-msg" id="msg" role="status"></div>

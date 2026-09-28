@@ -42,7 +42,8 @@ const jsonBody = express.json({ limit: "2mb", verify: (req, res, buf) => { req.r
 app.use((req, res, next) => (req.path === "/api/image/ai" ? next() : jsonBody(req, res, next)));   // studio photos parse at 15 MB on their route
 app.use(express.static(path.join(__dirname, "..", "public"), { redirect: false }));   // no /guides → /guides/ folder redirect (that URL is a page)
 app.use(auth.attachUser);
-app.use(require("./sitegate").middleware);   // pre-launch: admins only until the owner launches (switch in /admin)
+app.use(require("./sitegate").middleware);
+app.use(require("./settings").maintenanceGuard);   // admin "maintenance pause" — blocks new AI work for sellers   // pre-launch: admins only until the owner launches (switch in /admin)
 // Phase 1 JSON REST API (auth, users, businesses)
 app.use("/api", require("./api"));
 
@@ -277,7 +278,7 @@ app.get("/api/jobs/:id/stream", (req, res) => {
 });
 // ---- Phase 3: AI Image Studio ----
 const imgProvider = require("./ai/imageProvider");
-app.get("/app/images", (req, res) => { const ia = require("./ai/imageAIProvider"); res.send(pages.imageStudio(req.user, { ...imgProvider.capabilities(), aiEnabled: ia.canGenerate(), bgEnabled: ia.canRemoveBg() })); });
+app.get("/app/images", (req, res) => { const ia = require("./ai/imageAIProvider"); res.send(pages.imageStudio(req.user, { ...imgProvider.capabilities(), aiEnabled: ia.canGenerate(), bgEnabled: ia.canRemoveBg(), createEnabled: ia.canGenerate() && require("./settings").flag("create_image") })); });
 // R3+: studio AI edits + prompt-to-image (ChatGPT gpt-image-1; remove.bg for backgrounds). Session-auth, metered.
 app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), async (req, res) => {
   const ia = require("./ai/imageAIProvider"), meter = require("./usagemeter"), audit = require("./audit");
@@ -290,7 +291,7 @@ app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), asy
     let out;
     if (b.op === "generate") {
       if (prompt.length < 3) return res.status(400).json({ ok: false, message: "Describe the image you want." });
-      if (!ia.canGenerate()) return res.status(501).json({ ok: false, message: "Image generation isn't switched on yet." });
+      if (!ia.canGenerate() || !require("./settings").flag("create_image")) return res.status(501).json({ ok: false, message: "Image generation isn't switched on right now." });
       out = await ia.getImageProvider().generate({ prompt: prompt + ". Photorealistic e-commerce product image. No text, no watermark, no logos of other brands.", biz });
     } else {
       const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(String(b.imageBase64 || ""));
@@ -364,6 +365,45 @@ app.use("/admin", auth.requireAuth, auth.requireAdmin);   // all /admin requires
 app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity(), siteMode: require("./sitegate").getMode(), ok: req.query.ok, err: req.query.err })));
 // launch switch — typed confirmation required so it can't be flipped by a stray click
 app.get("/admin/waitlist", (req, res) => res.send(adminUI.waitlistPage(req.user, db.prepare("SELECT * FROM waitlist ORDER BY created_at DESC LIMIT 2000").all(), require("./paidlock").reservations())));
+// ---- Control centre + AI usage ----
+const ctl = () => require("./admincontrol");
+app.get("/admin/control", (req, res) => res.send(ctl().controlPage(adminUI.layout, req.user, req.query)));
+app.post("/admin/control/flags", (req, res) => {
+  const f = require("./settings").setFlags(req.body || {}, req.user);
+  require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.flags", resourceType: "site", resourceId: "flags", metadata: f, ip: ipOf(req) });
+  res.redirect("/admin/control?ok=" + encodeURIComponent("Feature switches saved."));
+});
+app.post("/admin/control/announcement", (req, res) => {
+  const b = req.body || {}; const a = require("./settings").setAnnouncement({ on: !!b.on, text: b.text, kind: b.kind, link: b.link }, req.user);
+  require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.announcement", resourceType: "site", resourceId: "announcement", metadata: a, ip: ipOf(req) });
+  res.redirect("/admin/control?ok=" + encodeURIComponent(a.on && a.text ? "Announcement is live for all sellers." : "Announcement saved (hidden)."));
+});
+app.post("/admin/control/plans", (req, res) => {
+  const b = req.body || {}, input = {};
+  for (const [k, v] of Object.entries(b)) { const [id, f] = k.split("."); if (id && f) (input[id] = input[id] || {})[f] = v; }
+  const out = require("./settings").setPlans(input, req.user);
+  require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.plans", resourceType: "site", resourceId: "plans", metadata: out, ip: ipOf(req) });
+  res.redirect("/admin/control?ok=" + encodeURIComponent("Plans updated for everyone."));
+});
+app.get("/admin/ai", (req, res) => res.send(ctl().aiUsagePage(adminUI.layout, req.user)));
+app.post("/admin/businesses/:id/bonus", (req, res) => {
+  const b = req.body || {}, n = Math.round(Number(b.n)), kind = ["listings", "aiImages", "images"].includes(b.kind) ? b.kind : "listings";
+  const biz = db.prepare("SELECT id FROM businesses WHERE id=?").get(req.params.id); const owner = db.prepare("SELECT id FROM users WHERE business_id=? LIMIT 1").get(req.params.id);
+  if (!biz || !Number.isFinite(n) || !n || !String(b.reason || "").trim()) return res.redirect(owner ? "/admin/users/" + owner.id + "?err=" + encodeURIComponent("Enter an amount and a reason.") : "/admin/users");
+  require("./settings").grantBonus(biz.id, kind, n);
+  require("./audit").record({ businessId: biz.id, userId: req.user.id, action: "admin.bonus", resourceType: "business", resourceId: biz.id, metadata: { kind, n, reason: String(b.reason).slice(0, 200) }, ip: ipOf(req) });
+  res.redirect(owner ? "/admin/users/" + owner.id : "/admin/users");
+});
+app.post("/admin/businesses/:id/reset-usage", (req, res) => {
+  const biz = db.prepare("SELECT id FROM businesses WHERE id=?").get(req.params.id); const owner = db.prepare("SELECT id FROM users WHERE business_id=? LIMIT 1").get(req.params.id);
+  if (biz) { require("./settings").resetUsage(biz.id); require("./audit").record({ businessId: biz.id, userId: req.user.id, action: "admin.reset_usage", resourceType: "business", resourceId: biz.id, ip: ipOf(req) }); }
+  res.redirect(owner ? "/admin/users/" + owner.id : "/admin/users");
+});
+app.post("/admin/jobs/:id/cancel", (req, res) => {
+  const j = db.prepare("SELECT * FROM processing_jobs WHERE id=?").get(req.params.id);
+  if (j && /QUEUED|PROCESSING|RUNNING/.test(j.status)) { try { require("./queue").cancel(j); } catch {} require("./audit").record({ businessId: j.business_id, userId: req.user.id, action: "admin.job_cancel", resourceType: "job", resourceId: j.id, ip: ipOf(req) }); }
+  res.redirect("/admin/jobs");
+});
 app.get("/admin/videos", (req, res) => res.send(adminUI.videosPage(req.user, require("./tutorials").all(), req.query.ok, req.query.err)));
 app.post("/admin/videos", (req, res) => {
   try {
