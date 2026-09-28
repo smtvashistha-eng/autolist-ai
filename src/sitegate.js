@@ -1,7 +1,8 @@
 // src/sitegate.js — pre-launch "private mode": until the owner launches, only admins can use AutoList AI.
 // Everyone else sees a Coming Soon page; signup is closed, non-admin logins/sessions are refused, and every
 // API refuses non-admins. Always reachable: health check, payment webhooks, public hosted images (/i/),
-// signed file downloads, static assets, and the login/logout forms (so the admin can get in).
+// signed file downloads, static assets, the login/logout forms (so the admin can get in), and the public marketing
+// site (home, product pages, guides, help, pricing, sitemap/robots/llms.txt) so search engines can index it pre-launch.
 // State lives in the DB (site_settings.launch = "open"|"private"), switched from /admin with an audit record.
 // Default when unset: private in production, open under NODE_ENV=test (so the test suites can sign up).
 const { db, nowISO } = require("./db");
@@ -24,7 +25,7 @@ function setMode(mode, actor, ip) {
 }
 
 const adminEmail = (email) => (process.env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean).includes(String(email || "").trim().toLowerCase());
-const ALWAYS = [/^\/api\/health$/, /^\/api\/billing\/webhook\//, /^\/i\//, /^\/api\/files\/[^/]+\/download$/, /^\/logout$/, /^\/api\/auth\/logout$/, /^\/favicon/, /\.(css|js|png|jpe?g|svg|ico|webp|woff2?)$/i];
+const ALWAYS = [/^\/api\/health$/, /^\/api\/billing\/webhook\//, /^\/i\//, /^\/api\/files\/[^/]+\/download$/, /^\/logout$/, /^\/api\/auth\/logout$/, /^\/favicon/, /\.(css|js|png|jpe?g|svg|ico|webp|woff2?|mp4)$/i];
 
 function comingSoon() {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -51,7 +52,7 @@ a{color:var(--acc);font-size:13px;text-decoration:none}.f{margin-top:26px}
 function middleware(req, res, next) {
   if (isOpen()) return next();
   const p = req.path, isApi = p.startsWith("/api/");
-  if (ALWAYS.some(re => re.test(p))) return next();
+  if (ALWAYS.some(re => re.test(p)) || require("./seo").MARKETING_RE.test(p)) return next();
   if (req.user && auth.isAdmin(req.user)) return next();
   // a signed-in non-admin: end their session
   if (req.user) { try { auth.clearCookie(res); } catch {} }
@@ -63,7 +64,8 @@ function middleware(req, res, next) {
       : res.status(403).send(require("./pages").authPage("login", "AutoList AI is in private testing — only the team can log in right now. Launching soon!"));
   }
   if (isApi) return res.status(403).json({ error: "AutoList AI is in private testing. Launching soon." });
-  if (p === "/" || req.method !== "GET") return res.status(p === "/" ? 200 : 403).set("cache-control", "no-store").type("html").send(comingSoon());
+  if (p === "/" && req.method === "GET") return res.set("cache-control", "no-store").type("html").send(require("./seo").landingHtml(require("./pages").landing()));
+  if (req.method !== "GET") return res.status(403).set("cache-control", "no-store").type("html").send(comingSoon());
   return res.redirect(302, "/");
 }
 

@@ -312,9 +312,10 @@ function shell(user, activePath, body) {
   // ---- "Watch how" video modal (YouTube, privacy-enhanced embed) ----
   function openVideo(id,label){
     var m=document.createElement('div');m.className='mdl';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
-    m.innerHTML='<div class="mdl-box"><div class="mdl-head"><b></b><button class="mdl-x" aria-label="Close">×</button></div><div class="mdl-vid"><iframe allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div></div>';
+    var local=id.indexOf('/guides/')===0&&id.slice(-4)==='.mp4';
+    m.innerHTML='<div class="mdl-box"><div class="mdl-head"><b></b><button class="mdl-x" aria-label="Close">×</button></div><div class="mdl-vid">'+(local?'<video controls autoplay playsinline preload="auto"></video>':'<iframe allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>')+'</div></div>';
     m.querySelector('b').textContent=label||'How it works';
-    m.querySelector('iframe').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?autoplay=1&rel=0&modestbranding=1';
+    if(local)m.querySelector('video').src=id; else m.querySelector('iframe').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?autoplay=1&rel=0&modestbranding=1';
     function close(){m.remove();document.removeEventListener('keydown',onKey);}
     function onKey(e){if(e.key==='Escape')close();}
     m.addEventListener('click',function(e){if(e.target===m)close();});m.querySelector('.mdl-x').onclick=close;document.addEventListener('keydown',onKey);
@@ -525,9 +526,9 @@ function adminPage(user, d) {
 }
 function helpPage(user) {
   const q = (t, d) => `<div class="card pad" style="margin-bottom:12px"><b>${esc(t)}</b><p style="color:var(--soft);margin:6px 0 0">${esc(d)}</p></div>`;
-  const T = require("./tutorials"), vids = T.all();
-  const lib = T.PAGES.filter(p => T.youtubeId(vids[p.key])).map(p => { const id = T.youtubeId(vids[p.key]);
-    return `<button class="vcard" type="button" data-open-video="${esc(id)}" data-vlabel="${esc(p.label)}"><span class="vc-img"><img loading="lazy" src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt=""><span class="vc-play"></span></span><b>${esc(p.label)}</b></button>`; }).join("");
+  const T = require("./tutorials");
+  const lib = T.PAGES.map(p => T.forKey(p.key)).filter(Boolean).map(v =>
+    `<button class="vcard" type="button" data-open-video="${esc(v.id)}" data-vlabel="${esc(v.label)}"><span class="vc-img"><img loading="lazy" src="${esc(v.poster)}" alt=""><span class="vc-play"></span></span><b>${esc(v.label)}</b></button>`).join("");
   const body = `<div class="phead"><div><h1>Help &amp; guide</h1><p>How AutoList AI works, in plain steps.</p></div><div class="phead-a"><button class="btn pri" type="button" onclick="window.alStartTour&&alStartTour()">Take the tour</button></div></div>
   ${lib ? `<div class="card pad mb"><b>Video tutorials</b><div class="vgrid">${lib}</div></div>` : ""}
     ${alertBox("info", "AutoList AI never invents product facts. Anything we're unsure about is marked so you can confirm it.")}
@@ -1424,4 +1425,4 @@ function cropToolPage() {
 ${cropScripts()}` + foot;
 }
 
-module.exports = { landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin, esc, ic, head, foot, onboardingPage, brandPage };
+module.exports = { ASSET_V, landing, authPage, shell, dashboard, simple, createForm, reviewListing, imageStudio, bulkUpload, bulkMapping, bulkProgress, templatesPage, bulkImages, billingPage, connectionsPage, helpPage, badge, alertBox, emptyState, crumbs, cropToolPage, cropperWidget, cropScripts, bulkPro, adminPage, isAdmin, esc, ic, head, foot, onboardingPage, brandPage };

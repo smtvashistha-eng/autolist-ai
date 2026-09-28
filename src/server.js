@@ -47,7 +47,8 @@ app.use(require("./sitegate").middleware);   // pre-launch: admins only until th
 app.use("/api", require("./api"));
 
 // ---------- public site ----------
-app.get("/", (req, res) => req.user ? res.redirect("/app") : res.send(pages.landing()));
+app.use(require("./seo").router);   // marketing pages, guides, help articles, sitemap, robots, llms.txt
+app.get("/", (req, res) => req.user ? res.redirect("/app") : res.send(require("./seo").landingHtml(pages.landing())));
 app.get("/login", (req, res) => req.user ? res.redirect("/app") : res.send(pages.authPage("login")));
 app.get("/signup", (req, res) => req.user ? res.redirect("/app") : res.send(pages.authPage("signup")));
 
@@ -362,6 +363,7 @@ app.get("/app/admin", (req, res) => res.redirect("/admin"));
 app.use("/admin", auth.requireAuth, auth.requireAdmin);   // all /admin requires admin
 app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity(), siteMode: require("./sitegate").getMode(), ok: req.query.ok, err: req.query.err })));
 // launch switch — typed confirmation required so it can't be flipped by a stray click
+app.get("/admin/waitlist", (req, res) => res.send(adminUI.waitlistPage(req.user, db.prepare("SELECT * FROM waitlist ORDER BY created_at DESC LIMIT 2000").all())));
 app.get("/admin/videos", (req, res) => res.send(adminUI.videosPage(req.user, require("./tutorials").all(), req.query.ok, req.query.err)));
 app.post("/admin/videos", (req, res) => {
   try {

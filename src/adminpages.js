@@ -10,6 +10,7 @@ const NAV = [
   ["Audit log", "/admin/audit-log", "M9 11l3 3L22 4M4 4h9"],
   ["Health", "/admin/health", "M22 12h-4l-3 9L9 3l-3 9H2"],
   ["Tutorial videos", "/admin/videos", "M15 10l5-3v10l-5-3M3 6h12v12H3z"],
+  ["Early access", "/admin/waitlist", "M4 4h16v16H4zM4 8l8 5 8-5"],
 ];
 function layout(user, active, body) {
   const nav = NAV.map(([label, href, p]) =>
@@ -209,15 +210,20 @@ function healthPage(user, h) {
 function videosPage(user, videos, ok, err) {
   const T = require("./tutorials");
   const rows = T.PAGES.map(p => {
-    const v = videos[p.key] || "", id = T.youtubeId(v);
-    return `<div class="vrow"><div class="vthumb">${id ? `<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="">` : "<span>No video</span>"}</div>
+    const v = videos[p.key] || "", id = T.youtubeId(v), b = T.builtin(p.key);
+    return `<div class="vrow"><div class="vthumb">${id ? `<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="">` : b ? `<img src="${esc(b.poster)}" alt="">` : "<span>No video</span>"}</div>
       <label class="dfl" style="flex:1"><span>${esc(p.label)} <small style="font-weight:400;color:var(--faint)">${esc(p.path)}</small></span>
-      <input class="input" name="${p.key}" value="${esc(v)}" placeholder="https://youtu.be/…  (leave empty to hide the button)"></label></div>`;
+      <input class="input" name="${p.key}" value="${esc(v)}" placeholder="${b ? "Built-in guide plays — paste a YouTube link to replace it" : "https://youtu.be/…  (leave empty to hide the button)"}"></label></div>`;
   }).join("");
   return layout(user, "/admin/videos", `
-  <div class="phead"><div><h1>Tutorial videos</h1><p>Paste a YouTube link for any page — sellers see a “Watch how” button in that page's header. Unlisted YouTube videos work too.</p></div></div>
+  <div class="phead"><div><h1>Tutorial videos</h1><p>Every page has a built-in guide video. Paste a YouTube link to replace one — sellers see a “Watch how” button in that page's header. Unlisted YouTube videos work too.</p></div></div>
   ${ok ? `<div class="alert al-good" style="margin-bottom:12px"><span>${esc(ok)}</span></div>` : ""}${err ? `<div class="alert al-err" style="margin-bottom:12px"><span>${esc(err)}</span></div>` : ""}
   <form class="card pad" method="POST" action="/admin/videos"><div class="vlist">${rows}</div>
     <div class="formfoot"><span class="muted">Only YouTube links are accepted. Videos play in a privacy-enhanced player.</span><button class="btn pri">Save videos</button></div></form>`);
 }
-module.exports = { dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage, videosPage };
+function waitlistPage(user, rows) {
+  const tr = rows.map(r => `<tr><td class="mono">${esc(r.email)}</td><td>${esc(r.note || "")}</td><td class="muted">${esc(r.source || "")}</td><td>${esc(String(r.created_at).slice(0, 16).replace("T", " "))}</td></tr>`).join("");
+  return layout(user, "/admin/waitlist", `<div class="phead"><div><h1>Early access</h1><p>${rows.length} people joined from the public site while it is in private mode.</p></div></div>
+  <div class="card">${rows.length ? `<table><thead><tr><th>Email</th><th>What they sell</th><th>From page</th><th>Joined</th></tr></thead><tbody>${tr}</tbody></table>` : `<div class="pad muted">No sign-ups yet.</div>`}</div>`);
+}
+module.exports = { waitlistPage, dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage, videosPage };

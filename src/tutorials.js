@@ -1,4 +1,5 @@
-// src/tutorials.js — "Watch how" videos per app page (YouTube), set by the admin from /admin/videos.
+// src/tutorials.js — "Watch how" videos per app page. Built-in guides ship in public/guides/<key>.mp4; the admin can
+// override any page with a YouTube link from /admin/videos.
 // Stored in site_settings (key "videos") as { pageKey: "https://youtu.be/…" }. Only YouTube links are accepted and they are
 // embedded via youtube-nocookie.com — never arbitrary URLs/HTML.
 const { db, nowISO } = require("./db");
@@ -48,9 +49,17 @@ function keyFor(path) {
   }
   return best ? best.key : null;
 }
-function forPath(path) {
-  const key = keyFor(path); if (!key) return null;
-  const url = all()[key]; const id = youtubeId(url);
-  return id ? { key, id, label: (PAGES.find(p => p.key === key) || {}).label } : null;
+const GUIDES = require("path").join(__dirname, "..", "public", "guides");
+// the built-in guide for a page key, if shipped: { id: "/guides/key.mp4", poster }
+function builtin(key) {
+  try { return require("fs").existsSync(require("path").join(GUIDES, key + ".mp4")) ? { id: "/guides/" + key + ".mp4", poster: "/guides/" + key + ".jpg" } : null; } catch { return null; }
 }
-module.exports = { PAGES, youtubeId, all, save, keyFor, forPath };
+// a YouTube link set by the admin wins; otherwise the built-in guide
+function forKey(key) {
+  const label = (PAGES.find(p => p.key === key) || {}).label;
+  const id = youtubeId(all()[key]);
+  if (id) return { key, id, label, poster: "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg" };
+  const b = builtin(key); return b ? { key, label, ...b } : null;
+}
+function forPath(path) { const key = keyFor(path); return key ? forKey(key) : null; }
+module.exports = { PAGES, youtubeId, all, save, keyFor, forPath, forKey, builtin };

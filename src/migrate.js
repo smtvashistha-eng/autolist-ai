@@ -429,6 +429,13 @@ const MIGRATIONS = [
       db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
     },
   },
+  // ---- early-access list (public site, while in private mode) ----
+  {
+    v: 32, name: "waitlist",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS waitlist(email TEXT PRIMARY KEY, note TEXT, source TEXT, created_at TEXT NOT NULL, invited_at TEXT)`);
+    },
+  },
   // ---- products the seller already has live on a marketplace (learned from duplicate QC errors) ----
   {
     v: 31, name: "seller_listings",

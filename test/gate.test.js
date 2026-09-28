@@ -40,12 +40,17 @@ const signup = async (email) => "sid=" + (await req("POST", "/api/auth/signup", 
 
     console.log("Outsiders:");
     const home = await req("GET", "/");
-    ok("homepage shows Coming soon", home.status === 200 && /launching soon/i.test(home.text) && /noindex/.test(home.text));
+    ok("homepage is the indexable landing page with early-access CTAs", home.status === 200 && !/noindex/.test(home.text) && /Join early access/.test(home.text) && !/href="\/signup"/.test(home.text) && /application\/ld\+json/.test(home.text));
+    for (const p of ["/pricing", "/flipkart-bulk-listing", "/guides", "/guides/guided-bulk", "/help/flipkart-qc-errors", "/robots.txt", "/sitemap.xml", "/llms.txt"]) ok("public in private mode: " + p, (await req("GET", p)).status === 200);
+    ok("robots keeps the app out of search", /Disallow: \/app/.test((await req("GET", "/robots.txt")).text));
+    ok("sitemap lists the guides", /\/guides\/guided-bulk/.test((await req("GET", "/sitemap.xml")).text));
+    ok("early-access signup saved", /on the list/.test((await req("POST", "/early-access", { form: { email: "wait" + TAG + "@x.in" } })).text));
+    ok("early-access rejects a bad email", (await req("POST", "/early-access", { form: { email: "nope" } })).status === 400);
     ok("signup page redirects home", (await req("GET", "/signup")).location === "/");
     ok("signup API refused", (await req("POST", "/api/auth/signup", { json: { email: `new${TAG}@x.in`, password: "pass1234", businessName: "N" } })).status === 403);
     ok("signup form refused", (await req("POST", "/signup", { form: { email: `new2${TAG}@x.in`, password: "pass1234", businessName: "N" } })).status === 403);
     ok("app pages redirect home", (await req("GET", "/app/wizard")).location === "/");
-    ok("free tools closed too", (await req("GET", "/tools/crop-pdf")).location === "/");
+    ok("free PDF tool stays public (it is an SEO page)", (await req("GET", "/tools/crop-pdf")).status === 200);
     ok("login page still reachable (for the team)", (await req("GET", "/login")).status === 200);
     ok("health check still public", (await req("GET", "/api/health")).status === 200);
 
@@ -66,7 +71,7 @@ const signup = async (email) => "sid=" + (await req("POST", "/api/auth/signup", 
 
     console.log("Launch:");
     const noConf = await req("POST", "/admin/site/mode", { cookie: A2, form: { mode: "open", confirm: "" } });
-    ok("launch needs typed LAUNCH", /Type%20LAUNCH/.test(noConf.location || "") && /launching soon/i.test((await req("GET", "/")).text));
+    ok("launch needs typed LAUNCH", /Type%20LAUNCH/.test(noConf.location || "") && /Join early access/.test((await req("GET", "/")).text));
     await req("POST", "/admin/site/mode", { cookie: A2, form: { mode: "open", confirm: "launch" } });
     const home2 = await req("GET", "/");
     ok("after launch: real homepage", home2.status === 200 && !/launching soon/i.test(home2.text));
