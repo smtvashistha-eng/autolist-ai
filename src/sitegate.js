@@ -40,7 +40,7 @@ h1{font-size:30px;margin:18px 0 8px}p{color:var(--soft);line-height:1.6;margin:0
 .pill{display:inline-block;margin-top:14px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600}
 a{color:var(--acc);font-size:13px;text-decoration:none}.f{margin-top:26px}
 </style></head><body><main class="c">
-<div class="logo">A</div>
+<img src="/logo-mark.svg" alt="AutoList AI" width="56" height="56">
 <h1>AutoList AI is launching soon</h1>
 <p>AI that writes, checks and fills marketplace listings in bulk — for Amazon, Flipkart, Meesho and Shopify sellers.</p>
 <p>We're in private testing right now.</p>

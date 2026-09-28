@@ -42,15 +42,15 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(description)}"><meta name="twitter:image" content="${esc(img)}">
 <link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@800;900&display=swap">
 <link rel="stylesheet" href="/app.css?v=${require("./pages").ASSET_V || "1"}">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c")}</script></head><body class="mk">
-<header class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> ${BRAND}</a>
+<header class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
   <nav class="links" aria-label="Main"><a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="/help/flipkart-qc-errors">Help</a></nav>
   <div class="right"><a class="btn ghost" href="/login">Log in</a><a class="btn pri" href="${c.href}">${c.label}</a></div></div></header>
 <main>${crumbs ? `<nav class="wrap mk-crumbs" aria-label="Breadcrumb"><a href="/">Home</a>${crumbs.map(([n, p], i) => i === crumbs.length - 1 ? ` <span>›</span> <b>${esc(n)}</b>` : ` <span>›</span> <a href="${p}">${esc(n)}</a>`).join("")}</nav>` : ""}${body}</main>
 <footer class="mk-foot"><div class="wrap mk-foot-in">
-  <div><a class="logo" href="/"><span class="mark"></span> ${BRAND}</a><p>AI that writes, checks and fills bulk marketplace listings for Indian sellers. Built by the team behind TRUSTin.ONLINE.</p></div>
+  <div><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a><p>AI that writes, checks and fills bulk marketplace listings for Indian sellers. Built by the team behind TRUSTin.ONLINE.</p></div>
   <div><b>Product</b><a href="/flipkart-bulk-listing">Flipkart bulk listing</a><a href="/amazon-listing-generator">Amazon listing generator</a><a href="/ai-product-description-generator">AI product descriptions</a><a href="/pricing">Pricing</a></div>
   <div><b>Learn</b><a href="/guides">Video guides</a><a href="/help/flipkart-qc-errors">Fix Flipkart QC errors</a><a href="/help/flipkart-feed-already-present">“Feed is already present”</a><a href="/help/flipkart-duplicate-listing-error">Duplicate listing error</a></div>
   <div><b>Company</b><a href="/about">About</a><a href="/tools/crop-pdf">Free PDF cropper</a><a href="/llms.txt">llms.txt</a></div>

@@ -3,7 +3,7 @@ const ASSET_V = String(process.env.RENDER_GIT_COMMIT || Date.now()).slice(0, 12)
 const head = (title) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@800;900&display=swap">
 <link rel="stylesheet" href="/app.css?v=${ASSET_V}"></head><body>`;
 const foot = `</body></html>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -17,7 +17,7 @@ function appMock() {
       <span class="win-url">autolistai.in/app</span></div>
     <div class="win-body">
       <aside class="ms-side">
-        <div class="ms-logo"><span class="mark" style="width:20px;height:20px"></span> AutoList AI</div>
+        <div class="ms-logo"><span class="mark" style="width:20px;height:20px"></span> AutoList <em class="lai">AI</em></div>
         <div class="ms-nav on">${ic("M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z")} Dashboard</div>
         <div class="ms-nav">${ic("M12 5v14M5 12h14")} Create Listing</div>
         <div class="ms-nav">${ic("M12 16V4M8 8l4-4 4 4M4 20h16")} Bulk Upload</div>
@@ -51,7 +51,7 @@ function appMock() {
 function landing() {
   const feat = (i, t, d) => `<div class="fcard reveal"><div class="fi">${ic(i)}</div><b>${t}</b><p>${d}</p></div>`;
   return head("AutoList AI — turn product data into marketplace-ready listings") + `
-<div class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList AI</a>
+<div class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
   <div class="links"><a href="#how">How it works</a><a href="#features">Features</a><a href="#usecases">Who it's for</a><a href="#free-pdf-cropper">Free PDF Cropper</a><a href="#faq">FAQ</a></div>
   <div class="right"><a class="btn ghost" href="/login">Log in</a><a class="btn pri" href="/signup">Get started free</a></div></div></div>
 
@@ -137,7 +137,7 @@ function landing() {
   <p>Create your first AI listing in the next two minutes — free.</p>
   <a class="btn lg cta-white" href="/signup">Get started free →</a></div></section>
 
-<div class="wrap sfoot"><span class="logo" style="font-size:15px"><span class="mark" style="width:24px;height:24px"></span> AutoList AI</span><span>One catalog. Every marketplace. AI-powered automation.</span></div>
+<div class="wrap sfoot"><span class="logo" style="font-size:15px"><span class="mark" style="width:24px;height:24px"></span> AutoList <em class="lai">AI</em></span><span>One catalog. Every marketplace. AI-powered automation.</span></div>
 <script>
 (function(){
   var hero=document.getElementById('hero'),glow=document.getElementById('glow');
@@ -164,7 +164,7 @@ function authPage(mode, error) {
   const su = mode === "signup";
   return head(su ? "Create your account — AutoList AI" : "Log in — AutoList AI") + `
 <div class="authwrap">
-  <div class="authL"><a class="logo" href="/" style="color:#fff;font-size:19px"><span class="mark"></span> AutoList AI</a>
+  <div class="authL"><a class="logo" href="/" style="color:#fff;font-size:19px"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
     <h2>List everywhere, without the manual work.</h2><p>Turn raw products into upload-ready listings for every marketplace.</p>
     <div class="mini"><div class="mrow"><span class="c">${check}</span>Paste your own Amazon / Flipkart file — we fill it</div>
       <div class="mrow"><span class="c">${check}</span>AI images, resized for every marketplace</div>
@@ -273,7 +273,7 @@ function shell(user, activePath, body) {
 <div class="app">
   <div class="overlay" id="ovl"></div>
   <aside class="side" id="side">
-    <div class="top"><a class="logo" href="/app"><span class="mark"></span> AutoList AI</a>
+    <div class="top"><a class="logo" href="/app"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
       <button class="xnav" id="xnav" aria-label="Close menu">${ic("M18 6L6 18M6 6l12 12")}</button></div>
     <div class="navwrap">${nav}</div>
     ${profile}
@@ -1374,7 +1374,7 @@ function cropHead() {
 <meta property="og:url" content="${esc(canonical)}">
 <meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@800;900&display=swap">
 <link rel="stylesheet" href="/app.css?v=${ASSET_V}">
 <script type="application/ld+json">${JSON.stringify(appLd)}</script>
 <script type="application/ld+json">${JSON.stringify(faqLd)}</script>
@@ -1383,7 +1383,7 @@ function cropHead() {
 function cropToolPage() {
   const faqHtml = FAQ.map(([q, a]) => `<div class="faq-item"><h3>${esc(q)}</h3><p>${esc(a)}</p></div>`).join("");
   return cropHead() + `
-<div class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList AI</a>
+<div class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
   <div class="links"><a href="/#how">How it works</a><a href="/tools/crop-pdf">Free PDF Cropper</a></div>
   <div class="right"><a class="btn ghost" href="/login">Log in</a><a class="btn pri" href="/signup">Get started free</a></div></div></div>
 <main class="tool-wrap wrap">

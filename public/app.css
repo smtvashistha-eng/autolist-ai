@@ -742,3 +742,14 @@ html:not(.sh-on) #sh-hl{display:none}
 @keyframes adSk{to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.ad-skel .sk{animation:none}}
 @media (max-width:640px){.ad-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}.ad-chips::-webkit-scrollbar{display:none}.ad-chip{flex:none}.ad-row{flex-direction:column}.ad-row .btn{width:100%;justify-content:center}.ad-step{flex-wrap:wrap}.ad-st{flex-basis:calc(100% - 36px)}.ad-step .btn{margin-left:36px}.ad-for{max-width:100%;text-align:left}}
+/* ---- brand: new AutoList AI logo (public/logo-mark.svg) ---- */
+.mark{background:url(/logo-mark.svg) center/contain no-repeat!important;border-radius:0!important;box-shadow:none!important}
+.mark::before,.mark::after{display:none!important}
+.logo,.ms-logo{font-family:"Nunito",Inter,system-ui,sans-serif;font-weight:900;letter-spacing:-.01em;color:#16162a}
+.logo .lai,.ms-logo .lai{font-style:normal;color:#6c3bf4}
+.authL .logo{color:#fff}.authL .logo .lai{color:#c4b5fd}
+/* ---- laptop density: at 100% browser zoom the app renders like ~85% (roomier, less oversized); phones/tablets unchanged ---- */
+@media (min-width:1100px) and (pointer:fine){
+  .app{zoom:.85;right:auto;bottom:auto;width:calc(100vw / .85);height:calc(100vh / .85)}
+  .mdl-box,.tour-pop{zoom:.9}
+}
