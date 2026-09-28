@@ -286,6 +286,7 @@ function shell(user, activePath, body) {
         ${(() => { const v = require("./tutorials").forPath(activePath); return v
           ? `<button class="btn-video" type="button" id="videoBtn" data-vid="${esc(v.id)}" data-vlabel="${esc(v.label)}"><span class="play"></span><span class="vlbl">Watch how</span></button>`
           : ""; })()}
+        <button class="sh-btn" type="button" id="shBtn" aria-pressed="false" title="AI Help — point at anything for a tip (Esc to exit)"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" fill="currentColor"/></svg><span class="hide-sm">AI Help</span></button>
         <button class="tasks-btn" type="button" id="tasksBtn" aria-label="Background tasks" title="Background tasks">${ic("M4 6h16M4 12h16M4 18h10")}<span class="tbadge" id="tbadge" hidden>0</span></button>
         <a class="btn pri" href="/app/create">${ic("M12 5v14M5 12h14")} <span class="hide-sm">New Listing</span></a>
       </div>
@@ -474,7 +475,9 @@ function shell(user, activePath, body) {
     if(b){setTimeout(function(){b.disabled=true;b.classList.add('loading');},0);}
   });
 })();
-</script>` + foot;
+</script>
+<script type="application/json" id="sh-ctx">${JSON.stringify({ role: isAdmin(user) ? "admin" : "seller", plan: String(u ? u.planName : biz.plan || "Free Trial"), level: used >= 25 ? "advanced" : "beginner" }).replace(/</g, "\\u003c")}</script>
+<script src="/smarthelp.js?v=${ASSET_V}" defer></script>` + foot;
 }
 function isAdmin(user) {
   if (!user) return false;

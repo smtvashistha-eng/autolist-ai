@@ -105,6 +105,8 @@ async function waitJob(cookie, id) {
     ok("header: background-tasks button + panel; account row with plan in the sidebar", /id="tasksBtn"/.test(dsh.text) && /id="tpanel"/.test(dsh.text) && /class="pr-plan">· Free Trial/.test(dsh.text) && /class="pmenu"/.test(dsh.text) && !/class="pchip"/.test(dsh.text));
     ok("account menu shows usage meters + plan", /Hosted photos/.test(dsh.text) && /AI images/.test(dsh.text) && /Free Trial plan/.test(dsh.text));
     ok("tour available from the profile menu", /id="tourBtn"/.test(dsh.text) && /alStartTour/.test(dsh.text));
+    ok("AI Help button + SmartHelpLayer script + context on every app page", /id="shBtn"/.test(dsh.text) && /src="\/smarthelp\.js/.test(dsh.text) && /id="sh-ctx">\{"role":"seller"/.test(dsh.text));
+    ok("SmartHelpLayer script compiles", (() => { try { new (require("vm").Script)(fs.readFileSync(path.join(__dirname, "..", "public", "smarthelp.js"), "utf8")); return true; } catch { return false; } })());
     ok("built-in guide video plays until a YouTube link is set", /data-(vid|open-video)="\/guides\/[a-z]+\.mp4"/.test(dsh.text));
     const ADM = "sid=" + /sid=([^;]+)/.exec((await fetch(BASE + "/api/auth/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "boss" + TAG + "@x.in", password: "pass1234", businessName: "Boss" }) })).headers.get("set-cookie"))[1];
     ok("non-admin can't open the videos admin", (await req("GET", "/admin/videos", { cookie: A })).status === 403);

@@ -32,6 +32,12 @@ const mock = http.createServer((q, s) => {
       const g = JSON.parse(body.toString()); hits.geminiReqs = (hits.geminiReqs || []).concat([g]);
       const sys = ((g.systemInstruction || {}).parts || [{}])[0].text || "";
       // lean writer (bulk/REST) answers with short keys; the Create Listing writer uses its own named keys
+      const utext = (((g.contents || [])[0] || {}).parts || [{}])[0].text || "";
+      if (/contextual help layer/.test(utext)) {   // SmartHelpLayer tip
+        hits.help = (hits.help || []).concat([utext]);
+        s.writeHead(200, { "content-type": "application/json" });
+        return s.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ title: "Stock per SKU", tooltip: "How many units of each product you can ship right now.", expanded_help: "Flipkart hides listings with very low stock, so keep at least 5.", suggested_action: "Enter 20 and save", confidence: "high" }) }] } }], usageMetadata: { promptTokenCount: 250, candidatesTokenCount: 60 } }));
+      }
       const answer = /You write marketplace product listings/.test(sys)
         ? { t: "TRUSTin Tempered Glass for iPhone 15 - 9H Hardness", b: ["9H HARDNESS - resists scratches", "BUBBLE-FREE - easy install"], d: "Tempered glass guard for iPhone 15.", k: ["iphone 15 screen guard", "tempered glass"] }
         : /product-listing writer/.test(sys) ? { title: "TRUSTin Tempered Glass for iPhone 15", shortTitle: "TRUSTin Glass iPhone 15", bullets: ["9H hardness"], description: "Tempered glass guard.", keywords: ["iphone 15 screen guard"] }
@@ -146,6 +152,19 @@ async function waitJob(cookie, id) {
     const links = (await req("GET", `/api/image-assets?jobId=${zj.json.job.id}`, { cookie: A })).json;
     ok("uploaded to Supabase bucket", zd.result.provider === "supabase" && hits.supabase === 1);
     ok("public Supabase link serves the photo", links.bySku["SK-1"][0].startsWith(MB + "/storage/v1/object/public/product-images/") && (await req("GET", links.bySku["SK-1"][0])).buf.length > 100);
+
+    console.log("SmartHelpLayer tips:");
+    const hctx = { page: { route: "/app/brand/defaults", page_title: "Brand & Defaults", section: "Marketplace defaults" },
+      element: { label: "Stock per SKU", type: "input:text", hint: "Minimum 5 for visibility", current_value: "", validation_state: "empty" },
+      user: { role: "seller", plan: "Free Trial", level: "beginner", device: "desktop", api_key: "sk-SHOULD-NOT-LEAK" }, trigger: { type: "hover", time_on_screen_s: 12 } };
+    const t1 = await req("POST", "/api/help/tip", { cookie: A, body: { context: hctx } });
+    ok("tip generated from the auto-collected context", t1.status === 200 && t1.json.tip && t1.json.tip.title === "Stock per SKU" && t1.json.tip.confidence === "high" && !!t1.json.tip.suggested_action);
+    ok("runtime prompt is the fixed one, with the context filled in", hits.help && hits.help.length === 1 && /You are a contextual help layer inside a digital product/.test(hits.help[0]) && /"Stock per SKU"/.test(hits.help[0]) && !/AUTO_USER_CONTEXT/.test(hits.help[0]));
+    ok("sensitive-looking fields are never sent to the AI", !/SHOULD-NOT-LEAK/.test(hits.help[0]));
+    const t2 = await req("POST", "/api/help/tip", { cookie: A, body: { context: { ...hctx, trigger: { type: "hover", time_on_screen_s: 40 } } } });
+    ok("same element + state is served from cache (no second AI call)", t2.json.source === "cache" && hits.help.length === 1);
+    ok("tip endpoint needs a login", (await req("POST", "/api/help/tip", { body: { context: hctx } })).status === 401);
+    ok("bad request refused", (await req("POST", "/api/help/tip", { cookie: A, body: {} })).status === 400);
 
     console.log("Security + admin:");
     ok("keys only sent to their own vendor", hits.keys.every(k => ["test-claude-key", "test-gemini-key", "Bearer test-openai-key", "Bearer test-supa-key", "Bearer test-jev-key"].includes(k)));

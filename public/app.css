@@ -683,3 +683,37 @@ body{font-size:13.5px}
 .mk-foot-in a{color:var(--soft);font-size:14px;text-decoration:none}.mk-foot-in a:hover{color:var(--accent)}.mk-foot-in p{color:var(--faint);font-size:13.5px;line-height:1.6;margin:4px 0 0;max-width:320px}
 .mk-copy{color:var(--faint);font-size:12.5px;padding:22px 22px 26px}
 @media (max-width:760px){.mk .snav .links{display:none}.mk-foot-in{grid-template-columns:1fr 1fr}.mk-foot-in>div:first-child{grid-column:1/-1}.mk-hero{padding:34px 0 20px}.mk-lead{font-size:16px}}
+/* ---- SmartHelpLayer (public/smarthelp.js) — contextual help mode; delete this block + the file to remove ---- */
+.sh-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.8);font:600 13px/1 inherit;color:var(--accent);cursor:pointer;transition:background .15s,box-shadow .15s,color .15s}
+.sh-btn:hover{background:var(--accent-weak)}
+.sh-btn.on{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-weak),0 6px 18px rgba(37,99,235,.35)}
+.sh-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+html.sh-on,html.sh-on *{cursor:none!important}
+html.sh-on #sh-card,html.sh-on #sh-card *{cursor:auto!important}
+#sh-pointer{position:fixed;left:0;top:0;z-index:2147483646;pointer-events:none;width:0;height:0;display:none}
+html.sh-on #sh-pointer{display:block}
+#sh-pointer i{position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(255,255,255,.9),0 0 16px 4px rgba(37,99,235,.45)}
+#sh-pointer i:after{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--accent);opacity:.5;animation:shPulse 1.8s ease-out infinite}
+@keyframes shPulse{0%{transform:scale(.6);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+@media (pointer:coarse){html.sh-on #sh-pointer{display:none}html.sh-on,html.sh-on *{cursor:auto!important}}
+#sh-hl{position:fixed;z-index:2147483644;pointer-events:none;border-radius:10px;opacity:0;transition:opacity .15s,top .12s,left .12s,width .12s,height .12s;box-shadow:0 0 0 2px var(--accent),0 0 0 6px rgba(37,99,235,.14),0 0 22px rgba(37,99,235,.25)}
+#sh-hl.on{opacity:1}
+html:not(.sh-on) #sh-hl{display:none}
+#sh-card{position:fixed;z-index:2147483645;width:300px;max-width:calc(100vw - 16px);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:12px 14px 13px;box-shadow:0 18px 44px rgba(15,23,42,.18),0 0 0 1px rgba(37,99,235,.06);font-size:13.5px;line-height:1.5;animation:shIn .16s ease-out}
+@keyframes shIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+#sh-card:before{content:"";position:absolute;width:12px;height:12px;background:var(--card);border:1px solid var(--line);transform:rotate(45deg)}
+#sh-card[data-pos=below]:before{top:-7px;left:calc(var(--ax,50%) - 6px);border-right:0;border-bottom:0}
+#sh-card[data-pos=above]:before{bottom:-7px;left:calc(var(--ax,50%) - 6px);border-left:0;border-top:0}
+#sh-card[data-pos=right]:before{left:-7px;top:calc(var(--ay,50%) - 6px);border-right:0;border-top:0}
+#sh-card[data-pos=left]:before{right:-7px;top:calc(var(--ay,50%) - 6px);border-left:0;border-bottom:0}
+.sh-h{display:flex;align-items:center;gap:8px;margin-bottom:4px}.sh-h b{font-size:14px;flex:1}
+.sh-ic{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--accent-weak);color:var(--accent);flex:none}
+.sh-x{border:0;background:none;color:var(--faint);font-size:18px;line-height:1;padding:0 2px;cursor:pointer}.sh-x:hover{color:var(--ink)}
+.sh-t{margin:0;color:var(--ink)}
+.sh-why{margin:8px 0 0;color:var(--soft);font-size:12.5px}.sh-why span{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:1px}
+.sh-next{margin-top:10px;padding:8px 10px;border-radius:9px;background:var(--accent-weak);color:var(--accent-ink);font-weight:600;font-size:12.5px;display:flex;gap:8px;align-items:baseline}
+.sh-next span{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.75}
+.sh-dots span{animation:shDot 1.2s infinite;opacity:.2}.sh-dots span:nth-child(2){animation-delay:.2s}.sh-dots span:nth-child(3){animation-delay:.4s}
+@keyframes shDot{50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#sh-pointer i:after,#sh-card,.sh-dots span{animation:none}#sh-hl{transition:none}}
+@media (max-width:640px){.sh-btn{width:36px;height:36px;padding:0;justify-content:center}}
