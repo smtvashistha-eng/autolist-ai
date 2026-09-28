@@ -340,5 +340,5 @@ function landingHtml(html) {
   if (!isOpen()) h = h.replace(/href="\/signup">[^<]*</g, 'href="/early-access">Join early access<').replace(/Create your first AI listing in the next two minutes — free\./, "We're in private testing. Join the list and we'll invite you first.");
   return h;
 }
-const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg)$/;
+const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg)\/?$/;
 module.exports = { router, landingHtml, MARKETING_RE, PUBLIC_PATHS, llms, ARTICLES };

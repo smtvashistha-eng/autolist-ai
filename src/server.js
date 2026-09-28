@@ -40,7 +40,7 @@ app.use("/api", (req, res, next) => {
 app.use(express.urlencoded({ extended: true }));
 const jsonBody = express.json({ limit: "2mb", verify: (req, res, buf) => { req.rawBody = buf; } }); // rawBody for webhook signatures
 app.use((req, res, next) => (req.path === "/api/image/ai" ? next() : jsonBody(req, res, next)));   // studio photos parse at 15 MB on their route
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(express.static(path.join(__dirname, "..", "public"), { redirect: false }));   // no /guides → /guides/ folder redirect (that URL is a page)
 app.use(auth.attachUser);
 app.use(require("./sitegate").middleware);   // pre-launch: admins only until the owner launches (switch in /admin)
 // Phase 1 JSON REST API (auth, users, businesses)

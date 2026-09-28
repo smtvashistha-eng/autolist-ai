@@ -41,7 +41,7 @@ const signup = async (email) => "sid=" + (await req("POST", "/api/auth/signup", 
     console.log("Outsiders:");
     const home = await req("GET", "/");
     ok("homepage is the indexable landing page with early-access CTAs", home.status === 200 && !/noindex/.test(home.text) && /Join early access/.test(home.text) && !/href="\/signup"/.test(home.text) && /application\/ld\+json/.test(home.text));
-    for (const p of ["/pricing", "/flipkart-bulk-listing", "/guides", "/guides/guided-bulk", "/help/flipkart-qc-errors", "/robots.txt", "/sitemap.xml", "/llms.txt"]) ok("public in private mode: " + p, (await req("GET", p)).status === 200);
+    for (const p of ["/pricing", "/flipkart-bulk-listing", "/guides", "/guides/", "/guides/guided-bulk", "/help/flipkart-qc-errors", "/robots.txt", "/sitemap.xml", "/llms.txt"]) ok("public in private mode: " + p, (await req("GET", p)).status === 200);
     ok("robots keeps the app out of search", /Disallow: \/app/.test((await req("GET", "/robots.txt")).text));
     ok("sitemap lists the guides", /\/guides\/guided-bulk/.test((await req("GET", "/sitemap.xml")).text));
     ok("early-access signup saved", /on the list/.test((await req("POST", "/early-access", { form: { email: "wait" + TAG + "@x.in" } })).text));
