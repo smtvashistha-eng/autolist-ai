@@ -40,17 +40,21 @@ function listingsBulk(user, q = {}) {
   const rows = db.prepare(`SELECT d.*, p.sku, p.name AS pname FROM listing_drafts d LEFT JOIN products p ON p.id=d.product_id
     WHERE d.business_id=? ${m ? "AND d.marketplace=?" : ""} ORDER BY d.created_at DESC LIMIT 300`).all(...(m ? [biz, m] : [biz]));
   const filt = `<div class="fbar">${["", "amazon", "flipkart", "meesho", "shopify"].map(x => `<a class="fchip ${x === m ? "on" : ""}" href="/app/listings/bulk${x ? "?m=" + x : ""}">${x ? mk(x) : "All"}</a>`).join("")}</div>`;
-  const table = rows.length ? `<div class="card tcard"><table class="rtable"><thead><tr><th>Title</th><th>SKU</th><th>Marketplace</th><th>Quality</th><th>Check</th><th>Created</th></tr></thead><tbody>${rows.map(r => {
+  const table = rows.length ? `<div class="card tcard"><table class="rtable" id="lsTable"><thead><tr><th class="ck"><input type="checkbox" id="lsAll" aria-label="Select all"></th><th>Title</th><th>SKU</th><th>Marketplace</th><th>Quality</th><th>Check</th><th>Created</th></tr></thead><tbody>${rows.map(r => {
     const c = jparse(r.content_json) || {}, f = c.fields || {}, v = jparse(r.validation_summary_json) || {};
     const title = (f.title && f.title.value) || r.pname || "Untitled";
     const qs = c.quality ? c.quality.score : null;
     const warn = (v.warnings || []).length, miss = (v.missingFields || []).length;
-    return `<tr class="rowlink" onclick="location.href='/app/drafts/${esc(r.id)}'"><td data-l="Title"><a class="tlink" href="/app/drafts/${esc(r.id)}"><b>${esc(title.slice(0, 110))}</b></a></td><td data-l="SKU" class="mono">${esc(r.sku || "—")}</td>
+    return `<tr class="rowlink" data-id="${esc(r.id)}" data-m="${esc(r.marketplace)}" data-q="${esc((title + " " + (r.sku || "")).toLowerCase())}" onclick="if(!event.target.closest('.ck'))location.href='/app/drafts/${esc(r.id)}'"><td class="ck" data-l=""><input type="checkbox" class="lsck" aria-label="Select ${esc(title.slice(0, 60))}"></td><td data-l="Title"><a class="tlink" href="/app/drafts/${esc(r.id)}"><b>${esc(title.slice(0, 110))}</b></a></td><td data-l="SKU" class="mono">${esc(r.sku || "—")}</td>
       <td data-l="Marketplace">${mk(r.marketplace)}</td><td data-l="Quality">${qs != null ? `<span class="qchip ${qs >= 70 ? "qg" : qs >= 50 ? "qw" : "qb"}">${qs}</span>` : "—"}</td>
       <td data-l="Check">${miss ? `<span title="Optional product facts not in your sheet (e.g. material, warranty). Marketplace defaults fill the required ones at export.">${pill(miss + " optional blank", "info")}</span>` : warn ? pill(warn + " note" + (warn > 1 ? "s" : ""), "info") : pill("Ready", "good")}</td><td data-l="Created">${when(r.created_at)}</td></tr>`;
   }).join("")}</tbody></table></div>` : empty("No bulk drafts yet.", "Run Guided Bulk — every product it writes shows up here.", `<a class="btn pri" href="/app/wizard">Start Guided Bulk</a>`);
   return shell(user, "/app/listings", `<div class="phead"><div><h1>Listings</h1><p>Drafts written by Bulk Upload and Guided Bulk.</p></div><div class="phead-a"><a class="btn pri" href="/app/wizard">Guided Bulk</a></div></div>
-    ${tabs(LISTING_TABS(biz), "/app/listings/bulk")}${filt}${table}`);
+    ${tabs(LISTING_TABS(biz), "/app/listings/bulk")}
+    <div class="ls-top">${filt}${rows.length ? `<input class="input ls-search" id="lsSearch" type="search" placeholder="Search title or SKU…" aria-label="Search listings">` : ""}</div>
+    <div class="ls-sel" id="lsSel" hidden><b id="lsN">0 selected</b><span class="ls-sp"></span><button type="button" class="btn pri sm" id="lsBuild">Build marketplace file</button><button type="button" class="btn ghost sm" id="lsDel" style="color:var(--err)">Delete</button><button type="button" class="linkbtn" id="lsNone">Clear</button></div>
+    <div id="lsProg"></div>${table}<p class="muted ls-empty" id="lsNo" hidden>No listings match your search.</p>
+    <script src="/listings.js?v=${require("./pages").ASSET_V}" defer></script>`);
 }
 function draftView(user, id) {
   const biz = user.business_id;
@@ -161,7 +165,7 @@ const JOB_LABEL = { bulk_pipeline: "Bulk listing", image_zip: "Photos ZIP", prod
 function jobsPage(user) {
   const biz = user.business_id;
   const rows = db.prepare("SELECT * FROM processing_jobs WHERE business_id=? ORDER BY created_at DESC LIMIT 100").all(biz);
-  const st = (s) => ({ COMPLETED: pill("Completed", "good"), PARTIALLY_COMPLETED: pill("Partly done", "warn"), FAILED: pill("Failed", "bad"), CANCELLED: pill("Cancelled", "draft"), RUNNING: pill("Running", "info"), QUEUED: pill("Queued", "draft") }[s] || pill(s, "draft"));
+  const st = (s) => ({ COMPLETED: pill("Completed", "good"), PARTIALLY_COMPLETED: pill("Partly done", "warn"), FAILED: pill("Failed", "bad"), CANCELLED: pill("Cancelled", "draft"), RUNNING: pill("Running", "info"), PROCESSING: pill("Working…", "info"), QUEUED: pill("Queued", "draft") }[s] || pill(s, "draft"));
   const table = rows.length ? `<div class="card tcard"><table class="rtable"><thead><tr><th>Job</th><th>Status</th><th>Progress</th><th>Result</th><th>Started</th><th class="tright"></th></tr></thead><tbody>${rows.map(j => {
     const r = jparse(j.result_json) || {}, inp = jparse(j.input_json) || {};
     let res = "—", act = "";
@@ -174,9 +178,11 @@ function jobsPage(user) {
     }
     return `<tr><td data-l="Job"><b>${esc(JOB_LABEL[j.type] || j.type)}</b><div class="sub">${mk(inp.marketplace) !== "—" ? mk(inp.marketplace) : ""}</div></td><td data-l="Status">${st(j.status)}</td>
       <td data-l="Progress"><div class="mbar"><span style="width:${j.progress_percent || 0}%"></span></div><div class="sub">${j.completed_items || 0}/${j.total_items || 0}${j.failed_items ? " · " + j.failed_items + " failed" : ""}</div></td>
-      <td data-l="Result">${res}${j.error_message ? `<div class="sub err">${esc(j.error_message.slice(0, 120))}</div>` : ""}</td><td data-l="Started">${when(j.created_at)}</td><td class="tright">${act}</td></tr>`;
+      <td data-l="Result">${res}${j.error_message ? `<div class="sub err">${esc(j.error_message.slice(0, 120))}</div>` : ""}</td><td data-l="Started">${when(j.created_at)}</td><td class="tright"><div class="acts">${act}${/QUEUED|PROCESSING|RUNNING/.test(j.status) ? `<button type="button" class="btn ghost sm jb-act" data-act="cancel" data-id="${esc(j.id)}" style="color:var(--err)">Cancel</button>` : /FAILED|CANCELLED/.test(j.status) ? `<button type="button" class="btn ghost sm jb-act" data-act="retry" data-id="${esc(j.id)}">Retry</button>` : ""}</div></td></tr>`;
   }).join("")}</tbody></table></div>` : empty("No jobs yet.", "Bulk runs and photo uploads appear here with their results.", `<a class="btn pri" href="/app/wizard">Start Guided Bulk</a>`);
-  return shell(user, "/app/jobs", `<div class="phead"><div><h1>Jobs</h1><p>Every bulk run and photo upload, with results and files.</p></div></div>${table}`);
+  const live = rows.some(j => /QUEUED|PROCESSING|RUNNING/.test(j.status));
+  return shell(user, "/app/jobs", `<div class="phead"><div><h1>Jobs</h1><p>Every bulk run and photo upload, with results and files.</p></div>${live ? `<div class="phead-a"><span class="jb-live"><i></i> Updating live</span></div>` : ""}</div>${table}
+  <script>(function(){document.addEventListener("click",function(e){var b=e.target.closest(".jb-act");if(!b)return;var c=b.dataset.act==="cancel";if(c&&!confirm("Cancel this job? Anything already finished is kept."))return;b.disabled=true;fetch("/api/jobs/"+encodeURIComponent(b.dataset.id)+"/"+b.dataset.act,{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"}}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||"Failed");})}).then(function(){location.reload();}).catch(function(err){b.disabled=false;alert(err.message);});});${live ? "setTimeout(function(){if(!document.hidden)location.reload();},4000);" : ""}})();</script>`);
 }
 
 // ---- Images: hosted photo links ----
