@@ -261,7 +261,7 @@ function shell(user, activePath, body) {
         <div class="pm-usage">${meter("Listings", used, total)}${meter("Hosted photos", imgUsed, imgTot)}${meter("AI images", aiUsed, aiTot)}</div>
         <div class="pm-sep"></div>
         <a class="pm-i" href="/app/billing">${ic("M2 5h20v14H2zM2 10h20")} Billing &amp; plan</a>
-        <button class="pm-i" type="button" id="tourBtn">${ic("M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z")} Take the tour</button>
+        <button class="pm-i inst-hide" type="button" data-install>${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} Download the app</button><button class="pm-i" type="button" id="tourBtn">${ic("M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z")} Take the tour</button>
         <a class="pm-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help &amp; videos</a>
         ${isAdmin(user) ? `<a class="pm-i" href="/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin panel</a>` : ""}
         <div class="pm-sep"></div>
@@ -477,7 +477,8 @@ function shell(user, activePath, body) {
 })();
 </script>
 <script type="application/json" id="sh-ctx">${JSON.stringify({ role: isAdmin(user) ? "admin" : "seller", plan: String(u ? u.planName : biz.plan || "Free Trial"), level: used >= 25 ? "advanced" : "beginner" }).replace(/</g, "\\u003c")}</script>
-<script src="/smarthelp.js?v=${ASSET_V}" defer></script>` + foot;
+<script src="/smarthelp.js?v=${ASSET_V}" defer></script>
+<script src="/install.js?v=${ASSET_V}" defer></script>` + foot;
 }
 function isAdmin(user) {
   if (!user) return false;

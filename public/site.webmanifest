@@ -1,4 +1,5 @@
 {
+  "id": "/app",
   "name": "AutoList AI",
   "short_name": "AutoList AI",
   "description": "AI bulk listings for Flipkart & Amazon sellers",

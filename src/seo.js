@@ -46,7 +46,7 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
 <link rel="stylesheet" href="/app.css?v=${require("./pages").ASSET_V || "1"}">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c")}</script></head><body class="mk">
 <header class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
-  <nav class="links" aria-label="Main"><a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="/help/flipkart-qc-errors">Help</a></nav>
+  <nav class="links" aria-label="Main"><a href="/download">Download</a><a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="/help/flipkart-qc-errors">Help</a></nav>
   <div class="right"><a class="btn ghost" href="/login">Log in</a><a class="btn pri" href="${c.href}">${c.label}</a></div></div></header>
 <main>${crumbs ? `<nav class="wrap mk-crumbs" aria-label="Breadcrumb"><a href="/">Home</a>${crumbs.map(([n, p], i) => i === crumbs.length - 1 ? ` <span>›</span> <b>${esc(n)}</b>` : ` <span>›</span> <a href="${p}">${esc(n)}</a>`).join("")}</nav>` : ""}${body}</main>
 <footer class="mk-foot"><div class="wrap mk-foot-in">
@@ -54,7 +54,7 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
   <div><b>Product</b><a href="/flipkart-bulk-listing">Flipkart bulk listing</a><a href="/amazon-listing-generator">Amazon listing generator</a><a href="/ai-product-description-generator">AI product descriptions</a><a href="/pricing">Pricing</a></div>
   <div><b>Learn</b><a href="/guides">Video guides</a><a href="/help/flipkart-qc-errors">Fix Flipkart QC errors</a><a href="/help/flipkart-feed-already-present">“Feed is already present”</a><a href="/help/flipkart-duplicate-listing-error">Duplicate listing error</a></div>
   <div><b>Company</b><a href="/about">About</a><a href="/tools/crop-pdf">Free PDF cropper</a><a href="/llms.txt">llms.txt</a></div>
-</div><div class="wrap mk-copy">© ${new Date().getFullYear()} ${BRAND} · Made in India</div></footer></body></html>`;
+</div><div class="wrap mk-copy">© ${new Date().getFullYear()} ${BRAND} · Made in India</div></footer><script src="/install.js" defer></script></body></html>`;
 }
 const faqBlock = (faq) => `<section class="blk"><div class="wrap mk-narrow"><h2>Frequently asked questions</h2><div class="hfaq">${faq.map(([q, a]) => `<details class="hfaq-i"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</div></div></section>`;
 const faqLd = (faq) => ({ "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) });
@@ -146,6 +146,24 @@ function aboutPage() {
 <p>Questions? Email <a href="mailto:smtvashistha@gmail.com">smtvashistha@gmail.com</a>.</p></div></section>` });
 }
 
+function downloadPage() {
+  const faq = [["Is the AutoList AI app free to download?", "Yes. Installing the app is free. You use the same account and plan as on the website."],
+    ["Which devices are supported?", "Windows and Mac computers (Chrome or Edge), Android phones and tablets (Chrome), and iPhone or iPad (Safari → Add to Home Screen)."],
+    ["Do I need to update the app?", "No. It always opens the latest version of AutoList AI automatically."],
+    ["Does the app use a lot of storage?", "No. It is a lightweight web app — well under 1 MB on your device."]];
+  return page({ path: "/download", title: "Download AutoList AI — App for Windows, Mac, Android & iPhone", description: "Install AutoList AI as an app on your computer or phone in one click. Opens in its own window, always up to date, free to install.",
+    crumbs: [["Download", "/download"]], ld: [software({ downloadUrl: SITE() + "/download", installUrl: SITE() + "/download" }), faqLd(faq)],
+    body: `<section class="mk-hero"><div class="wrap mk-narrow" style="text-align:center"><img src="/icon-192.png" alt="AutoList AI app icon" width="96" height="96" style="border-radius:22px;box-shadow:0 14px 34px rgba(15,23,42,.14)">
+<h1>Download AutoList AI</h1><p class="mk-lead" style="margin:0 auto">Get AutoList AI on your desktop, taskbar or phone home screen. It opens in its own window and is always up to date.</p>
+<div class="mk-cta" style="justify-content:center"><button type="button" class="btn pri lg inst-hide" data-install>⬇ Install AutoList AI</button><span class="inst-done">✅ AutoList AI is installed on this device</span></div>
+<p class="muted" style="font-size:13px;margin-top:10px">Free · under 1 MB · Windows, Mac, Android, iPhone</p></div></section>
+<section class="blk" style="padding-top:0"><div class="wrap"><div class="mk-plans">
+<div class="mk-plan"><b>💻 Windows &amp; Mac</b><p>Chrome or Microsoft Edge</p><ol class="mk-steps" style="font-size:14px"><li>Click <b>Install AutoList AI</b> above.</li><li>Confirm <b>Install</b>.</li><li>Right-click it on the taskbar → <b>Pin</b>.</li></ol></div>
+<div class="mk-plan"><b>🤖 Android</b><p>Chrome</p><ol class="mk-steps" style="font-size:14px"><li>Tap <b>Install AutoList AI</b>.</li><li>Tap <b>Install</b> in the popup.</li><li>Open it from your home screen.</li></ol></div>
+<div class="mk-plan"><b>🍎 iPhone &amp; iPad</b><p>Safari</p><ol class="mk-steps" style="font-size:14px"><li>Tap <b>Share</b> at the bottom.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>.</li></ol></div>
+</div></div></section>` + faqBlock(faq) });
+}
+
 // ---------- help articles (real Flipkart problems we solved) ----------
 const ARTICLES = {
   "flipkart-qc-errors": { title: "How to Fix Flipkart QC Failed Errors in a Bulk Listing File", h1: "How to fix Flipkart “QC failed” errors",
@@ -233,12 +251,13 @@ router.get("/flipkart-bulk-listing", (req, res) => send(flipkartPage())(req, res
 router.get("/amazon-listing-generator", (req, res) => send(amazonPage())(req, res));
 router.get("/ai-product-description-generator", (req, res) => send(descPage())(req, res));
 router.get("/about", (req, res) => send(aboutPage())(req, res));
+router.get("/download", (req, res) => send(downloadPage())(req, res));
 router.get("/guides", (req, res) => send(guidesIndex())(req, res));
 router.get("/guides/:slug", (req, res) => send(guidePage(req.params.slug))(req, res));
 router.get("/help/:slug", (req, res) => send(articlePage(req.params.slug))(req, res));
 
 const PUBLIC_PATHS = () => ["/", "/flipkart-bulk-listing", "/amazon-listing-generator", "/ai-product-description-generator", "/pricing", "/guides",
-  ...Object.values(GUIDES).map(g => "/guides/" + g.slug), ...Object.keys(ARTICLES).map(s => "/help/" + s), "/about", "/tools/crop-pdf"];
+  ...Object.values(GUIDES).map(g => "/guides/" + g.slug), ...Object.keys(ARTICLES).map(s => "/help/" + s), "/about", "/download", "/tools/crop-pdf"];
 router.get("/sitemap.xml", (req, res) => {
   const urls = PUBLIC_PATHS().map(p => {
     const key = Object.keys(GUIDES).find(k => "/guides/" + GUIDES[k].slug === p), v = key && require("./tutorials").builtin(key);
@@ -337,8 +356,9 @@ function landingHtml(html) {
   let h = html.replace(/<title>[^<]*<\/title>/, homeHead()).replace('<html lang="en">', '<html lang="en-IN">');
   h = h.replace('<a href="#how">How it works</a>', '<a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a>')
        .replace('<a href="#usecases">Who it\'s for</a>', "").replace('<a href="#free-pdf-cropper">Free PDF Cropper</a>', "");
+  h = h.replace('<div class="right"><a class="btn ghost" href="/login">', '<div class="right"><a class="btn ghost inst-hide" href="/download" data-install>⬇ Download app</a><a class="btn ghost" href="/login">').replace("</body>", '<script src="/install.js" defer></script></body>');
   if (!isOpen()) h = h.replace(/href="\/signup">[^<]*</g, 'href="/early-access">Join early access<').replace(/Create your first AI listing in the next two minutes — free\./, "We're in private testing. Join the list and we'll invite you first.");
   return h;
 }
-const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest)\/?$/;
+const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest|download|offline\.html)\/?$/;
 module.exports = { router, landingHtml, MARKETING_RE, PUBLIC_PATHS, llms, ARTICLES };
