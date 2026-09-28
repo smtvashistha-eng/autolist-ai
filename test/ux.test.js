@@ -118,6 +118,22 @@ async function waitJob(cookie, id) {
     ok("non-admin can't open the videos admin", (await req("GET", "/admin/videos", { cookie: A })).status === 403);
     const badV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://evil.example.com/x.mp4" } });
     ok("only YouTube links accepted", /err=/.test(badV.location || ""));
+
+    console.log("Paid plans locked (pre-launch):");
+    ok("opening paid plans needs typed OPEN", /err=/.test((await req("POST", "/admin/paid-plans", { cookie: ADM, form: { state: "open", confirm: "" } })).location || ""));
+    ok("non-admin can't switch the lock", (await req("POST", "/admin/paid-plans", { cookie: A, form: { state: "locked" } })).status === 403);
+    await req("POST", "/admin/paid-plans", { cookie: ADM, form: { state: "locked" } });
+    const planBefore = (await req("GET", "/api/billing/usage", { cookie: A })).json;
+    const up = await req("POST", "/app/billing/upgrade", { cookie: A, form: { plan: "PRO" } });
+    const planAfter = (await req("GET", "/api/billing/usage", { cookie: A })).json;
+    ok("seller cannot activate a paid plan — it is reserved instead", /reserved/i.test(decodeURIComponent(up.location || "")) && JSON.stringify(planAfter.plan || planAfter) === JSON.stringify(planBefore.plan || planBefore));
+    ok("API checkout also refuses and reserves", (await req("POST", "/api/billing/checkout", { cookie: A, body: { plan: "GROWTH" } })).status === 403);
+    const bpl = await req("GET", "/app/billing", { cookie: A });
+    ok("billing page shows Reserve buttons and the reservation", /Reserve Starter/.test(bpl.text) && /✓ Reserved/.test(bpl.text) && /Paid plans open soon/.test(bpl.text));
+    ok("admin sees the reservation", /Plan reservations \(1\)/.test((await req("GET", "/admin/waitlist", { cookie: ADM })).text));
+    ok("admin can still test checkout while locked", (await req("POST", "/api/billing/checkout", { cookie: ADM, body: { plan: "STARTER" } })).status === 200);
+    await req("POST", "/admin/paid-plans", { cookie: ADM, form: { state: "open", confirm: "OPEN" } });
+    ok("after opening, sellers can buy again", (await req("POST", "/api/billing/checkout", { cookie: A, body: { plan: "STARTER" } })).status === 200);
     const okV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://youtu.be/dQw4w9WgXcQ", intro: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" } });
     ok("admin saves tutorial videos", /ok=/.test(okV.location || ""));
     const wz = await req("GET", "/app/wizard", { cookie: A });

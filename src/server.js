@@ -363,7 +363,7 @@ app.get("/app/admin", (req, res) => res.redirect("/admin"));
 app.use("/admin", auth.requireAuth, auth.requireAdmin);   // all /admin requires admin
 app.get("/admin", (req, res) => res.send(adminUI.dashboard(req.user, { overview: admin.overview(), health: admin.health(), alerts: admin.alerts(), recent: admin.recentActivity(), siteMode: require("./sitegate").getMode(), ok: req.query.ok, err: req.query.err })));
 // launch switch — typed confirmation required so it can't be flipped by a stray click
-app.get("/admin/waitlist", (req, res) => res.send(adminUI.waitlistPage(req.user, db.prepare("SELECT * FROM waitlist ORDER BY created_at DESC LIMIT 2000").all())));
+app.get("/admin/waitlist", (req, res) => res.send(adminUI.waitlistPage(req.user, db.prepare("SELECT * FROM waitlist ORDER BY created_at DESC LIMIT 2000").all(), require("./paidlock").reservations())));
 app.get("/admin/videos", (req, res) => res.send(adminUI.videosPage(req.user, require("./tutorials").all(), req.query.ok, req.query.err)));
 app.post("/admin/videos", (req, res) => {
   try {
@@ -371,6 +371,12 @@ app.post("/admin/videos", (req, res) => {
     try { require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "site.videos", resourceType: "site", resourceId: "videos", metadata: { count: Object.keys(saved).length }, ip: ipOf(req) }); } catch {}
     res.redirect("/admin/videos?ok=" + encodeURIComponent("Saved " + Object.keys(saved).length + " video(s)."));
   } catch (e) { res.redirect("/admin/videos?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/paid-plans", (req, res) => {
+  const open = (req.body || {}).state === "open";
+  if (open && String((req.body || {}).confirm || "").trim().toUpperCase() !== "OPEN") return res.redirect("/admin?err=" + encodeURIComponent("Type OPEN to start selling paid plans."));
+  require("./paidlock").setLocked(!open, req.user, ipOf(req));
+  res.redirect("/admin?ok=" + encodeURIComponent(open ? "Paid plans are open — sellers can now buy." : "Paid plans locked — sellers can only reserve."));
 });
 app.post("/admin/site/mode", (req, res) => {
   const want = (req.body || {}).mode === "open" ? "open" : "private";
@@ -452,11 +458,16 @@ const usage = require("./usage");
 const plans = require("./plans");
 const billing = require("./billing");
 app.get("/app/billing", (req, res) =>
-  res.send(pages.billingPage(req.user, usage.status(req.user.business_id), plans.list(), billing.configured(), req.query.ok)));
+  res.send(pages.billingPage(req.user, usage.status(req.user.business_id), plans.list(), billing.configured(), req.query.ok, { locked: require("./paidlock").blocked(req.user, "STARTER"), reserved: require("./paidlock").reservationFor(req.user.business_id) })));
 app.post("/app/billing/upgrade", async (req, res, next) => {
   try {
     const plan = req.body.plan;
     if (!plans.PLANS[plan]) throw new Error("Unknown plan");
+    const lock = require("./paidlock");
+    if (lock.blocked(req.user, plan)) {   // pre-launch: paid plans can only be reserved
+      lock.reserve(req.user, plan);
+      return res.redirect("/app/billing?ok=" + encodeURIComponent(`${plans.PLANS[plan].name} reserved ✅ Paid plans open soon — we'll let you know first. Keep using the Free plan until then.`));
+    }
     if (!billing.configured()) { // no Razorpay keys → test-mode activation
       usage.setPlan(req.user.business_id, plan);
       return res.redirect("/app/billing?ok=" + encodeURIComponent(`Switched to ${plans.PLANS[plan].name} (test mode — connect Razorpay for live payments).`));

@@ -49,6 +49,12 @@ function dashboard(user, d) {
         <form method="POST" action="/admin/site/mode" style="margin:0" onsubmit="return confirm('Switch back to private mode? Non-admin users will be logged out.')"><input type="hidden" name="mode" value="private"><button class="btn ghost">Switch to private mode</button></form></div>`
     : `<div class="card pad" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-left:4px solid var(--warn)"><div><b>🔒 Private mode — admins only</b><div style="color:var(--soft);font-size:13px">Visitors see “Coming soon”. Signups closed; only admin emails can log in.</div></div>
         <form method="POST" action="/admin/site/mode" style="margin:0;display:flex;gap:8px;align-items:center"><input type="hidden" name="mode" value="open"><input name="confirm" placeholder="Type LAUNCH" autocomplete="off" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;width:130px"><button class="btn pri">Launch to public</button></form></div>`}
+  ${(() => { const L = require("./paidlock"), locked = L.isLocked(), n = L.reservations().length;
+    return locked
+      ? `<div class="card pad" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-left:4px solid var(--accent)"><div><b>💳 Paid plans locked — Free plan only</b><div style="color:var(--soft)">Sellers can reserve Starter/Growth/Pro. <a href="/admin/waitlist">${n} reserved</a>. Admins can still test checkout.</div></div>
+        <form method="POST" action="/admin/paid-plans" style="margin:0;display:flex;gap:8px;align-items:center"><input type="hidden" name="state" value="open"><input name="confirm" placeholder="Type OPEN" autocomplete="off" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;width:130px"><button class="btn pri">Open paid plans</button></form></div>`
+      : `<div class="card pad" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-left:4px solid var(--good)"><div><b>💳 Paid plans are open</b><div style="color:var(--soft)">Sellers can buy plans. ${n} reservations to convert — <a href="/admin/waitlist">see list</a>.</div></div>
+        <form method="POST" action="/admin/paid-plans" style="margin:0"><input type="hidden" name="state" value="locked"><button class="btn ghost">Lock paid plans</button></form></div>`; })()}
   <div class="statgrid" style="grid-template-columns:repeat(4,1fr)">
     ${stat("Users", fmt(o.users))}${stat("Businesses", fmt(o.businesses), o.suspended + " suspended")}${stat("Active", fmt(o.activeBusinesses))}${stat("Active paid", fmt(o.activePaid))}
   </div>
@@ -221,9 +227,12 @@ function videosPage(user, videos, ok, err) {
   <form class="card pad" method="POST" action="/admin/videos"><div class="vlist">${rows}</div>
     <div class="formfoot"><span class="muted">Only YouTube links are accepted. Videos play in a privacy-enhanced player.</span><button class="btn pri">Save videos</button></div></form>`);
 }
-function waitlistPage(user, rows) {
+function waitlistPage(user, rows, reserved = []) {
+  const P = require("./plans").PLANS;
+  const rv = reserved.map(r => `<tr><td>${esc(r.business || "")}</td><td class="mono">${esc(r.email || "")}</td><td><b>${esc((P[r.plan] || {}).name || r.plan)}</b> · ₹${((P[r.plan] || {}).price || 0).toLocaleString("en-IN")}/mo</td><td>${esc(String(r.created_at).slice(0, 16).replace("T", " "))}</td></tr>`).join("");
+  const resCard = `<div class="card" style="margin-bottom:16px"><div class="cardhead"><h3>Plan reservations (${reserved.length})</h3></div>${reserved.length ? `<table><thead><tr><th>Business</th><th>Email</th><th>Reserved plan</th><th>When</th></tr></thead><tbody>${rv}</tbody></table>` : `<div class="pad muted">No reservations yet.</div>`}</div>`;
   const tr = rows.map(r => `<tr><td class="mono">${esc(r.email)}</td><td>${esc(r.note || "")}</td><td class="muted">${esc(r.source || "")}</td><td>${esc(String(r.created_at).slice(0, 16).replace("T", " "))}</td></tr>`).join("");
-  return layout(user, "/admin/waitlist", `<div class="phead"><div><h1>Early access</h1><p>${rows.length} people joined from the public site while it is in private mode.</p></div></div>
-  <div class="card">${rows.length ? `<table><thead><tr><th>Email</th><th>What they sell</th><th>From page</th><th>Joined</th></tr></thead><tbody>${tr}</tbody></table>` : `<div class="pad muted">No sign-ups yet.</div>`}</div>`);
+  return layout(user, "/admin/waitlist", `<div class="phead"><div><h1>Early access</h1><p>Sellers waiting for launch and for paid plans — convert these first.</p></div></div>
+  ${resCard}<div class="card"><div class="cardhead"><h3>Early-access sign-ups (${rows.length})</h3></div>${rows.length ? `<table><thead><tr><th>Email</th><th>What they sell</th><th>From page</th><th>Joined</th></tr></thead><tbody>${tr}</tbody></table>` : `<div class="pad muted">No sign-ups yet.</div>`}</div>`);
 }
 module.exports = { waitlistPage, dashboard, users, userDetail, jobs, billing, marketplaces, auditPage, healthPage, videosPage };

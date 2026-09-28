@@ -17,6 +17,8 @@ router.post("/billing/checkout", auth.requireAuth, async (req, res) => {
   try {
     const planKey = (req.body || {}).plan;
     if (!plans.PLANS[planKey]) return res.status(400).json({ error: "Unknown plan." });
+    const lock = require("../paidlock");
+    if (lock.blocked(req.user, planKey)) { lock.reserve(req.user, planKey); return res.status(403).json({ error: "Paid plans open soon — your plan is reserved.", reserved: true, plan: planKey }); }
     const result = await core.checkout(req.user.business_id, planKey);
     audit.record({ businessId: req.user.business_id, userId: req.user.id, action: "billing.checkout", resourceType: "subscription", resourceId: planKey, metadata: { testMode: result.testMode }, ip: audit.ipOf(req) });
     res.json(result);

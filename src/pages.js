@@ -942,7 +942,7 @@ function imageStudio(user, caps) {
 }
 
 // ---- Phase 8: billing ----
-function billingPage(user, u, plans, razorpayOn, notice) {
+function billingPage(user, u, plans, razorpayOn, notice, lock = {}) {
   const OV = require("./plans").OVERAGE;
   const meter = (label, hint, x) => {
     const lim = x ? x.limit : 0, used = x ? x.used : 0, pct = lim ? Math.min(100, Math.round(used / lim * 100)) : 0;
@@ -952,8 +952,12 @@ function billingPage(user, u, plans, razorpayOn, notice) {
   const check = (t) => '<li>' + ic("M5 13l4 4L19 7") + '<span>' + t + '</span></li>';
   const planCards = plans.map(p => {
     const cur = p.id === u.plan;
+    const reservedThis = lock.reserved && lock.reserved.plan === p.id;
     const cta = cur
       ? '<button class="btn ghost bfull" disabled>Your plan</button>'
+      : lock.locked && p.price
+      ? (reservedThis ? '<button class="btn ghost bfull" disabled>✓ Reserved</button>'
+        : '<form method="POST" action="/app/billing/upgrade" style="margin:0"><input type="hidden" name="plan" value="' + p.id + '"><button class="btn ' + (p.popular ? "pri" : "ghost") + ' bfull">Reserve ' + esc(p.name) + '</button></form>')
       : '<form method="POST" action="/app/billing/upgrade" style="margin:0"><input type="hidden" name="plan" value="' + p.id + '"><button class="btn ' + (p.popular ? "pri" : "ghost") + ' bfull">' + (p.price ? (cur ? "Current" : "Choose " + esc(p.name)) : "Switch") + '</button></form>';
     return '<div class="bplan' + (cur ? " cur" : "") + (p.popular ? " pop" : "") + '">' +
       (cur ? '<span class="btag">CURRENT</span>' : p.popular ? '<span class="btag pop">MOST POPULAR</span>' : "") +
@@ -964,7 +968,8 @@ function billingPage(user, u, plans, razorpayOn, notice) {
   }).join("");
   const planLine = u.price ? " · ₹" + u.price.toLocaleString("en-IN") + "/month" : " · free";
   const noticeHtml = notice ? alertBox("good", notice) : "";
-  const rzLine = razorpayOn ? "Secure checkout via Razorpay · cancel any time" : "Payments in test mode — no card is charged";
+  const lockBanner = lock.locked ? alertBox("info", "Paid plans open soon. Everyone is on the Free plan for now (25 AI listings a month). Reserve a plan and you'll be first to get it" + (lock.reserved ? " — you reserved " + ((require("./plans").PLANS[lock.reserved.plan] || {}).name || lock.reserved.plan) + "." : ".")) : "";
+  const rzLine = lock.locked ? "Reserve now — no payment until paid plans open" : razorpayOn ? "Secure checkout via Razorpay · cancel any time" : "Payments in test mode — no card is charged";
   const body =
     '<div class="phead"><div><h1>Billing &amp; plan</h1><p>Current plan: <b>' + esc(u.planName) + '</b>' + planLine + '</p></div></div>' + noticeHtml +
     '<div class="card pad mb"><div class="dhead"><b>Usage this month</b><span class="muted">Resets when your plan renews</span></div><div class="bmeters">' +
@@ -972,7 +977,7 @@ function billingPage(user, u, plans, razorpayOn, notice) {
       meter("Hosted photos", "ZIP uploads, white backgrounds, resizing", u.images) +
       meter("AI image credits", "Background removal, AI studio, prompt-to-image", u.aiImages) +
     '</div></div>' +
-    '<div class="phead" style="margin:6px 0 12px"><p style="margin:0;font-weight:700">Plans</p><span class="muted">' + rzLine + '</span></div>' +
+    lockBanner + '<div class="phead" style="margin:6px 0 12px"><p style="margin:0;font-weight:700">Plans</p><span class="muted">' + rzLine + '</span></div>' +
     '<div class="bgrid">' + planCards + '</div>' +
     '<p class="hint">' + ic("M12 8v4M12 16h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0z") + ' Need more in a month? Extra listings ₹' + OV.listing + ' each · extra AI image credits ₹' + OV.aiImage + ' each (contact us to top up). Prices exclude GST.</p>';
   return shell(user, "/app/billing", body);

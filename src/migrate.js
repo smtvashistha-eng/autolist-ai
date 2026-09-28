@@ -429,6 +429,13 @@ const MIGRATIONS = [
       db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
     },
   },
+  // ---- paid-plan reservations while paid plans are locked (pre-launch) ----
+  {
+    v: 33, name: "plan_reservations",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS plan_reservations(business_id TEXT PRIMARY KEY REFERENCES businesses(id), user_id TEXT, email TEXT, plan TEXT NOT NULL, created_at TEXT NOT NULL, converted_at TEXT)`);
+    },
+  },
   // ---- early-access list (public site, while in private mode) ----
   {
     v: 32, name: "waitlist",
