@@ -49,7 +49,7 @@ function appMock() {
   </div>`;
 }
 function landing() {
-  const FIMG = { "AI listing content": "feature_ai_listing_writer", "Fills your real templates": "feature_marketplace_template_fill", "Marketplace images": "feature_product_photo_cleanup", "Review before you ship": "feature_qc_error_fix", "Bulk with live progress": "feature_bulk_listing_stack" };
+  const FIMG = { "AI listing content": "feature_ai_listing_writer", "Fills your real templates": "feature_marketplace_template_fill", "Marketplace images": "feature_product_photo_cleanup", "Review before you ship": "feature_qc_error_fix", "Bulk with live progress": "feature_bulk_listing_stack", "Your data stays yours": "feature_data_privacy" };
   const feat = (i, t, d) => `<div class="fcard reveal">${FIMG[t] ? `<img class="fimg" src="/img/${FIMG[t]}.webp" alt="" width="520" height="520" loading="lazy" decoding="async">` : `<div class="fi">${ic(i)}</div>`}<b>${t}</b><p>${d}</p></div>`;
   return head("AutoList AI — turn product data into marketplace-ready listings") + `
 <div class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>

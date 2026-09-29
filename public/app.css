@@ -1028,3 +1028,27 @@ html.al-installed .inst-hide{display:none!important}html.al-installed .inst-done
 .cta-band{background:url(/img/cta_bg.webp) center/cover no-repeat,#0b1220;padding:70px 0;position:relative}
 .cta-band h2{text-shadow:0 10px 40px rgba(0,0,0,.35)}.cta-band p{color:#cbd5e1}
 @media (prefers-reduced-motion:reduce){.hero2{animation:none}}
+/* ---- illustration motion: gentle float everywhere, playful hover, soft entrance ---- */
+@keyframes artFloat{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-8px) rotate(-1.2deg)}}
+@keyframes artFloatS{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes artPop{from{opacity:0;transform:translateY(18px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes artGlow{0%,100%{filter:drop-shadow(0 14px 22px rgba(108,59,244,.18))}50%{filter:drop-shadow(0 22px 34px rgba(244,63,79,.22))}}
+@keyframes panelPan{from{background-position:right bottom,right bottom}to{background-position:right bottom,85% 70%}}
+/* homepage feature cards: each illustration bobs on its own rhythm; hover = lift + tilt */
+.fcard .fimg{animation:artFloat 5s ease-in-out infinite;transition:transform .35s cubic-bezier(.34,1.56,.64,1),filter .35s;will-change:transform}
+.fgrid .fcard:nth-child(2) .fimg{animation-delay:-1.1s;animation-duration:5.6s}
+.fgrid .fcard:nth-child(3) .fimg{animation-delay:-2.3s;animation-duration:4.8s}
+.fgrid .fcard:nth-child(4) .fimg{animation-delay:-.6s;animation-duration:6s}
+.fgrid .fcard:nth-child(5) .fimg{animation-delay:-3.1s;animation-duration:5.2s}
+.fgrid .fcard:nth-child(6) .fimg{animation-delay:-1.8s;animation-duration:5.8s}
+.fcard:hover .fimg{animation-play-state:paused;transform:translateY(-6px) scale(1.1) rotate(-4deg);filter:drop-shadow(0 16px 24px rgba(108,59,244,.25))}
+/* marketing pages: pop in, then float with a breathing glow */
+.mk-art-img img{animation:artPop .8s cubic-bezier(.34,1.56,.64,1) both,artFloat 6s ease-in-out .8s infinite,artGlow 6s ease-in-out .8s infinite}
+.mk-wide{animation:artPop .9s cubic-bezier(.22,1,.36,1) both;transition:transform .5s cubic-bezier(.22,1,.36,1),box-shadow .5s}
+.mk-wide:hover{transform:translateY(-6px) scale(1.01);box-shadow:0 34px 80px rgba(15,23,42,.2)}
+/* app empty states + 404/offline: calm float */
+.empty .empty-art{animation:artPop .6s cubic-bezier(.34,1.56,.64,1) both,artFloatS 4.5s ease-in-out .6s infinite}
+img[src*="/img/error_"]{animation:artPop .7s cubic-bezier(.34,1.56,.64,1) both,artFloat 5s ease-in-out .7s infinite}
+/* login / signup artwork drifts slowly */
+.authL{animation:panelPan 24s ease-in-out infinite alternate}
+@media (prefers-reduced-motion:reduce){.fcard .fimg,.mk-art-img img,.mk-wide,.empty .empty-art,img[src*="/img/error_"],.authL{animation:none!important}}
