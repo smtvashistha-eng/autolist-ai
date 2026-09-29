@@ -65,12 +65,11 @@ function landing() {
       <div class="hero2-cta"><a class="btn pri lg" href="/signup">Create your first listing →</a><a class="btn ghost lg" href="#free-pdf-cropper">Try free PDF Cropper</a></div>
       <div class="hero2-trust"><span>${check} No card required</span><span>${check} Free trial</span><span>${check} Facts never invented</span></div>
     </div>
-    <div class="heroR"><div class="hero-art"><img class="" src="/img/homepage_hero_product_to_listing.webp" alt="Products turning into ready marketplace listings on a laptop" width="1200" height="800" fetchpriority="high"></div></div>
+    <div class="heroR">${require("./heromock").heroMock()}</div>
   </div>
 </div>
 
-<div class="strip"><div class="wrap stripin"><span style="color:var(--faint);font-size:13px">Built for</span>
-  <span class="mp"><span class="mpi" style="background:var(--amazon)">a</span>Amazon</span><span class="mp"><span class="mpi" style="background:var(--flip)">F</span>Flipkart</span><span class="mp"><span class="mpi" style="background:var(--meesho)">M</span>Meesho</span><span class="mp"><span class="mpi" style="background:#16a34a">S</span>Shopify</span></div></div>
+${require("./heromock").marketStrip()}
 
 <section class="blk" id="how"><div class="wrap"><div class="eye">How it works</div><h2>Your whole listing job, in four steps</h2><p class="ssub">Give AutoList AI whatever you have. It figures out the rest and asks only what's missing.</p>
   <div class="steps">
