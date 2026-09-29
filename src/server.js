@@ -546,7 +546,7 @@ app.get("/api/health", (req, res) => {
 function friendly(req, res, code, title, msg) {
   if (req.path.startsWith("/api/")) return res.status(code).json({ error: msg });
   const body = `<div style="max-width:520px;margin:12vh auto;text-align:center;font-family:Inter,system-ui,sans-serif;padding:0 20px">
-    <div style="font-size:44px">⚠️</div><h1 style="font-size:22px">${title}</h1><p style="color:#586274">${msg}</p>
+    ${code === 404 ? `<img src="/img/error_404_not_found.webp" alt="" width="200" height="200" style="display:block;margin:0 auto">` : `<div style="font-size:44px">⚠️</div>`}<h1 style="font-size:22px">${title}</h1><p style="color:#586274">${msg}</p>
     <a href="${req.user ? "/app" : "/"}" style="display:inline-block;margin-top:12px;background:#2563eb;color:#fff;padding:11px 18px;border-radius:9px;text-decoration:none;font-weight:600">Go back</a></div>`;
   res.status(code).send(body);
 }

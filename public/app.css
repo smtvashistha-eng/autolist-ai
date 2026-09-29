@@ -906,3 +906,52 @@ html.al-installed .inst-hide{display:none!important}html.al-installed .inst-done
 .hz-t{flex:1;display:flex;flex-direction:column}.hz-t b{font-size:14.5px}.hz-t small{font-size:12.5px;color:var(--soft)}.hz-t code{font-size:11.5px;background:var(--card);padding:0 4px;border-radius:4px}
 .hz-opt{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--soft);margin-top:10px}.hz-opt input{accent-color:var(--accent)}
 @media (max-width:640px){.hz-drop{flex-wrap:wrap}}
+/* ================= Mobile polish (≤ 760px / touch) ================= */
+@media (max-width:760px){
+  /* readable small text everywhere */
+  .content small,.content .sub,.content .srctag,.content .d,.content .hint,.content .muted,.pr-plan,.cc-t small,.gs-t small{font-size:12.5px!important}
+  .content .srctag{font-size:10.5px!important}
+  /* admin: stat cards 2-up, columns stack, title never collides with buttons */
+  .statgrid{grid-template-columns:1fr 1fr!important}
+  .dash-cols,.cc-grid{grid-template-columns:1fr!important}
+  .appbar .ptitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Create Listing: form first, Generate stays at the bottom of the screen */
+  .cr-side{order:2!important;position:sticky!important;bottom:0;z-index:20}
+  .cr-actions{position:static!important;background:var(--card);border:1px solid var(--line);border-radius:14px;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(15,23,42,.1)}
+  .crumbs a{display:inline-block;padding:8px 0}
+  .cr-actions .btn.ghost,.cr-actions p{display:none}
+  /* Hosted photos ZIP card stacks */
+  .hz-drop{flex-direction:column;text-align:center}.hz-t{align-items:center}
+  /* Guided Bulk steps: fade shows there is more to swipe */
+  .wz-rail{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+  /* Marketplaces (admin technical view) single column */
+  .content .grid2,.content .mkt-grid{grid-template-columns:1fr!important}
+  /* Listings: search full width, selection bar wraps nicely */
+  .ls-sel .btn{flex:1;justify-content:center}.ls-sp{display:none}
+  /* marketing footer links easier to tap */
+  .mk-foot-in a{padding:6px 0}
+  .mk-crumbs a{padding:6px 0;display:inline-block}
+}
+@media (pointer:coarse){
+  .btn.sm{min-height:38px;padding-left:14px;padding-right:14px}
+  .ad-chip,.fchip,.tp-mkt{min-height:38px}
+  .viewall,.linkbtn{display:inline-block;padding:8px 4px}
+  .alert a,.gs-list a b{padding:4px 0}
+  .cc-sw{width:48px;height:28px}.cc-sw i:after{width:22px;height:22px}.cc-sw input:checked+i:after{transform:translateX(20px)}
+  .rtable td.ck input,.rtable th.ck input{width:22px;height:22px}
+}
+/* ---- brand illustrations (public/img) ---- */
+.hero-art{border-radius:22px;overflow:hidden;background:#0b0b12;box-shadow:0 40px 90px rgba(15,23,42,.28),0 0 0 1px rgba(15,23,42,.06);transform:perspective(1200px) rotateY(-4deg) rotateX(1deg);transition:transform .4s}
+.hero-art img{display:block;width:100%;height:auto}.heroR:hover .hero-art{transform:none}
+.fcard .fimg{display:block;width:118px;height:118px;object-fit:contain;margin:-6px 0 6px -8px}
+.mk-art-img{display:flex;justify-content:center;margin-top:18px}.mk-art-img img{width:min(340px,70vw);height:auto}
+.mk-wide{display:block;width:100%;height:auto;border-radius:20px;margin:6px 0 10px;box-shadow:0 24px 60px rgba(15,23,42,.14)}
+.empty .empty-art{display:block;width:140px;height:140px;margin:0 auto 10px;object-fit:contain}
+@media (max-width:960px){.hero-art{transform:none}}
+/* ---- phones: render the app at 88% so more fits, like the laptop view ---- */
+@media (max-width:760px) and (pointer:coarse){
+  .app{zoom:.88;right:auto;bottom:auto;width:calc(100vw / .88);height:calc(100vh / .88)}
+  /* iPhone zooms into fields under 16px: 18.2px × 0.88 ≈ 16px on screen */
+  .app input:not([type=checkbox]):not([type=radio]):not([type=range]),.app select,.app textarea{font-size:18.2px!important}
+  .mdl-box,.tour-pop{zoom:.92}
+}

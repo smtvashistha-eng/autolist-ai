@@ -19,19 +19,21 @@ function layout(user, active, body) {
     `<a class="nav ${href === active ? "on" : ""}" href="${href}">${ic(p)} <span>${label}</span></a>`).join("");
   return head("Admin — AutoList AI") + `
 <div class="app">
-  <aside class="side">
-    <div class="top"><a class="logo" href="/admin"><span class="mark"></span> Admin</a></div>
+  <div class="overlay" id="ovl"></div>
+  <aside class="side" id="side">
+    <div class="top"><a class="logo" href="/admin"><span class="mark"></span> Admin</a><button class="xnav" id="xnav" aria-label="Close menu">${ic("M18 6L6 18M6 6l12 12")}</button></div>
     <div class="navwrap"><a class="nav" href="/app" style="color:var(--accent);font-weight:600">${ic("M3 12l9-9 9 9M5 10v10h14V10")} <span>Seller app</span></a><div class="nlbl">Admin</div>${nav}</div>
     <div class="sfoot2"><a class="nav" href="/app">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9")} <span>Back to app</span></a>
       <form method="POST" action="/logout" style="margin:6px 0 0"><button class="nav" style="width:100%;border:0;background:none;cursor:pointer;color:var(--err)">${ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4")} <span>Log out</span></button></form></div>
   </aside>
   <div class="main">
-    <div class="appbar"><h2 class="ptitle">Admin</h2><div class="abr"><a class="btn ghost sm" href="/app">${ic("M3 12l9-9 9 9M5 10v10h14V10")} Open seller app →</a><span class="badge b-accent">ADMIN</span>
+    <div class="appbar"><button class="hamb" id="hamb" aria-label="Open menu">${ic("M3 12h18M3 6h18M3 18h18")}</button><h2 class="ptitle">Admin</h2><div class="abr"><a class="btn ghost sm" href="/app">${ic("M3 12l9-9 9 9M5 10v10h14V10")} <span class="hide-sm">Open seller app →</span></a><span class="badge b-accent">ADMIN</span>
       <div class="me">${esc((user.name || user.email || "?").slice(0, 2).toUpperCase())}</div></div></div>
     <div class="content"><div class="cwrap">${body}</div></div>
   </div>
 </div>
-<script>document.addEventListener('submit',function(e){var f=e.target;if(f.dataset.confirm&&!confirm(f.dataset.confirm)){e.preventDefault();return;}var b=f.querySelector('button[type=submit],button:not([type])');if(b)setTimeout(function(){b.disabled=true;},0);});</script>` + foot;
+<script>(function(){var side=document.getElementById("side"),ovl=document.getElementById("ovl");function o(){side.classList.add("open");ovl.classList.add("show");}function c(){side.classList.remove("open");ovl.classList.remove("show");}document.getElementById("hamb").onclick=o;document.getElementById("xnav").onclick=c;ovl.onclick=c;document.addEventListener("keydown",function(e){if(e.key==="Escape")c();});})();
+document.addEventListener('submit',function(e){var f=e.target;if(f.dataset.confirm&&!confirm(f.dataset.confirm)){e.preventDefault();return;}var b=f.querySelector('button[type=submit],button:not([type])');if(b)setTimeout(function(){b.disabled=true;},0);});</script>` + foot;
 }
 
 const HS = (s) => `<span class="badge ${s === "healthy" ? "b-good" : s === "warning" ? "b-warn" : s === "critical" ? "b-err" : "b-draft"}">${esc(s)}</span>`;

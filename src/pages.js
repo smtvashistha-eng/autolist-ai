@@ -49,7 +49,8 @@ function appMock() {
   </div>`;
 }
 function landing() {
-  const feat = (i, t, d) => `<div class="fcard reveal"><div class="fi">${ic(i)}</div><b>${t}</b><p>${d}</p></div>`;
+  const FIMG = { "AI listing content": "feature_ai_listing_writer", "Fills your real templates": "feature_marketplace_template_fill", "Marketplace images": "feature_product_photo_cleanup", "Review before you ship": "feature_qc_error_fix", "Bulk with live progress": "feature_bulk_listing_stack" };
+  const feat = (i, t, d) => `<div class="fcard reveal">${FIMG[t] ? `<img class="fimg" src="/img/${FIMG[t]}.webp" alt="" width="520" height="520" loading="lazy" decoding="async">` : `<div class="fi">${ic(i)}</div>`}<b>${t}</b><p>${d}</p></div>`;
   return head("AutoList AI — turn product data into marketplace-ready listings") + `
 <div class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
   <div class="links"><a href="#how">How it works</a><a href="#features">Features</a><a href="#usecases">Who it's for</a><a href="#free-pdf-cropper">Free PDF Cropper</a><a href="#faq">FAQ</a></div>
@@ -64,7 +65,7 @@ function landing() {
       <div class="hero2-cta"><a class="btn pri lg" href="/signup">Create your first listing →</a><a class="btn ghost lg" href="#free-pdf-cropper">Try free PDF Cropper</a></div>
       <div class="hero2-trust"><span>${check} No card required</span><span>${check} Free trial</span><span>${check} Facts never invented</span></div>
     </div>
-    <div class="heroR">${appMock()}</div>
+    <div class="heroR"><div class="hero-art"><img class="" src="/img/homepage_hero_product_to_listing.webp" alt="Products turning into ready marketplace listings on a laptop" width="1200" height="800" fetchpriority="high"></div></div>
   </div>
 </div>
 
@@ -164,7 +165,7 @@ function authPage(mode, error) {
   const su = mode === "signup";
   return head(su ? "Create your account — AutoList AI" : "Log in — AutoList AI") + `
 <div class="authwrap">
-  <div class="authL"><a class="logo" href="/" style="color:#fff;font-size:19px"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
+  <div class="authL" style="background:linear-gradient(100deg,rgba(11,13,38,.94) 0%,rgba(11,13,38,.82) 45%,rgba(11,13,38,.35) 100%),#12163a url(/img/auth_login_signup_left_panel.webp) right bottom/cover no-repeat"><a class="logo" href="/" style="color:#fff;font-size:19px"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
     <h2>List everywhere, without the manual work.</h2><p>Turn raw products into upload-ready listings for every marketplace.</p>
     <div class="mini"><div class="mrow"><span class="c">${check}</span>Paste your own Amazon / Flipkart file — we fill it</div>
       <div class="mrow"><span class="c">${check}</span>AI images, resized for every marketplace</div>

@@ -11,7 +11,9 @@ function tabs(items, active) {
 const when = (iso) => { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString("en-IN", { timeZone: process.env.APP_TZ || "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); };
 const mk = (m) => ({ amazon: "Amazon", flipkart: "Flipkart", meesho: "Meesho", shopify: "Shopify" }[m] || esc(m || "—"));
 const pill = (text, kind) => `<span class="pill2 p2-${kind}">${esc(text)}</span>`;
-const empty = (title, sub, cta) => `<div class="card"><div class="empty"><b>${esc(title)}</b><p>${esc(sub)}</p>${cta || ""}</div></div>`;
+const EMPTY_ART = [[/photo/i, "empty_state_hosted_photos"], [/template/i, "empty_state_templates"], [/job/i, "empty_state_jobs"], [/file|csv|export/i, "empty_state_exports"], [/listing|draft|match/i, "empty_state_listings"]];
+const empty = (title, sub, cta) => { const a = (EMPTY_ART.find(([re]) => re.test(title)) || [])[1];
+  return `<div class="card"><div class="empty">${a ? `<img class="empty-art" src="/img/${a}.webp" alt="" width="160" height="160" loading="lazy" decoding="async">` : ""}<b>${esc(title)}</b><p>${esc(sub)}</p>${cta || ""}</div></div>`; };
 const jparse = (s) => { try { return JSON.parse(s || "null"); } catch { return null; } };
 const count = (sql, ...a) => db.prepare(sql).get(...a).c;
 

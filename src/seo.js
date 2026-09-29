@@ -58,6 +58,7 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
 }
 const faqBlock = (faq) => `<section class="blk"><div class="wrap mk-narrow"><h2>Frequently asked questions</h2><div class="hfaq">${faq.map(([q, a]) => `<details class="hfaq-i"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</div></div></section>`;
 const faqLd = (faq) => ({ "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) });
+const art = (name, alt) => `<div class="mk-art-img"><img src="/img/${name}.webp" alt="${alt}" width="520" height="520" loading="lazy" decoding="async"></div>`;
 const hero = (eye, h1, lead, extra = "") => { const c = cta(); return `<section class="mk-hero"><div class="wrap mk-narrow"><div class="eye">${eye}</div><h1>${h1}</h1><p class="mk-lead">${lead}</p>
   <div class="mk-cta"><a class="btn pri lg" href="${c.href}">${c.label} →</a><a class="btn ghost lg" href="/guides">Watch the guides</a></div>${extra}</div></section>`; };
 const ctaBand = (h) => { const c = cta(); return `<section class="cta-band"><div class="wrap"><h2>${h}</h2><p>${isOpen() ? "25 free listings every month. No card needed." : "We're in private testing — join the list and we'll invite you first."}</p><a class="btn lg cta-white" href="${c.href}">${c.label} →</a></div></section>`; };
@@ -80,7 +81,7 @@ function flipkartPage() {
     description: "List hundreds of products on Flipkart at once. AI writes the listings, fills Flipkart's bulk template with valid values and fixes QC failed errors.",
     crumbs: [["Flipkart bulk listing", "/flipkart-bulk-listing"]],
     ld: [software(), faqLd(FLIPKART_FAQ), { "@type": "HowTo", name: "How to bulk list products on Flipkart with AutoList AI", totalTime: "PT15M", step: steps.map(([n, t], i) => ({ "@type": "HowToStep", position: i + 1, name: n, text: t })) }],
-    body: hero("Flipkart sellers", "Flipkart bulk listing, done by AI", "Upload your product sheet and Flipkart's own template. AutoList AI writes every listing, fills every column with values Flipkart accepts, and hands back a file that's ready to upload.") + `
+    body: hero("Flipkart sellers", "Flipkart bulk listing, done by AI", "Upload your product sheet and Flipkart's own template. AutoList AI writes every listing, fills every column with values Flipkart accepts, and hands back a file that's ready to upload.", art("feature_marketplace_template_fill", "A marketplace spreadsheet being filled automatically")) + `
 <section class="blk"><div class="wrap mk-narrow"><h2>Why Flipkart bulk uploads fail — and how AutoList AI avoids it</h2>
 <p>Most failed Flipkart uploads come from small mistakes: a dropdown value in the wrong case (<code>SELLER</code> instead of <code>Seller</code>), a renamed file, a template uploaded twice, or a product you already have live. AutoList AI checks all of these before you upload.</p>
 <ul class="mk-list"><li><b>Only allowed values.</b> It reads the allowed list for every dropdown column from the template itself.</li><li><b>Your facts, not guesses.</b> Stock, HSN, tax, package size and fulfilment come from your saved defaults; your sheet always wins.</li>
@@ -98,7 +99,7 @@ function amazonPage() {
   return page({ path: "/amazon-listing-generator", title: "AI Amazon Listing Generator for Indian Sellers — Titles, Bullets & Keywords | AutoList AI",
     description: "Generate Amazon.in product titles, bullet points, descriptions and keywords with AI — one product or a whole spreadsheet. Facts come only from your data.",
     crumbs: [["Amazon listing generator", "/amazon-listing-generator"]], ld: [software(), faqLd(AMAZON_FAQ)],
-    body: hero("Amazon sellers", "AI Amazon listing generator", "Write keyword-rich titles, five clear bullet points and a description for every product — in your brand's voice, from your own product data.") + `
+    body: hero("Amazon sellers", "AI Amazon listing generator", "Write keyword-rich titles, five clear bullet points and a description for every product — in your brand's voice, from your own product data.", art("feature_ai_listing_writer", "A product listing being written automatically")) + `
 <section class="blk"><div class="wrap mk-narrow"><h2>Listings that sell, without the copy-paste</h2>
 <p>Writing Amazon content by hand takes 15–20 minutes a product. AutoList AI does it in seconds and keeps every listing consistent: the same brand name, the same tone, the same structure.</p>
 <ul class="mk-list"><li><b>Brand Memory.</b> Tell it your tone, the words to use and the words to avoid, once.</li><li><b>Search keywords.</b> Buyer phrases for each product, without repeating the title.</li>
@@ -114,7 +115,7 @@ function descPage() {
   return page({ path: "/ai-product-description-generator", title: "AI Product Description Generator for Flipkart & Amazon Sellers | AutoList AI",
     description: "Turn product details into ready-to-publish descriptions, titles and bullet points for Flipkart and Amazon. Free for 25 listings a month.",
     crumbs: [["AI product description generator", "/ai-product-description-generator"]], ld: [software(), faqLd(DESC_FAQ)],
-    body: hero("Product content", "AI product description generator", "Give it a product name and a few facts. Get a title, bullet points, a full description and keywords — written for the marketplace you sell on.") + `
+    body: hero("Product content", "AI product description generator", "Give it a product name and a few facts. Get a title, bullet points, a full description and keywords — written for the marketplace you sell on.", art("feature_ai_listing_writer", "A product description being written")) + `
 <section class="blk"><div class="wrap mk-narrow"><h2>What you get for every product</h2>
 <ul class="mk-list"><li><b>Title</b> — brand, product, model and key benefit, within the marketplace limit.</li><li><b>Bullet points</b> — clear, scannable benefits.</li><li><b>Description</b> — a readable paragraph built only from your facts.</li><li><b>Keywords</b> — what buyers type into search.</li></ul>
 <h2>Accurate by design</h2><p>Marketplaces penalise false claims. AutoList AI keeps a strict line between what you told it and what it wrote, and it never adds specifications you didn't provide.</p>
@@ -140,6 +141,7 @@ function aboutPage() {
   return page({ path: "/about", title: "About AutoList AI — Built by Indian Marketplace Sellers", description: "AutoList AI is built by the team behind TRUSTin.ONLINE, an Indian brand that sells on Flipkart and Amazon, to take the slow, error-prone work out of listing products.",
     crumbs: [["About", "/about"]], ld: [{ "@type": "AboutPage", url: SITE() + "/about", about: { "@id": SITE() + "/#org" } }],
     body: `<section class="mk-hero"><div class="wrap mk-narrow"><div class="eye">About</div><h1>Built by sellers, for sellers</h1></div></section>
+<div class="wrap mk-narrow"><img class="mk-wide" src="/img/about_indian_seller_at_work.webp" alt="An Indian small-business owner packing orders next to a laptop" width="1200" height="800" loading="lazy" decoding="async"></div>
 <section class="blk" style="padding-top:0"><div class="wrap mk-narrow"><p>AutoList AI comes from the team behind <b>TRUSTin.ONLINE</b>, an Indian screen-guard brand with hundreds of products on Flipkart and Amazon. Listing each one by hand — writing content, filling templates, fixing QC errors — took days. So we built the tool we needed.</p>
 <p>Every rule in AutoList AI comes from a real rejection we hit: wrong dropdown capitals, renamed files, one-time upload IDs, duplicate products. The software now learns those rules so other sellers don't have to.</p>
 <h2>What we believe</h2><ul class="mk-list"><li><b>Never invent facts.</b> The AI writes; the product facts are always yours.</li><li><b>Check before you ship.</b> Every file is validated against the marketplace's own rules.</li><li><b>Plain and honest.</b> Clear pricing, real progress bars, no dark patterns.</li></ul>
@@ -156,7 +158,7 @@ function downloadPage() {
     body: `<section class="mk-hero"><div class="wrap mk-narrow" style="text-align:center"><img src="/icon-192.png" alt="AutoList AI app icon" width="96" height="96" style="border-radius:22px;box-shadow:0 14px 34px rgba(15,23,42,.14)">
 <h1>Download AutoList AI</h1><p class="mk-lead" style="margin:0 auto">Get AutoList AI on your desktop, taskbar or phone home screen. It opens in its own window and is always up to date.</p>
 <div class="mk-cta" style="justify-content:center"><button type="button" class="btn pri lg inst-hide" data-install>⬇ Install AutoList AI</button><span class="inst-done">✅ AutoList AI is installed on this device</span></div>
-<p class="muted" style="font-size:13px;margin-top:10px">Free · under 1 MB · Windows, Mac, Android, iPhone</p></div></section>
+<p class="muted" style="font-size:13px;margin-top:10px">Free · under 1 MB · Windows, Mac, Android, iPhone</p><img class="mk-wide" src="/img/download_laptop_and_phone_mockup.webp" alt="AutoList AI on a laptop and a phone" width="1200" height="800" loading="lazy" decoding="async"></div></section>
 <section class="blk" style="padding-top:0"><div class="wrap"><div class="mk-plans">
 <div class="mk-plan"><b>💻 Windows &amp; Mac</b><p>Chrome or Microsoft Edge</p><ol class="mk-steps" style="font-size:14px"><li>Click <b>Install AutoList AI</b> above.</li><li>Confirm <b>Install</b>.</li><li>Right-click it on the taskbar → <b>Pin</b>.</li></ol></div>
 <div class="mk-plan"><b>🤖 Android</b><p>Chrome</p><ol class="mk-steps" style="font-size:14px"><li>Tap <b>Install AutoList AI</b>.</li><li>Tap <b>Install</b> in the popup.</li><li>Open it from your home screen.</li></ol></div>

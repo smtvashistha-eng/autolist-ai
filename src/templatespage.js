@@ -36,7 +36,7 @@ function templatesPage(user) {
     </aside>
   </div>
   <h3 class="tp-title">Your templates <span class="muted">${rows.length}</span></h3>
-  ${rows.length ? `<div class="tp-list">${rows.map(card).join("")}</div>` : `<div class="card"><div class="empty"><b>No templates yet.</b><p>Add one above — or add it during Guided Bulk step 4. It will show up here either way.</p></div></div>`}
+  ${rows.length ? `<div class="tp-list">${rows.map(card).join("")}</div>` : `<div class="card"><div class="empty"><img class="empty-art" src="/img/empty_state_templates.webp" alt="" width="160" height="160" loading="lazy"><b>No templates yet.</b><p>Add one above — or add it during Guided Bulk step 4. It will show up here either way.</p></div></div>`}
   <script src="/templates.js?v=${ASSET_V}" defer></script>`);
 }
 module.exports = { templatesPage };
