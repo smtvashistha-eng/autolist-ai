@@ -1021,3 +1021,10 @@ html.al-installed .inst-hide{display:none!important}html.al-installed .inst-done
 @media (max-width:760px){.mq{flex-direction:column;gap:8px}.mq-lbl{padding:0}.mq-view{width:100%}.mq-amz,.mq-fk,.mq-ms,.mq-sh{font-size:22px}}
 @media (prefers-reduced-motion:reduce){.mq-track{animation:none}}
 @media (max-width:600px){.snav .right .btn[data-install]{display:none}.snav .right .btn{padding:8px 12px;font-size:13px;white-space:nowrap}.snav .logo{font-size:15px}}
+/* ---- homepage backgrounds (brand art) ---- */
+.hero2{background:url(/img/hero_bg.webp) center/cover no-repeat,#f8f9fc;animation:heroDrift 22s ease-in-out infinite alternate}
+@keyframes heroDrift{from{background-size:100% auto}to{background-size:108% auto}}
+@media (max-width:760px){.hero2{background-size:cover;animation:none}}
+.cta-band{background:url(/img/cta_bg.webp) center/cover no-repeat,#0b1220;padding:70px 0;position:relative}
+.cta-band h2{text-shadow:0 10px 40px rgba(0,0,0,.35)}.cta-band p{color:#cbd5e1}
+@media (prefers-reduced-motion:reduce){.hero2{animation:none}}
