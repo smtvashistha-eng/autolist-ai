@@ -72,9 +72,12 @@ function parseName(entryPath) {
   const stem = file.replace(/\.[^.]+$/, "").trim();
   if (parts.length > 1) {
     const m = stem.match(/^(\d{1,2})$/);
-    return { sku: parts[parts.length - 2].trim(), position: m ? +m[1] : null };
+    const pos = { main: 1, front: 1, back: 2, side: 3, top: 4, detail: 5, box: 6 }[stem.toLowerCase()];
+    // folder-per-product only when the files inside are just numbers/positions; otherwise the file name is the product
+    if (m || pos) return { sku: parts[parts.length - 2].trim(), position: m ? +m[1] : pos };
   }
-  const m = stem.match(/^(.+?)(?:[_ ]+|\s*\()(\d{1,2})\)?$/);
+  // photo number only after "_" or in "(n)" — "Asus VivoBook 16" keeps its model number
+  const m = stem.match(/^(.+?)(?:_+|\s*\()(\d{1,2})\)?$/);
   if (m) return { sku: m[1].trim(), position: +m[2] };
   return { sku: stem, position: null };
 }
