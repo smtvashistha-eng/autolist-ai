@@ -385,6 +385,41 @@ app.post("/admin/control/plans", (req, res) => {
   require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.plans", resourceType: "site", resourceId: "plans", metadata: out, ip: ipOf(req) });
   res.redirect("/admin/control?ok=" + encodeURIComponent("Plans updated for everyone."));
 });
+app.get("/admin/backups", async (req, res) => {
+  const B = require("./backup"), h = B.health(), s = h.s || {};
+  let items = []; try { items = await B.list(); } catch {}
+  const esc = require("./pages").esc, fmt = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+  const when = (v) => { try { return new Date(v).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
+  const where = s.last_where === "supabase" ? "Supabase Storage (private bucket “backups”) — off this server" : s.last_where === "local" ? "this server's disk only — add SUPABASE_URL + key to store backups offsite" : "—";
+  const color = { healthy: "var(--good)", warning: "var(--warn)", critical: "var(--err)" }[h.state] || "var(--soft)";
+  res.send(adminUI.layout(req.user, "/admin/backups", `<div class="phead"><div><h1>Backups</h1><p>Encrypted copies of the database every 6 hours (and the uploaded files daily), checked and stored off the server.</p></div>
+    <div class="phead-a"><form method="POST" action="/admin/backups/run" data-no-progress style="margin:0"><button class="btn pri">Back up now</button></form></div></div>
+    ${req.query.ok ? `<div class="alert al-good" style="margin-bottom:12px"><span>${esc(req.query.ok)}</span></div>` : ""}${req.query.err ? `<div class="alert al-err" style="margin-bottom:12px"><span>${esc(req.query.err)}</span></div>` : ""}
+    <div class="statgrid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="k">Status</div><div class="v" style="color:${color};font-size:22px">${h.state === "info" ? "Not run yet" : esc(h.state)}</div><div class="d">${s.last_ok ? "last " + when(s.last_ok) + (h.ageH != null ? " · " + h.ageH + " h ago" : "") : "first backup 2 min after start"}</div></div>
+      <div class="stat"><div class="k">Last backup size</div><div class="v tnum">${s.last_size ? fmt(s.last_size) : "—"}</div><div class="d">compressed + encrypted</div></div>
+      <div class="stat"><div class="k">In the backup</div><div class="v tnum">${s.last_counts ? (s.last_counts.users || 0) + " users" : "—"}</div><div class="d">${s.last_counts ? (s.last_counts.listing_drafts || 0) + " drafts · " + (s.last_counts.products || 0) + " products" : ""}</div></div>
+      <div class="stat"><div class="k">Copies kept</div><div class="v tnum">${items.length}</div><div class="d">48 h all · then daily for 30 days</div></div></div>
+    <div class="card pad" style="margin-bottom:16px"><b>Where backups go:</b> ${esc(where)}<br><b>Encryption:</b> AES-256-GCM with this server's DATA_KEY — keep a copy of DATA_KEY somewhere safe; without it a backup can't be opened.
+      ${s.last_error ? `<div class="alert al-err" style="margin-top:10px"><span>Last error (${when(s.last_error_at)}): ${esc(s.last_error)}</span></div>` : ""}
+      <p class="muted" style="margin:10px 0 0;font-size:13px">To restore: download a backup, then run <code>node --experimental-sqlite scripts/restore-backup.js &lt;file&gt; restored.db</code> with the same DATA_KEY — it checks the copy and never touches the live database.</p></div>
+    <div class="card"><div class="cardhead"><h3>Backups (${items.length})</h3></div>${items.length ? `<div class="tscroll"><table><thead><tr><th>File</th><th>Type</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody>${items.slice(0, 120).map(b => `<tr><td class="mono" style="font-size:12px">${esc(b.name)}</td><td>${b.name.startsWith("autolist-files-") ? "Files" : "Database"}</td><td>${fmt(b.size || 0)}</td><td>${when(b.created_at)}</td>
+      <td><a class="btn ghost sm" href="/admin/backups/download?name=${encodeURIComponent(b.name)}">Download</a></td></tr>`).join("")}</tbody></table></div>` : `<div class="pad muted">No backups yet. Click “Back up now” or wait for the first scheduled run.</div>`}</div>`));
+});
+app.post("/admin/backups/run", async (req, res) => {
+  try {
+    const r = await require("./backup").runDb("manual");
+    require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.backup", resourceType: "backup", resourceId: r.name || null, ip: ipOf(req) });
+    res.redirect("/admin/backups?ok=" + encodeURIComponent(r.skipped ? "A backup is already running." : "Backup saved: " + r.name + " (" + Math.round(r.packBytes / 1024) + " KB, checked OK)."));
+  } catch (e) { res.redirect("/admin/backups?err=" + encodeURIComponent("Backup failed: " + e.message)); }
+});
+app.get("/admin/backups/download", async (req, res) => {
+  try {
+    const name = String(req.query.name || ""), buf = await require("./backup").get(name);
+    require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.backup_download", resourceType: "backup", resourceId: name, ip: ipOf(req) });
+    res.setHeader("Content-Type", "application/octet-stream"); res.setHeader("Content-Disposition", 'attachment; filename="' + name + '"'); res.send(buf);
+  } catch (e) { res.status(400).send(require("./pages").esc(e.message)); }
+});
 app.get("/admin/support", (req, res) => res.send(ctl().supportPage(adminUI.layout, req.user, req.query)));
 app.post("/admin/support/:kind/:id", (req, res) => {
   const kind = req.params.kind, st = String((req.body || {}).status || "");
@@ -575,3 +610,4 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`AutoList AI → http://localhost:${PORT}`));
+require("./backup").start();   // offsite encrypted DB backups: 2 min after boot, then every 6 h
