@@ -224,6 +224,7 @@ queue.register("image_zip", async (job, ctx) => {
   ctx.stage("Uploading images (" + imagehost.provider() + ")");
   const ins = db.prepare(`INSERT INTO image_assets(id,business_id,job_id,filename,sku,position,url,provider,public_id,width,height,bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   let completed = job.completed_items || 0, failed = job.failed_items || 0;
+  const reasons = {};                                  // why photos failed → shown to the seller
   for (let i = job.cursor || 0; i < entries.length; i++) {
     if (ctx.cancelled()) break;
     const e = entries[i];
@@ -231,6 +232,9 @@ queue.register("image_zip", async (job, ctx) => {
     try {
       const buf = await e.async("nodebuffer");
       let ext = e.name.split(".").pop().toLowerCase(); if (ext === "jpeg") ext = "jpg";
+      const real = ["jpg", "png", "webp"].find(t => { try { return ft.TYPES[t].magic(buf); } catch { return false; } });
+      if (!real) throw new Error(/ftyp(heic|heix|mif1|hevc)/.test(buf.slice(4, 16).toString("latin1")) ? "HEIC photo (iPhone format) — export it as JPG and try again" : "not a real JPG, PNG or WEBP image");
+      ext = real;
       ft.validateBytes(ext, buf);                     // real image bytes, size cap
       let width = null, height = null;
       try { const Jimp = require("jimp"); const im = await Jimp.read(buf); width = im.bitmap.width; height = im.bitmap.height; } catch {}
@@ -247,10 +251,13 @@ queue.register("image_zip", async (job, ctx) => {
       ins.run(rid("ia_"), biz, job.id, e.name.slice(0, 255), sku, position, up.url, up.provider, up.publicId, up.width || width, up.height || height, up.bytes || hostBuf.length, nowISO());
       meter.record(biz, "images", 1, { zip: true, prep });
       completed++; ctx.item("image", e.name, "completed", sku);
-    } catch (err) { failed++; ctx.item("image", e.name, "failed", err.message, { message: err.message }); }
+    } catch (err) { failed++; const m = String(err.message || err).slice(0, 160); reasons[m] = (reasons[m] || 0) + 1; ctx.item("image", e.name, "failed", m, { message: m }); }
     ctx.advance(i + 1, { completed, failed, stage: "Uploading images" });
     if (i % 3 === 0) await yield_();
   }
+  const top = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
+  if (failed && !completed) throw new Error(`None of the ${failed} photo${failed > 1 ? "s" : ""} could be uploaded — ${top ? top[0] : "unknown reason"}.`);
+  if (failed && top) ctx.warn(`${failed} photo${failed > 1 ? "s" : ""} skipped — most common reason: ${top[0]}`);
   const skus = db.prepare("SELECT COUNT(DISTINCT sku) c FROM image_assets WHERE job_id=?").get(job.id).c;
   return { uploaded: completed, failed, skus, provider: imagehost.provider(), prep };
 });

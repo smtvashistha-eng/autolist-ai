@@ -53,7 +53,9 @@ function localUpload(buf, ext, biz) {
 async function upload(buf, ext, biz, sku) {
   ext = String(ext).toLowerCase().replace("jpeg", "jpg");
   const p = provider();
-  return p === "supabase" ? supabaseUpload(buf, ext, biz, sku) : p === "cloudinary" ? cloudinaryUpload(buf, ext, biz, sku) : localUpload(buf, ext, biz);
+  if (p === "local") return localUpload(buf, ext, biz);
+  try { return p === "supabase" ? await supabaseUpload(buf, ext, biz, sku) : await cloudinaryUpload(buf, ext, biz, sku); }
+  catch (e) { console.error("[imagehost] " + p + " upload failed, hosting on our domain instead:", e.message); const r = localUpload(buf, ext, biz); return { ...r, provider: "local-fallback" }; }
 }
 
 // resolve a public /i/<biz>/<name> path safely (no traversal)
