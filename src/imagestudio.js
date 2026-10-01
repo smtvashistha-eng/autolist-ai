@@ -47,6 +47,13 @@ function imageStudio(user, caps) {
           <button type="button" class="btn ghost sm" id="dljpg" disabled>JPG</button><button type="button" class="btn pri sm" id="dl" disabled>${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} Download PNG</button></div>
       </div>
       <div class="is-vers" id="vers" hidden></div>
+      <div class="is-use" id="useBar" hidden>
+        <div class="is-use-h"><b>${ic("M5 13l4 4L19 7")} Use this image in your listing</b><small>We host it and add the link to the product — every file you build includes it.</small></div>
+        <div class="is-use-row"><input class="input" id="useSku" list="skuList" placeholder="Product SKU, e.g. ALTEST-3-hppavilion14" autocomplete="off"><datalist id="skuList"></datalist>
+          <select class="input" id="usePos" style="width:auto"><option value="extra">Add as extra image</option><option value="main">Make it the main image</option></select>
+          <button type="button" class="btn pri" id="useGo">Use image</button></div>
+        <div class="is-use-out" id="useOut" hidden></div>
+      </div>
     </section>
     <aside class="card pad is-panel">
       <div class="is-seg" role="tablist"><button type="button" role="tab" class="on" aria-selected="true" data-seg="edit">Edit a photo</button><button type="button" role="tab" aria-selected="false" data-seg="create">Create from text</button></div>
@@ -63,6 +70,11 @@ function imageStudio(user, caps) {
         <h4>Describe the image</h4>
         <textarea class="input" id="genprompt" rows="4" maxlength="800" placeholder="e.g. A clear tempered-glass screen guard on a laptop screen, white background, soft light"></textarea>
         <div class="is-chips">${["Studio white background", "Lifestyle, natural light", "Banner with empty space on the left", "Top-down flat lay"].map(x => `<button type="button" class="ad-chip" data-add="${esc(x)}">+ ${esc(x)}</button>`).join("")}</div>
+        <h4>Reference photos <span class="muted">optional · up to 3</span></h4>
+        <div class="is-refs" id="refs"><label class="is-ref-add" for="refFile" title="Add a reference photo">${ic("M12 5v14M5 12h14")}<small>Add photo</small></label></div>
+        <input id="refFile" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <label class="is-usecur"><input type="checkbox" id="useCur"> Also use the photo on the left as a reference</label>
+        <p class="hint" style="margin-top:6px"><span>Add real photos of your product so the result shows <b>your exact product</b> — same shape, colour and details.</span></p>
         <button type="button" class="btn pri is-gen" id="genbtn"${caps.createEnabled ? "" : " disabled"}>${ic("M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z")} ${caps.createEnabled ? "Create image · 1 credit" : "Coming soon"}</button>
         <p class="hint"><span>Marketplaces need the <b>main</b> image to be a real photo of your product — use created images for banners and extra gallery shots.</span></p>
       </div>

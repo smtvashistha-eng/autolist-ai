@@ -14,6 +14,7 @@ router.use(require("./jobs"));         // Phase 5
 router.use(require("./templates"));
 router.use(require("./defaults"));
 router.use(require("./help"));          // SmartHelpLayer contextual tips
+router.use(require("./sellertools"));   // studio accept, photos-only listings, support tickets
 router.use(require("../adaptive").router);   // adaptive dashboard action plans
 router.use(require("./qc"));            // learn from marketplace QC error files      // R5 marketplace defaults    // Phase 6
 router.use(require("./exports"));      // Phase 6

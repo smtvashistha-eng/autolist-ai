@@ -46,7 +46,7 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
 <link rel="stylesheet" href="/app.css?v=${require("./pages").ASSET_V || "1"}">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c")}</script></head><body class="mk">
 <header class="snav"><div class="wrap snavin"><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a>
-  <nav class="links" aria-label="Main"><a href="/download">Download</a><a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="/help/flipkart-qc-errors">Help</a></nav>
+  <nav class="links" aria-label="Main"><a href="/book-demo">Book a demo</a><a href="/download">Download</a><a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="/help/flipkart-qc-errors">Help</a></nav>
   <div class="right"><a class="btn ghost" href="/login">Log in</a><a class="btn pri" href="${c.href}">${c.label}</a></div></div></header>
 <main>${crumbs ? `<nav class="wrap mk-crumbs" aria-label="Breadcrumb"><a href="/">Home</a>${crumbs.map(([n, p], i) => i === crumbs.length - 1 ? ` <span>›</span> <b>${esc(n)}</b>` : ` <span>›</span> <a href="${p}">${esc(n)}</a>`).join("")}</nav>` : ""}${body}</main>
 <footer class="mk-foot"><div class="wrap mk-foot-in">
@@ -246,6 +246,44 @@ router.post("/early-access", (req, res) => {
   res.send(earlyAccessPage(null, true));
 });
 
+// ---------- book a demo (sales calls) ----------
+function demoPage(msg, ok, v = {}) {
+  const val = (k) => esc(v[k] || "");
+  const opt = (name, list) => list.map(x => `<option${v[name] === x ? " selected" : ""}>${x}</option>`).join("");
+  return page({ path: "/book-demo", title: "Book a Free Demo — AutoList AI", description: "See AutoList AI create your Flipkart, Amazon, Meesho and Shopify listings live. Book a free 15-minute demo — our team will call you.",
+    crumbs: [["Book a demo", "/book-demo"]],
+    body: `<section class="mk-hero"><div class="wrap demo-grid">
+<div><div class="eye" style="text-align:left">Free 15-minute demo</div><h1>${ok ? "Thanks! We'll call you soon 📞" : "See AutoList AI list <span class=\"g\">your</span> products"}</h1>
+<p class="mk-lead">${ok ? "Our team will call you at your preferred time. Keep a few product details or your marketplace template handy — we'll show you live." : "Tell us a little about your catalogue. On a short call we'll show AutoList AI writing your listings and filling your marketplace file — with your own products."}</p>
+<ul class="mk-list"><li><b>Your products, live</b> — not a generic slideshow.</li><li><b>Flipkart, Amazon, Meesho & Shopify</b> — templates, images and QC fixes.</li><li><b>No pressure</b> — free, 15 minutes, in Hindi or English.</li></ul></div>
+${ok ? `<div class="card pad demo-done"><img src="/img/success_setup_complete.webp" alt="" width="200" height="200"><p><a class="btn ghost" href="/guides">Watch the guides meanwhile →</a></p></div>` : `<form class="mk-form demo-form" method="POST" action="/book-demo">${msg ? `<div class="alert al-err"><span>${esc(msg)}</span></div>` : ""}
+<div class="demo-2"><label>Your name<input class="input" name="name" required maxlength="80" autocomplete="name" value="${val("name")}"></label>
+<label>WhatsApp / phone<input class="input" name="phone" required maxlength="20" inputmode="tel" autocomplete="tel" placeholder="+91 98xxxxxxxx" value="${val("phone")}"></label></div>
+<div class="demo-2"><label>Business / brand<input class="input" name="business" maxlength="100" autocomplete="organization" value="${val("business")}"></label>
+<label>Email <small>(optional)</small><input class="input" type="email" name="email" maxlength="120" autocomplete="email" value="${val("email")}"></label></div>
+<label>Where do you sell?<div class="demo-chips">${["Flipkart", "Amazon", "Meesho", "Shopify", "Other"].map(x => `<label class="demo-chip"><input type="checkbox" name="mkt" value="${x}"${String(v.mkt || "").includes(x) ? " checked" : ""}><span>${x}</span></label>`).join("")}</div></label>
+<div class="demo-2"><label>How many products?<select class="input" name="catalogue">${opt("catalogue", ["Under 50", "50 – 500", "500 – 5,000", "5,000+"])}</select></label>
+<label>Best time to call<select class="input" name="time">${opt("time", ["Morning (10–1)", "Afternoon (1–5)", "Evening (5–8)", "Anytime"])}</select></label></div>
+<input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+<button class="btn pri lg">📞 Book my free demo</button><p class="muted" style="font-size:12.5px;margin:0">We only use your number to call you about AutoList AI.</p></form>`}
+</div></section>` });
+}
+router.get("/book-demo", (req, res) => res.send(demoPage()));
+router.post("/book-demo", (req, res) => {
+  const b = req.body || {}, c = (x, n) => String(x == null ? "" : x).replace(/[\u0000-\u001f]/g, " ").trim().slice(0, n);
+  const mk = [].concat(b.mkt || []).map(x => c(x, 20)).join(", ");
+  const v = { name: c(b.name, 80), phone: c(b.phone, 20), business: c(b.business, 100), email: c(b.email, 120), mkt: mk, catalogue: c(b.catalogue, 30), time: c(b.time, 30) };
+  if (b.website) return res.send(demoPage(null, true));                      // honeypot
+  if (v.name.length < 2) return res.status(400).send(demoPage("Please add your name.", false, v));
+  if (!/^[+\d][\d\s\-()]{7,18}$/.test(v.phone)) return res.status(400).send(demoPage("Please enter a phone number we can call.", false, v));
+  try {
+    const dup = db.prepare("SELECT 1 FROM demo_requests WHERE phone=? AND created_at>=?").get(v.phone, new Date(Date.now() - 864e5).toISOString());
+    if (!dup) db.prepare("INSERT INTO demo_requests(id,name,phone,email,business,marketplaces,catalogue,preferred_time,source,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")
+      .run("D-" + Math.random().toString(36).slice(2, 7).toUpperCase(), v.name, v.phone, v.email || null, v.business || null, mk || null, v.catalogue, v.time, c(req.get("referer"), 200) || null, "new", nowISO(), nowISO());
+  } catch {}
+  res.send(demoPage(null, true));
+});
+
 // ---------- routes ----------
 const send = (html) => (req, res) => html ? res.set("cache-control", "public, max-age=300").send(html) : res.status(404).send("Not found");
 router.get("/pricing", (req, res) => send(pricingPage())(req, res));
@@ -259,7 +297,7 @@ router.get("/guides/:slug", (req, res) => send(guidePage(req.params.slug))(req, 
 router.get("/help/:slug", (req, res) => send(articlePage(req.params.slug))(req, res));
 
 const PUBLIC_PATHS = () => ["/", "/flipkart-bulk-listing", "/amazon-listing-generator", "/ai-product-description-generator", "/pricing", "/guides",
-  ...Object.values(GUIDES).map(g => "/guides/" + g.slug), ...Object.keys(ARTICLES).map(s => "/help/" + s), "/about", "/download", "/tools/crop-pdf"];
+  ...Object.values(GUIDES).map(g => "/guides/" + g.slug), ...Object.keys(ARTICLES).map(s => "/help/" + s), "/about", "/download", "/book-demo", "/tools/crop-pdf"];
 router.get("/sitemap.xml", (req, res) => {
   const urls = PUBLIC_PATHS().map(p => {
     const key = Object.keys(GUIDES).find(k => "/guides/" + GUIDES[k].slug === p), v = key && require("./tutorials").builtin(key);
@@ -356,11 +394,11 @@ function homeHead() {
 // adapt the landing page: SEO head, marketing links, and early-access CTAs while private
 function landingHtml(html) {
   let h = html.replace(/<title>[^<]*<\/title>/, homeHead()).replace('<html lang="en">', '<html lang="en-IN">');
-  h = h.replace('<a href="#how">How it works</a>', '<a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a>')
+  h = h.replace('<a href="#how">How it works</a>', '<a href="/flipkart-bulk-listing">Flipkart</a><a href="/amazon-listing-generator">Amazon</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="/book-demo" class="nav-demo">Book a demo</a>')
        .replace('<a href="#usecases">Who it\'s for</a>', "").replace('<a href="#free-pdf-cropper">Free PDF Cropper</a>', "");
   h = h.replace('<div class="right"><a class="btn ghost" href="/login">', '<div class="right"><a class="btn ghost inst-hide" href="/download" data-install>⬇ Download app</a><a class="btn ghost" href="/login">').replace("</body>", '<script src="/install.js" defer></script></body>');
   if (!isOpen()) h = h.replace(/href="\/signup">[^<]*</g, 'href="/early-access">Join early access<').replace(/Create your first AI listing in the next two minutes — free\./, "We're in private testing. Join the list and we'll invite you first.");
   return h;
 }
-const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest|download|offline\.html)\/?$/;
+const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest|download|offline\.html|book-demo)\/?$/;
 module.exports = { router, landingHtml, MARKETING_RE, PUBLIC_PATHS, llms, ARTICLES };

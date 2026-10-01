@@ -119,6 +119,24 @@ async function waitJob(cookie, id) {
     const badV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://evil.example.com/x.mp4" } });
     ok("only YouTube links accepted", /err=/.test(badV.location || ""));
 
+    console.log("Seller tools: tickets, demos, use-this-image, photos-only listings:");
+    const tk = await req("POST", "/api/support/ticket", { cookie: A, body: { topic: "QC errors", message: "My Flipkart file failed QC", phone: "+91 98765 43210", bestTime: "Evening (5–8)", page: "/app/exports" } });
+    ok("seller can raise a call-back ticket", tk.status === 201 && /^T-[A-Z0-9]+$/.test(tk.json.ticket));
+    ok("ticket needs a real phone number", (await req("POST", "/api/support/ticket", { cookie: A, body: { message: "help me please", phone: "abc" } })).status === 400);
+    ok("tickets need login", (await req("POST", "/api/support/ticket", { body: { message: "hello there", phone: "9876543210" } })).status === 401);
+    const demo = await req("POST", "/book-demo", { form: { name: "Ravi", phone: "+91 91234 56789", business: "Ravi Mobiles", mkt: "Flipkart", catalogue: "50 – 500", time: "Anytime" } });
+    ok("anyone can book a demo from the website", demo.status === 200 && /call you soon/.test(demo.text));
+    ok("demo form rejects a bad phone", (await req("POST", "/book-demo", { form: { name: "X Y", phone: "12" } })).status === 400);
+    const sp = (await req("GET", "/admin/support", { cookie: ADM })).text;
+    ok("admin sees the ticket and the demo request with call links", /QC errors/.test(sp) && /Ravi Mobiles/.test(sp) && /href="tel:\+919876543210"/.test(sp));
+    ok("sellers can't open Calls & tickets", (await req("GET", "/admin/support", { cookie: A })).status === 403);
+    const skuList = (await req("GET", "/api/image/skus", { cookie: A })).json;
+    const someSku = skuList.products && skuList.products[0] && skuList.products[0].sku;
+    const PNG1 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const acc = await req("POST", "/api/image/accept", { cookie: A, body: { imageBase64: PNG1, sku: someSku, position: "main" } });
+    ok("accepted studio image gets a hosted link and is added to the product", acc.status === 200 && !!acc.json.url && (!someSku || (acc.json.attached && acc.json.attached.position === 1)));
+    ok("photos-only listings need a finished photo ZIP", (await req("POST", "/api/listings/from-photos", { cookie: A, body: { imageJobId: "nope" } })).status === 400);
+
     console.log("Admin Control centre:");
     ok("Control centre opens for admin, not for sellers", (await req("GET", "/admin/control", { cookie: ADM })).status === 200 && (await req("GET", "/admin/control", { cookie: A })).status === 403);
     await req("POST", "/admin/control/announcement", { cookie: ADM, form: { on: "on", text: "Flipkart is slow today", kind: "warn", link: "/app/exports" } });

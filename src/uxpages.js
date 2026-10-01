@@ -202,6 +202,14 @@ function hostedPhotos(user, q = {}) {
     : empty(s || q.job ? "No photos match." : "No hosted photos yet.", "Upload a ZIP of photos named by SKU in Guided Bulk — we host them and put the links in your file.", `<a class="btn pri" href="/app/wizard">Upload photos</a>`);
   return shell(user, "/app/images", `<div class="phead"><div><h1>Images</h1><p>Public photo links hosted for your listings, grouped by SKU.</p></div></div>
     ${tabs(IMAGE_TABS, "/app/images/hosted")}
+    ${(() => {   // photos-only listings: offered right after a ZIP finishes
+      if (!q.job) return "";
+      const j = db.prepare("SELECT id, status FROM processing_jobs WHERE id=? AND business_id=? AND type='image_zip'").get(String(q.job), biz);
+      if (!j || !/COMPLETED/.test(j.status)) return "";
+      const n = db.prepare("SELECT COUNT(DISTINCT sku) c FROM image_assets WHERE job_id=? AND sku IS NOT NULL AND sku!=''").get(j.id).c;
+      return n ? `<div class="card pad fp-card" id="fromPhotos" data-job="${esc(j.id)}"><div class="fp-t"><b>✨ Create listings from these ${n} product${n > 1 ? "s" : ""}</b><small>No sheet needed — each photo name becomes the product name, and AutoList AI writes the listing with these photos attached. Facts it can't see are flagged for you.</small></div>
+        <select class="input" id="fpMkt" style="width:auto">${["flipkart", "amazon", "meesho", "shopify"].map(m => `<option value="${m}">${mk(m)}</option>`).join("")}</select><button type="button" class="btn pri" id="fpGo">Create listings →</button><div class="is-msg" id="fpMsg" role="status"></div></div>` : "";
+    })()}
     <div class="card pad hz-card"><label class="hz-drop" id="hzDrop" for="hzFile"><span class="is-drop-ic">${ic("M21 8v13H3V8M1 3h22v5H1zM10 12h4")}</span>
       <span class="hz-t"><b>Upload a ZIP of product photos</b><small>Name photos by SKU — <code>ABC123_1.jpg</code>, <code>ABC123_2.jpg</code> — or one folder per SKU. Each gets a public link.</small></span>
       <span class="btn pri sm">Choose ZIP</span></label><input id="hzFile" type="file" accept=".zip,application/zip" hidden>

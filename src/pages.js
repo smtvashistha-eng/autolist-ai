@@ -62,7 +62,7 @@ function landing() {
       <span class="hpill">${check} AI listings for Indian marketplace sellers</span>
       <h1>Turn product data into <span class="g">marketplace-ready</span> listings.</h1>
       <p>Drop your products, paste your Amazon or Flipkart file, and AutoList AI writes the listing, makes the images, fills your template, and hands it back — reviewed and ready to upload.</p>
-      <div class="hero2-cta"><a class="btn pri lg" href="/signup">Create your first listing →</a><a class="btn ghost lg" href="#free-pdf-cropper">Try free PDF Cropper</a></div>
+      <div class="hero2-cta"><a class="btn pri lg" href="/signup">Create your first listing →</a><a class="btn ghost lg demo-btn" href="/book-demo">📞 Book a free demo</a></div>
       <div class="hero2-trust"><span>${check} No card required</span><span>${check} Free trial</span><span>${check} Facts never invented</span></div>
     </div>
     <div class="heroR">${require("./heromock").heroMock()}</div>
@@ -135,7 +135,7 @@ ${require("./heromock").marketStrip()}
 
 <section class="cta-band"><div class="wrap"><h2>Stop copy-pasting listings. Start shipping them.</h2>
   <p>Create your first AI listing in the next two minutes — free.</p>
-  <a class="btn lg cta-white" href="/signup">Get started free →</a></div></section>
+  <div class="cta-row"><a class="btn lg cta-white" href="/signup">Get started free →</a><a class="btn lg cta-ghost" href="/book-demo">📞 Book a demo</a></div></div></section>
 
 <div class="wrap sfoot"><span class="logo" style="font-size:15px"><span class="mark" style="width:24px;height:24px"></span> AutoList <em class="lai">AI</em></span><span>One catalog. Every marketplace. AI-powered automation.</span></div>
 <script>
@@ -270,6 +270,7 @@ function shell(user, activePath, body) {
         <div class="pm-usage">${meter("Listings", used, total)}${meter("Hosted photos", imgUsed, imgTot)}${meter("AI images", aiUsed, aiTot)}</div>
         <div class="pm-sep"></div>
         <a class="pm-i" href="/app/billing">${ic("M2 5h20v14H2zM2 10h20")} Billing &amp; plan</a>
+        <button class="pm-i" type="button" data-ticket="">${ic("M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.4 1.8.7 2.7a2 2 0 01-.5 2.1L8 9.8a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.7.7a2 2 0 011.7 2z")} Talk to our team</button>
         <button class="pm-i inst-hide" type="button" data-install>${ic("M12 3v12M8 11l4 4 4-4M4 21h16")} Download the app</button><button class="pm-i" type="button" id="tourBtn">${ic("M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z")} Take the tour</button>
         <a class="pm-i" href="/app/help">${ic("M9 9a3 3 0 114 2.8c-.9.5-1 1-1 2M12 17h.01")} Help &amp; videos</a>
         ${isAdmin(user) ? `<a class="pm-i" href="/admin">${ic("M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z")} Admin panel</a>` : ""}
@@ -487,6 +488,7 @@ function shell(user, activePath, body) {
 </script>
 <script type="application/json" id="sh-ctx">${JSON.stringify({ role: isAdmin(user) ? "admin" : "seller", plan: String(u ? u.planName : biz.plan || "Free Trial"), level: used >= 25 ? "advanced" : "beginner" }).replace(/</g, "\\u003c")}</script>
 <script src="/progress.js?v=${ASSET_V}"></script>
+<script src="/support.js?v=${ASSET_V}" defer></script>
 ${require("./settings").flag("smart_help") ? `<script src="/smarthelp.js?v=${ASSET_V}" defer></script>` : ""}
 ${require("./settings").flag("install_popup") ? `<script src="/install.js?v=${ASSET_V}" defer></script>` : ""}` + foot;
 }
@@ -545,6 +547,7 @@ function helpPage(user) {
     `<button class="vcard" type="button" data-open-video="${esc(v.id)}" data-vlabel="${esc(v.label)}"><span class="vc-img"><img loading="lazy" src="${esc(v.poster)}" alt=""><span class="vc-play"></span></span><b>${esc(v.label)}</b></button>`).join("");
   const body = `<div class="phead"><div><h1>Help &amp; guide</h1><p>How AutoList AI works, in plain steps.</p></div><div class="phead-a"><button class="btn pri" type="button" onclick="window.alStartTour&&alStartTour()">Take the tour</button></div></div>
   ${lib ? `<div class="card pad mb"><b>Video tutorials</b><div class="vgrid">${lib}</div></div>` : ""}
+    <div class="card pad help-call"><div><b>Need a hand? We'll call you.</b><p class="muted">Tell us what's wrong and someone from our team will call you back — Hindi or English.</p></div><button class="btn pri" type="button" data-ticket="">📞 Talk to our team</button></div>
     ${alertBox("info", "AutoList AI never invents product facts. Anything we're unsure about is marked so you can confirm it.")}
     <div style="margin-top:16px">
     ${q("1. Create a listing", "Go to Create Listing for one product, or Bulk Upload for a whole file. Add what you have — we ask only for what's missing.")}

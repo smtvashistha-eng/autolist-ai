@@ -1052,3 +1052,40 @@ img[src*="/img/error_"]{animation:artPop .7s cubic-bezier(.34,1.56,.64,1) both,a
 /* login / signup artwork drifts slowly */
 .authL{animation:panelPan 24s ease-in-out infinite alternate}
 @media (prefers-reduced-motion:reduce){.fcard .fimg,.mk-art-img img,.mk-wide,.empty .empty-art,img[src*="/img/error_"],.authL{animation:none!important}}
+/* ---- Image studio: reference photos + "use this image" ---- */
+.is-refs{display:flex;gap:8px;flex-wrap:wrap}
+.is-ref,.is-ref-add{position:relative;width:72px;height:72px;border-radius:10px;border:1px solid var(--line);background:#fff;overflow:hidden}
+.is-ref img{width:100%;height:100%;object-fit:cover}.is-ref button{position:absolute;top:3px;right:3px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(15,23,42,.65);color:#fff;cursor:pointer;line-height:1}
+.is-ref-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-style:dashed;color:var(--accent);cursor:pointer}.is-ref-add[hidden]{display:none}.is-ref-add small{font-size:10.5px}.is-ref-add .ic{width:18px;height:18px}
+.is-usecur{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--soft);margin-top:8px}.is-usecur input{accent-color:var(--accent)}
+.is-use{margin-top:14px;border:1px solid #c7d7fe;background:linear-gradient(180deg,#f5f8ff,#fff);border-radius:12px;padding:12px}
+.is-use-h b{display:flex;align-items:center;gap:6px;font-size:14px}.is-use-h b .ic{width:16px;height:16px;color:var(--good)}.is-use-h small{display:block;font-size:12.5px;color:var(--soft);margin-top:2px}
+.is-use-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.is-use-row .input:first-child{flex:1;min-width:200px}
+.is-use-out{margin-top:10px;font-size:13px}.is-use-out.ok p{color:var(--good);margin:6px 0 0}.is-use-out.bad{color:var(--err)}
+.is-link{display:flex;gap:8px;align-items:center}.is-link code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px}
+/* ---- photos-only listings card ---- */
+.fp-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;border:1px solid #ddd6fe;background:linear-gradient(135deg,#faf5ff,#f5f8ff)}
+.fp-t{flex:1;min-width:240px;display:flex;flex-direction:column}.fp-t b{font-size:14.5px}.fp-t small{font-size:12.5px;color:var(--soft)}.fp-card .is-msg{flex-basis:100%;margin:0}
+/* ---- support ticket form ---- */
+.tk-box{max-width:480px;width:calc(100vw - 24px)}
+.tk-form{display:flex;flex-direction:column;gap:12px;padding:4px 18px 18px}.tk-lead{margin:0;color:var(--soft);font-size:13.5px}
+.tk-form label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px}.tk-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tk-msg{font-size:13px;min-height:16px}.tk-msg.bad{color:var(--err)}
+.tk-done{text-align:center;padding:14px 4px}.tk-ok{width:52px;height:52px;margin:0 auto 10px;border-radius:50%;background:var(--good);color:#fff;font-size:26px;display:grid;place-items:center}.tk-done p{color:var(--soft);font-size:13.5px}
+.sh-talk{display:block;width:100%;margin-top:10px;border:0;border-top:1px solid var(--line2);background:none;padding:9px 0 0;text-align:left;font:500 12.5px inherit;color:var(--soft);cursor:pointer}.sh-talk b{color:var(--accent)}
+.help-call{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;border:1px solid #c7d7fe;background:linear-gradient(135deg,#eef4ff,#faf5ff)}.help-call p{margin:3px 0 0;font-size:13px}
+/* ---- book a demo ---- */
+.demo-grid{display:grid;grid-template-columns:1fr 460px;gap:40px;align-items:start}
+.demo-form{margin-top:0}.demo-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.demo-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}.demo-chip{position:relative;font-weight:500!important}.demo-chip input{position:absolute;opacity:0}
+.demo-chip span{display:inline-block;padding:8px 14px;border:1px solid var(--line);border-radius:99px;background:#fff;cursor:pointer;font-size:13.5px}
+.demo-chip input:checked+span{background:var(--accent);border-color:var(--accent);color:#fff}.demo-chip input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.demo-done{text-align:center}.demo-done img{width:180px;height:auto;animation:artFloat 5s ease-in-out infinite}
+.demo-btn{border-color:#c7d7fe!important}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.cta-ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.35)}.cta-ghost:hover{background:rgba(255,255,255,.18)}
+.snav .links .nav-demo{color:var(--accent);font-weight:700}
+@media (max-width:900px){.demo-grid{grid-template-columns:1fr}.demo-2,.tk-2{grid-template-columns:1fr}}
+/* ---- admin: calls & tickets ---- */
+.sp-tel{font-weight:700;color:var(--accent);white-space:nowrap}.sp-acts{display:flex;gap:6px;flex-wrap:wrap;margin:0}
+.sp-st{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;text-transform:capitalize;background:var(--panel);color:var(--soft)}
+.sp-new,.sp-open{background:#fee2e2;color:#b91c1c}.sp-called{background:#fef3c7;color:#92400e}.sp-converted,.sp-resolved{background:#dcfce7;color:#15803d}.sp-lost{background:#e5e7eb;color:#4b5563}

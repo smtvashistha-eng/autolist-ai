@@ -20,6 +20,7 @@
   function refresh() {
     var has = cur >= 0;
     cv.hidden = !has; drop.hidden = has;
+    var ub = $("useBar"); if (ub) ub.hidden = !has;
     $("dl").disabled = $("dljpg").disabled = !has; $("undo").disabled = cur <= 0; $("replace").hidden = !has; $("compare").hidden = cur <= 0;
     var v = $("vers"); v.hidden = versions.length < 2;
     v.innerHTML = versions.map(function (x, i) { return '<button type="button" class="is-v' + (i === cur ? " on" : "") + '" data-v="' + i + '" title="' + x.label + '"><img src="' + x.thumb + '" alt=""><small>' + x.label + "</small></button>"; }).join("");
@@ -89,7 +90,7 @@
     var over = $("over"); over.hidden = false; over.innerHTML = "";
     if (op === "generate") { cv.hidden = true; drop.hidden = true; }
     var bar = window.alProgress ? window.alProgress({ label: LABEL[op], estimate: op === "generate" ? 35 : op === "remove_bg" ? 12 : 25, el: over }) : null;
-    fetch("/api/image/ai", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-no-progress": "1" }, body: JSON.stringify({ op: op, prompt: prompt, imageBase64: op === "generate" ? null : srcData() }) })
+    fetch("/api/image/ai", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-no-progress": "1" }, body: JSON.stringify({ op: op, prompt: prompt, imageBase64: op === "generate" ? null : srcData(), refs: op === "generate" ? refList() : undefined }) })
       .then(function (r) { return r.json(); })
       .then(function (r) {
         if (!r.ok) throw new Error(r.message || "Couldn't finish — please try again.");
@@ -112,5 +113,49 @@
   });
   $("sceneGo").onclick = function (e) { ai("lifestyle", $("prompt").value, e.currentTarget); };
   $("genbtn").onclick = function (e) { ai("generate", $("genprompt").value, e.currentTarget); };
+
+  // ---- reference photos for "Create from text" (up to 3, shrunk to 1024px before sending) ----
+  var refs = [];
+  function shrink(im) { var c = document.createElement("canvas"), s = Math.min(1, 1024 / Math.max(im.width, im.height)); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL("image/png"); }
+  function drawRefs() {
+    var box = $("refs"); if (!box) return;
+    box.querySelectorAll(".is-ref").forEach(function (n) { n.remove(); });
+    refs.forEach(function (src, i) { var d = document.createElement("div"); d.className = "is-ref"; d.innerHTML = '<img alt="Reference ' + (i + 1) + '"><button type="button" aria-label="Remove reference">×</button>'; d.querySelector("img").src = src; d.querySelector("button").onclick = function () { refs.splice(i, 1); drawRefs(); }; box.insertBefore(d, box.lastElementChild); });
+    box.querySelector(".is-ref-add").hidden = refs.length >= 3;
+  }
+  function refList() { var l = refs.slice(); if ($("useCur") && $("useCur").checked && cur >= 0) l.unshift(srcData()); return l.slice(0, 3); }
+  if ($("refFile")) $("refFile").addEventListener("change", function (e) {
+    [].slice.call(e.target.files).forEach(function (f) {
+      if (refs.length >= 3 || !/^image\//.test(f.type)) return;
+      var r = new FileReader(); r.onload = function () { var im = new Image(); im.onload = function () { if (refs.length < 3) { refs.push(shrink(im)); drawRefs(); } }; im.src = r.result; }; r.readAsDataURL(f);
+    });
+    e.target.value = "";
+  });
+
+  // ---- "Use this image": host it + add the link to a product (main or extra) ----
+  var skusLoaded = false;
+  function loadSkus() {
+    if (skusLoaded) return; skusLoaded = true;
+    fetch("/api/image/skus", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
+      var dl = $("skuList"); (j.products || []).forEach(function (p) { var o = document.createElement("option"); o.value = p.sku; o.label = (p.name || "").slice(0, 60) + " · " + p.images + " image(s)"; dl.appendChild(o); });
+    }).catch(function () {});
+  }
+  if ($("useSku")) $("useSku").addEventListener("focus", loadSkus);
+  if ($("useGo")) $("useGo").onclick = function () {
+    if (cur < 0) return;
+    var btn = $("useGo"), out = $("useOut"), sku = $("useSku").value.trim();
+    btn.disabled = true; out.hidden = false; out.className = "is-use-out"; out.textContent = "Saving…";
+    fetch("/api/image/accept", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-no-progress": "1" }, body: JSON.stringify({ imageBase64: cv.toDataURL("image/jpeg", .92), sku: sku, position: $("usePos").value }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Couldn't save"); return j; }); })
+      .then(function (j) {
+        out.className = "is-use-out ok";
+        out.innerHTML = '<div class="is-link"><code></code><button type="button" class="btn ghost sm">Copy link</button></div><p></p>';
+        out.querySelector("code").textContent = j.url;
+        out.querySelector("p").textContent = j.attached ? "✓ Added to " + j.attached.sku + " as image " + j.attached.position + " of " + j.attached.count + ". Build the file again from Listings to include it." : sku ? "✓ Hosted. No product with SKU “" + sku + "” yet — paste this link into your sheet's image column." : "✓ Hosted. Paste this link into your sheet's image column, or enter a SKU to attach it automatically.";
+        out.querySelector("button").onclick = function (e) { navigator.clipboard.writeText(j.url).then(function () { e.target.textContent = "Copied ✓"; }); };
+      })
+      .catch(function (e) { out.className = "is-use-out bad"; out.textContent = e.message; })
+      .then(function () { btn.disabled = false; });
+  };
   refresh();
 })();

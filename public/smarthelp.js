@@ -168,8 +168,14 @@
       var room = w.innerHeight > 560 && tip.expanded_help;
       card.innerHTML = '<div class="sh-h"><span class="sh-ic">' + ICON + "</span><b>" + esc(tip.title) + '</b><button type="button" class="sh-x" aria-label="Close tip">×</button></div>' +
         '<p class="sh-t">' + esc(tip.tooltip) + "</p>" + (room ? '<p class="sh-why"><span>Why this matters</span>' + esc(tip.expanded_help) + "</p>" : "") +
-        (tip.suggested_action ? '<div class="sh-next"><span>Next</span>' + esc(tip.suggested_action) + "</div>" : "");
+        (tip.suggested_action ? '<div class="sh-next"><span>Next</span>' + esc(tip.suggested_action) + "</div>" : "") +
+        (window.alTicket ? '<button type="button" class="sh-talk">Still stuck? <b>Talk to our team →</b></button>' : "");
       var x = card.querySelector(".sh-x"); if (x) x.onclick = function (e) { e.stopPropagation(); hideCard(); };
+      var tk = card.querySelector(".sh-talk");
+      if (tk) tk.onclick = function (e) {           // leave help mode, open the call-back form with the context filled in
+        e.stopPropagation(); var ctx = state.target ? getAIHelpContext(state.target, "ticket") : null; off();
+        window.alTicket({ topic: tip.title || "", context: ctx });
+      };
     }
     card.hidden = false;
     if (state.target) place(state.target);

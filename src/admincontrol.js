@@ -85,4 +85,31 @@ function creditsCard(bizId) {
       <button class="btn pri">Give bonus</button></form>
     <form method="POST" action="/admin/businesses/${esc(bizId)}/reset-usage" data-no-progress data-confirm="Reset this month's usage to zero for this seller?" style="margin-top:8px"><button class="btn ghost">Reset this month's usage</button></form></div>`;
 }
-module.exports = { controlPage, aiUsagePage, creditsCard };
+// ---- Calls & tickets: demo bookings (homepage) + support tickets (AI Help) ----
+function supportPage(layout, user, q = {}) {
+  const all = (sql) => { try { return db.prepare(sql).all(); } catch { return []; } };
+  const demos = all("SELECT * FROM demo_requests ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'called' THEN 1 ELSE 2 END, created_at DESC LIMIT 300");
+  const tickets = all("SELECT * FROM support_tickets ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'called' THEN 1 ELSE 2 END, created_at DESC LIMIT 300");
+  const when = (s) => { try { return new Date(s).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
+  const tel = (p) => `<a class="sp-tel" href="tel:${esc(String(p || "").replace(/[^\d+]/g, ""))}">📞 ${esc(p)}</a>`;
+  const pill = (s) => `<span class="sp-st sp-${esc(s)}">${esc(s)}</span>`;
+  const acts = (kind, id, cur, opts) => `<form method="POST" action="/admin/support/${kind}/${esc(id)}" data-no-progress class="sp-acts">${opts.filter(o => o !== cur).map(o => `<button name="status" value="${o}" class="btn ghost sm">${o === "called" ? "Mark called" : o === "converted" ? "Converted ✓" : o === "resolved" ? "Resolved ✓" : o === "lost" ? "Not interested" : "Reopen"}</button>`).join("")}</form>`;
+  const newDemos = demos.filter(d => d.status === "new").length, openT = tickets.filter(t => t.status === "open").length;
+  return page(layout, user, "/admin/support", "Calls & tickets", "Demo bookings from the homepage and help requests from AI Help — call them back.", `
+  <div class="statgrid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="stat"><div class="k">New demo requests</div><div class="v tnum">${newDemos}</div></div>
+    <div class="stat"><div class="k">Demos converted</div><div class="v tnum">${demos.filter(d => d.status === "converted").length}</div></div>
+    <div class="stat"><div class="k">Open tickets</div><div class="v tnum">${openT}</div></div>
+    <div class="stat"><div class="k">Resolved</div><div class="v tnum">${tickets.filter(t => t.status === "resolved").length}</div></div></div>
+  <div class="card" style="margin-bottom:16px"><div class="cardhead"><h3>Demo requests (${demos.length})</h3></div>
+  ${demos.length ? `<div class="tscroll"><table><thead><tr><th>Who</th><th>Call</th><th>Sells on</th><th>Catalogue</th><th>Best time</th><th>Status</th><th></th></tr></thead><tbody>${demos.map(d => `<tr>
+    <td><b>${esc(d.name)}</b><div class="muted" style="font-size:12px">${esc(d.business || "")}${d.email ? " · " + esc(d.email) : ""} · ${when(d.created_at)}</div></td><td>${tel(d.phone)}</td>
+    <td>${esc(d.marketplaces || "—")}</td><td>${esc(d.catalogue || "—")}</td><td>${esc(d.preferred_time || "—")}</td><td>${pill(d.status)}</td>
+    <td>${acts("demo", d.id, d.status, ["called", "converted", "lost", "new"])}</td></tr>`).join("")}</tbody></table></div>` : `<div class="pad muted">No demo requests yet. They come from the “Book a demo” page.</div>`}</div>
+  <div class="card"><div class="cardhead"><h3>Support tickets (${tickets.length})</h3></div>
+  ${tickets.length ? `<div class="tscroll"><table><thead><tr><th>Ticket</th><th>Call</th><th>Problem</th><th>Page</th><th>Status</th><th></th></tr></thead><tbody>${tickets.map(t => `<tr>
+    <td><b>${esc(t.id)}</b><div class="muted" style="font-size:12px">${esc(t.name || "")} · ${esc(t.email || "")} · ${when(t.created_at)}</div></td><td>${tel(t.phone)}<div class="muted" style="font-size:12px">${esc(t.best_time || "")}</div></td>
+    <td style="max-width:360px">${t.topic ? `<b>${esc(t.topic)}</b><br>` : ""}${esc(t.message)}</td><td class="mono" style="font-size:12px">${esc(t.page || "")}</td><td>${pill(t.status)}</td>
+    <td>${acts("ticket", t.id, t.status, ["called", "resolved", "open"])}</td></tr>`).join("")}</tbody></table></div>` : `<div class="pad muted">No tickets yet. Sellers raise them from AI Help → “Talk to our team”.</div>`}</div>`, q);
+}
+module.exports = { controlPage, aiUsagePage, creditsCard, supportPage };

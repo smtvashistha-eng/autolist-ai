@@ -31,10 +31,15 @@ async function removeBgCall(buffer) {
   return Buffer.from(await r.arrayBuffer());
 }
 
-async function openaiImage(path, { prompt, buffer }) {
+async function openaiImage(path, { prompt, buffer, buffers }) {
   const model = process.env.IMAGE_MODEL || "gpt-image-1";
   let r;
-  if (buffer) {
+  if (buffers && buffers.length) {                                   // reference images: model sees the real product
+    const fd = new FormData();
+    fd.append("model", model); fd.append("prompt", prompt); fd.append("size", "1024x1024");
+    buffers.slice(0, 4).forEach((b, i) => fd.append("image[]", new Blob([b], { type: "image/png" }), "ref" + i + ".png"));
+    r = await fetch((process.env.OPENAI_BASE_URL || "https://api.openai.com") + "/v1/images/edits", { method: "POST", headers: { authorization: "Bearer " + openaiKey() }, body: fd, signal: AbortSignal.timeout(150000) });
+  } else if (buffer) {
     const fd = new FormData();
     fd.append("model", model); fd.append("prompt", prompt); fd.append("size", "1024x1024");
     fd.append("image", new Blob([buffer], { type: "image/png" }), "image.png");
@@ -112,10 +117,10 @@ const localProvider = {
 
 const openaiProvider = {
   name: "openai", get model() { return process.env.IMAGE_MODEL || "gpt-image-1"; },
-  async generate({ prompt, biz }) {
+  async generate({ prompt, biz, refs }) {
     const Jimp = require("jimp");
     let out;
-    try { out = await openaiImage("generations", { prompt }); logCost(biz, "openai", "generate", COST.openai_generate); }
+    try { out = refs && refs.length ? await openaiImage("edits", { prompt, buffers: refs }) : await openaiImage("generations", { prompt }); logCost(biz, "openai", refs && refs.length ? "generate_ref" : "generate", COST.openai_generate); }
     catch (e) { logCost(biz, "openai", "generate", 0, false); throw e; }
     const img = await Jimp.read(out);
     return { buffer: await img.getBufferAsync(Jimp.MIME_PNG), width: img.bitmap.width, height: img.bitmap.height, ext: "png", mime: Jimp.MIME_PNG };

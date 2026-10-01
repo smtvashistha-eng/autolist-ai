@@ -39,7 +39,7 @@ app.use("/api", (req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true }));
 const jsonBody = express.json({ limit: "2mb", verify: (req, res, buf) => { req.rawBody = buf; } }); // rawBody for webhook signatures
-app.use((req, res, next) => (req.path === "/api/image/ai" ? next() : jsonBody(req, res, next)));   // studio photos parse at 15 MB on their route
+app.use((req, res, next) => (req.path === "/api/image/ai" || req.path === "/api/image/accept" ? next() : jsonBody(req, res, next)));   // studio photos parse larger bodies on their own routes
 app.use(express.static(path.join(__dirname, "..", "public"), { redirect: false }));   // no /guides → /guides/ folder redirect (that URL is a page)
 app.use(auth.attachUser);
 app.use(require("./sitegate").middleware);
@@ -277,7 +277,7 @@ app.get("/api/jobs/:id/stream", (req, res) => {
 const imgProvider = require("./ai/imageProvider");
 app.get("/app/images", (req, res) => { const ia = require("./ai/imageAIProvider"); res.send(pages.imageStudio(req.user, { ...imgProvider.capabilities(), aiEnabled: ia.canGenerate(), bgEnabled: ia.canRemoveBg(), createEnabled: ia.canGenerate() && require("./settings").flag("create_image") })); });
 // R3+: studio AI edits + prompt-to-image (ChatGPT gpt-image-1; remove.bg for backgrounds). Session-auth, metered.
-app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), async (req, res) => {
+app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "40mb" }), async (req, res) => {
   const ia = require("./ai/imageAIProvider"), meter = require("./usagemeter"), audit = require("./audit");
   const biz = req.user.business_id, b = req.body || {};
   const STYLES = { white_studio: "clean white studio product photo, soft even light, subtle shadow", lifestyle: "realistic lifestyle product photo in a tasteful everyday setting", enhance: "sharper, well-lit, colour-accurate product photo on the same background" };
@@ -289,7 +289,10 @@ app.post("/api/image/ai", auth.requireAuth, express.json({ limit: "15mb" }), asy
     if (b.op === "generate") {
       if (prompt.length < 3) return res.status(400).json({ ok: false, message: "Describe the image you want." });
       if (!ia.canGenerate() || !require("./settings").flag("create_image")) return res.status(501).json({ ok: false, message: "Image generation isn't switched on right now." });
-      out = await ia.getImageProvider().generate({ prompt: prompt + ". Photorealistic e-commerce product image. No text, no watermark, no logos of other brands.", biz });
+      // optional reference photos (up to 3) so the result shows the seller's real product
+      const refs = (Array.isArray(b.refs) ? b.refs : []).slice(0, 3).map(s => /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(String(s || ""))).filter(Boolean).map(x => Buffer.from(x[2], "base64")).filter(x => x.length && x.length <= 8 * 1024 * 1024);
+      const refNote = refs.length ? " Use the attached reference photo(s) as the exact product: keep its real shape, colour, material, proportions and details unchanged." : "";
+      out = await ia.getImageProvider().generate({ prompt: prompt + "." + refNote + " Photorealistic e-commerce product image. No text, no watermark, no logos of other brands.", biz, refs });
     } else {
       const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(String(b.imageBase64 || ""));
       if (!m) return res.status(400).json({ ok: false, message: "Upload a photo first." });
@@ -381,6 +384,16 @@ app.post("/admin/control/plans", (req, res) => {
   const out = require("./settings").setPlans(input, req.user);
   require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.plans", resourceType: "site", resourceId: "plans", metadata: out, ip: ipOf(req) });
   res.redirect("/admin/control?ok=" + encodeURIComponent("Plans updated for everyone."));
+});
+app.get("/admin/support", (req, res) => res.send(ctl().supportPage(adminUI.layout, req.user, req.query)));
+app.post("/admin/support/:kind/:id", (req, res) => {
+  const kind = req.params.kind, st = String((req.body || {}).status || "");
+  const ok = kind === "demo" ? ["new", "called", "converted", "lost"].includes(st) : kind === "ticket" ? ["open", "called", "resolved"].includes(st) : false;
+  if (ok) {
+    db.prepare(kind === "demo" ? "UPDATE demo_requests SET status=?, updated_at=? WHERE id=?" : "UPDATE support_tickets SET status=?, updated_at=? WHERE id=?").run(st, new Date().toISOString(), req.params.id);
+    require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin." + kind + "." + st, resourceType: kind, resourceId: req.params.id, ip: ipOf(req) });
+  }
+  res.redirect("/admin/support");
 });
 app.get("/admin/ai", (req, res) => res.send(ctl().aiUsagePage(adminUI.layout, req.user)));
 app.post("/admin/businesses/:id/bonus", (req, res) => {

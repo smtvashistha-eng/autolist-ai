@@ -2,6 +2,15 @@
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
+  // photos-only listings: start a Guided Bulk run from the hosted photos (no sheet)
+  var fp = $("fromPhotos");
+  if (fp) $("fpGo").onclick = function () {
+    var b = $("fpGo"), m = $("fpMsg"); b.disabled = true; m.className = "is-msg"; m.textContent = "Starting…";
+    fetch("/api/listings/from-photos", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ imageJobId: fp.dataset.job, marketplace: $("fpMkt").value }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Couldn't start"); return j; }); })
+      .then(function (j) { m.className = "is-msg ok"; m.textContent = "✓ Writing " + j.products + " listings" + (j.usesTemplate ? " and filling your " + j.marketplace + " template" : "") + "… opening Jobs."; setTimeout(function () { location.href = "/app/jobs"; }, 1200); })
+      .catch(function (e) { m.className = "is-msg bad"; m.textContent = e.message; b.disabled = false; });
+  };
   var drop = $("hzDrop"); if (!drop) return;
   var msg = $("hzMsg"), busy = false;
   function say(t, bad) { msg.textContent = t || ""; msg.className = "is-msg" + (bad ? " bad" : t ? " ok" : ""); }

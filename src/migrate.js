@@ -429,6 +429,18 @@ const MIGRATIONS = [
       db.exec(`CREATE TABLE IF NOT EXISTS site_settings(key TEXT PRIMARY KEY, value TEXT, updated_at TEXT, updated_by TEXT)`);
     },
   },
+  // ---- support tickets (from AI Help) + demo bookings (homepage) ----
+  {
+    v: 34, name: "tickets_and_demos",
+    up(db) {
+      db.exec(`CREATE TABLE IF NOT EXISTS support_tickets(id TEXT PRIMARY KEY, business_id TEXT, user_id TEXT, name TEXT, email TEXT, phone TEXT, best_time TEXT,
+        topic TEXT, message TEXT, page TEXT, context_json TEXT, status TEXT NOT NULL DEFAULT 'open', note TEXT, created_at TEXT NOT NULL, updated_at TEXT)`);
+      db.exec(`CREATE TABLE IF NOT EXISTS demo_requests(id TEXT PRIMARY KEY, name TEXT, phone TEXT, email TEXT, business TEXT, marketplaces TEXT, catalogue TEXT,
+        preferred_time TEXT, note TEXT, source TEXT, status TEXT NOT NULL DEFAULT 'new', created_at TEXT NOT NULL, updated_at TEXT)`);
+      db.exec("CREATE INDEX IF NOT EXISTS ix_tickets_status ON support_tickets(status, created_at)");
+      db.exec("CREATE INDEX IF NOT EXISTS ix_demos_status ON demo_requests(status, created_at)");
+    },
+  },
   // ---- paid-plan reservations while paid plans are locked (pre-launch) ----
   {
     v: 33, name: "plan_reservations",
