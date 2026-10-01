@@ -119,6 +119,16 @@ async function waitJob(cookie, id) {
     const badV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://evil.example.com/x.mp4" } });
     ok("only YouTube links accepted", /err=/.test(badV.location || ""));
 
+    console.log("Account: forgot / reset password, verify email:");
+    ok("login page has 'Forgot password?'", /href="\/forgot-password"/.test((await req("GET", "/login")).text));
+    ok("forgot-password page opens", /Forgot your password/.test((await req("GET", "/forgot-password")).text));
+    const fpw = await req("POST", "/forgot-password", { form: { email: "nobody-here@x.in" } });
+    ok("same 'check your email' answer even for unknown emails (no account leak)", fpw.status === 200 && /Check your email/.test(fpw.text));
+    ok("reset with a bad link is refused", /invalid or has expired/.test((await req("POST", "/reset-password", { form: { token: "bad", password: "newpass123", password2: "newpass123" } })).text));
+    ok("reset checks both passwords match", /don't match/.test((await req("POST", "/reset-password", { form: { token: "x", password: "newpass123", password2: "other1234" } })).text));
+    ok("verify link with a bad token shows a friendly page", (await req("GET", "/verify-email?token=nope")).status === 400);
+    ok("support email shown publicly", /support@autolistai\.in/.test((await req("GET", "/about")).text));
+
     console.log("Seller tools: tickets, demos, use-this-image, photos-only listings:");
     const tk = await req("POST", "/api/support/ticket", { cookie: A, body: { topic: "QC errors", message: "My Flipkart file failed QC", phone: "+91 98765 43210", bestTime: "Evening (5–8)", page: "/app/exports" } });
     ok("seller can raise a call-back ticket", tk.status === 201 && /^T-[A-Z0-9]+$/.test(tk.json.ticket));

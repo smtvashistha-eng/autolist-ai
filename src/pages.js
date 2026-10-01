@@ -180,7 +180,7 @@ function authPage(mode, error) {
     <button class="btn pri lg" style="width:100%;justify-content:center" type="submit">${su ? "Create account" : "Log in"}</button>
     <p style="text-align:center;color:var(--soft);font-size:13px;margin-top:18px">${su
       ? 'Already have an account? <a style="color:var(--accent);font-weight:600" href="/login">Log in</a>'
-      : 'New here? <a style="color:var(--accent);font-weight:600" href="/signup">Create account</a>'}</p>
+      : 'New here? <a style="color:var(--accent);font-weight:600" href="/signup">Create account</a><br><a style="color:var(--soft);display:inline-block;margin-top:10px" href="/forgot-password">Forgot password?</a>'}</p>
   </form></div></div>` + foot;
 }
 
@@ -554,7 +554,7 @@ function helpPage(user) {
     ${q("2. Map your fields", "For marketplace files, we match your columns to the marketplace's fields and show a confidence for each. You confirm anything unclear.")}
     ${q("3. Generate & review", "AI writes the title, bullets and description. The review screen shows warnings and any missing facts before you approve.")}
     ${q("4. Export or publish", "Download an upload-ready file, or connect Amazon / Flipkart under Marketplaces. Preview mode prepares listings without going live until you enable verified access.")}
-    ${q("Need a hand?", "Email smtvashistha@gmail.com and we'll help you get your first listings out.")}
+    ${q("Need a hand?", "Email support@autolistai.in or use “Talk to our team” — we'll help you get your first listings out.")}
     </div>`;
   return shell(user, "/app/help", body);
 }

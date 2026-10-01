@@ -50,6 +50,32 @@ app.use("/api", require("./api"));
 // ---------- public site ----------
 app.use(require("./seo").router);   // marketing pages, guides, help articles, sitemap, robots, llms.txt
 app.get("/", (req, res) => req.user ? res.redirect("/app") : res.send(require("./seo").landingHtml(pages.landing())));
+// ---- account: forgot / reset password, verify email ----
+const acct = () => require("./accountpages");
+app.get("/forgot-password", (req, res) => res.send(acct().forgotPage()));
+app.post("/forgot-password", async (req, res) => {
+  const email = String((req.body || {}).email || "").trim().toLowerCase().slice(0, 200);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).send(acct().forgotPage({ error: "Please enter a valid email." }));
+  try {
+    const rp = auth.issuePasswordReset(email);
+    if (rp) { const base = (process.env.PUBLIC_URL || (req.protocol + "://" + req.get("host"))).replace(/\/$/, ""); await require("./mailer").send({ to: email, template: "reset-password", data: { url: base + "/reset-password?token=" + rp.token } }); require("./audit").record({ userId: rp.userId, action: "auth.forgot_password", resourceType: "user", resourceId: rp.userId, ip: ipOf(req) }); }
+  } catch {}
+  res.send(acct().forgotPage({ sent: true }));                     // same answer either way — never reveal if an email exists
+});
+app.get("/reset-password", (req, res) => res.send(acct().resetPage(String(req.query.token || ""))));
+app.post("/reset-password", (req, res) => {
+  const b = req.body || {}, token = String(b.token || "");
+  if (String(b.password || "").length < 8) return res.status(400).send(acct().resetPage(token, { error: "Use at least 8 characters." }));
+  if (b.password !== b.password2) return res.status(400).send(acct().resetPage(token, { error: "The two passwords don't match." }));
+  try {
+    const u = auth.consumePasswordReset(token, b.password);
+    if (!u) return res.status(400).send(acct().resetPage(token, { error: "This reset link is invalid or has expired." }));
+    auth.clearCookie(res);
+    require("./audit").record({ businessId: u.business_id, userId: u.id, action: "auth.reset_password", resourceType: "user", resourceId: u.id, ip: ipOf(req) });
+    res.send(acct().resetPage(token, { done: true }));
+  } catch (e) { res.status(400).send(acct().resetPage(token, { error: e.message })); }
+});
+app.get("/verify-email", (req, res) => { let u = null; try { u = auth.consumeEmailVerify(String(req.query.token || "")); } catch {} res.status(u ? 200 : 400).send(acct().verifyPage(!!u)); });
 app.get("/login", (req, res) => req.user ? res.redirect("/app") : res.send(pages.authPage("login")));
 app.get("/signup", (req, res) => req.user ? res.redirect("/app") : res.send(pages.authPage("signup")));
 

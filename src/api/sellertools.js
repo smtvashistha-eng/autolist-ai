@@ -82,6 +82,7 @@ router.post("/support/ticket", auth.requireAuth, (req, res) => {
   db.prepare("INSERT INTO support_tickets(id,business_id,user_id,name,email,phone,best_time,topic,message,page,context_json,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
     .run(id, req.user.business_id, req.user.id, clean(req.user.name, 80), clean(req.user.email, 120), phone, clean(b.bestTime, 40), clean(b.topic, 80), message, clean(b.page, 200), JSON.stringify(b.context || {}).slice(0, 4000), "open", now, now);
   audit.record({ businessId: req.user.business_id, userId: req.user.id, action: "support.ticket", resourceType: "ticket", resourceId: id, ip: audit.ipOf(req) });
+  require("../mailer").ticketRaised({ id, name: req.user.name, email: req.user.email, phone, bestTime: clean(b.bestTime, 40), page: clean(b.page, 200), topic: clean(b.topic, 80), message });
   res.status(201).json({ ticket: id });
 });
 

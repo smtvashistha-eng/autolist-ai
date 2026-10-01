@@ -15,7 +15,7 @@ const UPDATED = "2026-09-28";
 const BRAND = "AutoList AI";
 const ORG = () => ({ "@type": "Organization", "@id": SITE() + "/#org", name: BRAND, url: SITE(), logo: SITE() + "/og.png",
   description: "AI tool that writes, checks and fills bulk product listings for Flipkart and Amazon sellers in India.",
-  parentOrganization: { "@type": "Organization", name: "TRUSTin.ONLINE" }, areaServed: "IN", email: "smtvashistha@gmail.com" });
+  parentOrganization: { "@type": "Organization", name: "TRUSTin.ONLINE" }, areaServed: "IN", email: "support@autolistai.in", contactPoint: { "@type": "ContactPoint", contactType: "customer support", email: "support@autolistai.in", areaServed: "IN", availableLanguage: ["English", "Hindi"] } });
 
 const PLANS = [
   { name: "Free", price: 0, listings: 25, photos: 50, ai: 5, for: "Try it on a few products" },
@@ -53,7 +53,7 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
   <div><a class="logo" href="/"><span class="mark"></span> AutoList <em class="lai">AI</em></a><p>AI that writes, checks and fills bulk marketplace listings for Indian sellers. Built by the team behind TRUSTin.ONLINE.</p></div>
   <div><b>Product</b><a href="/flipkart-bulk-listing">Flipkart bulk listing</a><a href="/amazon-listing-generator">Amazon listing generator</a><a href="/ai-product-description-generator">AI product descriptions</a><a href="/pricing">Pricing</a></div>
   <div><b>Learn</b><a href="/guides">Video guides</a><a href="/help/flipkart-qc-errors">Fix Flipkart QC errors</a><a href="/help/flipkart-feed-already-present">“Feed is already present”</a><a href="/help/flipkart-duplicate-listing-error">Duplicate listing error</a></div>
-  <div><b>Company</b><a href="/about">About</a><a href="/tools/crop-pdf">Free PDF cropper</a><a href="/llms.txt">llms.txt</a></div>
+  <div><b>Company</b><a href="/about">About</a><a href="/book-demo">Book a demo</a><a href="mailto:support@autolistai.in">support@autolistai.in</a><a href="/tools/crop-pdf">Free PDF cropper</a><a href="/llms.txt">llms.txt</a></div>
 </div><div class="wrap mk-copy">© ${new Date().getFullYear()} ${BRAND} · Made in India</div></footer><script src="/install.js" defer></script></body></html>`;
 }
 const faqBlock = (faq) => `<section class="blk"><div class="wrap mk-narrow"><h2>Frequently asked questions</h2><div class="hfaq">${faq.map(([q, a]) => `<details class="hfaq-i"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</div></div></section>`;
@@ -145,7 +145,7 @@ function aboutPage() {
 <section class="blk" style="padding-top:0"><div class="wrap mk-narrow"><p>AutoList AI comes from the team behind <b>TRUSTin.ONLINE</b>, an Indian screen-guard brand with hundreds of products on Flipkart and Amazon. Listing each one by hand — writing content, filling templates, fixing QC errors — took days. So we built the tool we needed.</p>
 <p>Every rule in AutoList AI comes from a real rejection we hit: wrong dropdown capitals, renamed files, one-time upload IDs, duplicate products. The software now learns those rules so other sellers don't have to.</p>
 <h2>What we believe</h2><ul class="mk-list"><li><b>Never invent facts.</b> The AI writes; the product facts are always yours.</li><li><b>Check before you ship.</b> Every file is validated against the marketplace's own rules.</li><li><b>Plain and honest.</b> Clear pricing, real progress bars, no dark patterns.</li></ul>
-<p>Questions? Email <a href="mailto:smtvashistha@gmail.com">smtvashistha@gmail.com</a>.</p></div></section>` });
+<p>Questions? Email <a href="mailto:support@autolistai.in">support@autolistai.in</a> or <a href="/book-demo">book a free demo</a>.</p></div></section>` });
 }
 
 function downloadPage() {
@@ -280,6 +280,7 @@ router.post("/book-demo", (req, res) => {
     const dup = db.prepare("SELECT 1 FROM demo_requests WHERE phone=? AND created_at>=?").get(v.phone, new Date(Date.now() - 864e5).toISOString());
     if (!dup) db.prepare("INSERT INTO demo_requests(id,name,phone,email,business,marketplaces,catalogue,preferred_time,source,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")
       .run("D-" + Math.random().toString(36).slice(2, 7).toUpperCase(), v.name, v.phone, v.email || null, v.business || null, mk || null, v.catalogue, v.time, c(req.get("referer"), 200) || null, "new", nowISO(), nowISO());
+    if (!dup) require("./mailer").demoBooked({ ...v, marketplaces: mk });
   } catch {}
   res.send(demoPage(null, true));
 });
@@ -337,7 +338,7 @@ function llms(full) {
   const s = SITE();
   let t = `# AutoList AI
 
-> AutoList AI is a web app for Indian e-commerce sellers that creates product listings in bulk for Flipkart and Amazon India. It writes titles, bullet points, descriptions and keywords with AI from the seller's own product data (it never invents specifications), fills the marketplace's own bulk upload template with valid values, hosts product photos as public links, and fixes Flipkart "QC failed" errors from the marketplace's error file. Built by the team behind TRUSTin.ONLINE. Website: ${s}
+> AutoList AI is a web app for Indian e-commerce sellers that creates product listings in bulk for Flipkart and Amazon India. It writes titles, bullet points, descriptions and keywords with AI from the seller's own product data (it never invents specifications), fills the marketplace's own bulk upload template with valid values, hosts product photos as public links, and fixes Flipkart "QC failed" errors from the marketplace's error file. Built by the team behind TRUSTin.ONLINE. Website: ${s} · Support: support@autolistai.in · Demo: ${s}/book-demo
 
 Key facts:
 - Marketplaces: Flipkart and Amazon India.

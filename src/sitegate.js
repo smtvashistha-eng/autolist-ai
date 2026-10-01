@@ -58,6 +58,7 @@ function middleware(req, res, next) {
   if (req.user) { try { auth.clearCookie(res); } catch {} }
   // admin login forms stay reachable; non-admin credentials are refused before any session is created
   if (p === "/login" && req.method === "GET") return next();
+  if (/^\/(forgot-password|reset-password|verify-email)$/.test(p)) return next();
   if ((p === "/login" || p === "/api/auth/login") && req.method === "POST") {
     if (adminEmail((req.body || {}).email)) return next();
     return isApi ? res.status(403).json({ error: "AutoList AI is in private testing. Launching soon." })

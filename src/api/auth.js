@@ -32,7 +32,7 @@ router.post("/auth/signup", rateLimit({ name: "signup", max: 8, windowMs: 60 * 6
     const token = auth.startSession(userId);
     auth.setCookie(res, token);
     // email verification hook (does not block signup)
-    try { const raw = auth.issueEmailVerify(userId); await mailer.send({ to: (req.body.email || "").toLowerCase(), template: "verify-email", data: { url: `${base(req)}/api/auth/verify-email?token=${raw}` } }); } catch {}
+    try { const raw = auth.issueEmailVerify(userId); await mailer.send({ to: (req.body.email || "").toLowerCase(), template: "verify-email", data: { url: `${base(req)}/verify-email?token=${raw}` } }); } catch {}
     const u = auth.sessionUser(token);
     audit.record({ businessId: u.business_id, userId, action: "auth.signup", resourceType: "user", resourceId: userId, ip: audit.ipOf(req) });
     res.status(201).json({ user: sanitize(u) });
