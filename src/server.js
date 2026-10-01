@@ -48,7 +48,8 @@ app.use(require("./settings").maintenanceGuard);   // admin "maintenance pause" 
 app.use("/api", require("./api"));
 
 // ---------- public site ----------
-app.use(require("./seo").router);   // marketing pages, guides, help articles, sitemap, robots, llms.txt
+app.use(require("./seo").router);
+app.use(require("./legal").router);   // terms, privacy, refunds, delivery, contact   // marketing pages, guides, help articles, sitemap, robots, llms.txt
 app.get("/", (req, res) => req.user ? res.redirect("/app") : res.send(require("./seo").landingHtml(pages.landing())));
 // ---- account: forgot / reset password, verify email ----
 const acct = () => require("./accountpages");
@@ -455,6 +456,12 @@ app.post("/admin/support/:kind/:id", (req, res) => {
     require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin." + kind + "." + st, resourceType: kind, resourceId: req.params.id, ip: ipOf(req) });
   }
   res.redirect("/admin/support");
+});
+app.post("/admin/control/business", (req, res) => {
+  const L = require("./legal"); L.saveInfo(req.body || {}, req.user);
+  require("./audit").record({ businessId: req.user.business_id, userId: req.user.id, action: "admin.business_info", resourceType: "site", resourceId: "business_info", ip: ipOf(req) });
+  const miss = L.missing(L.info());
+  res.redirect("/admin/control?ok=" + encodeURIComponent(miss.length ? "Saved. Still missing: " + miss.join(", ") + "." : "Business details saved — legal pages are complete."));
 });
 app.get("/admin/ai", (req, res) => res.send(ctl().aiUsagePage(adminUI.layout, req.user)));
 app.post("/admin/businesses/:id/bonus", (req, res) => {

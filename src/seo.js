@@ -54,7 +54,7 @@ function page({ path, title, description, ld = [], body, crumbs, ogType = "websi
   <div><b>Product</b><a href="/flipkart-bulk-listing">Flipkart bulk listing</a><a href="/amazon-listing-generator">Amazon listing generator</a><a href="/ai-product-description-generator">AI product descriptions</a><a href="/pricing">Pricing</a></div>
   <div><b>Learn</b><a href="/guides">Video guides</a><a href="/help/flipkart-qc-errors">Fix Flipkart QC errors</a><a href="/help/flipkart-feed-already-present">“Feed is already present”</a><a href="/help/flipkart-duplicate-listing-error">Duplicate listing error</a></div>
   <div><b>Company</b><a href="/about">About</a><a href="/book-demo">Book a demo</a><a href="mailto:support@autolistai.in">support@autolistai.in</a><a href="/tools/crop-pdf">Free PDF cropper</a><a href="/llms.txt">llms.txt</a></div>
-</div><div class="wrap mk-copy">© ${new Date().getFullYear()} ${BRAND} · Made in India</div></footer><script src="/install.js" defer></script></body></html>`;
+</div><div class="wrap mk-copy mk-legal-links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund-policy">Refunds</a><a href="/shipping-policy">Delivery</a><a href="/contact">Contact</a></div><div class="wrap mk-copy">© ${new Date().getFullYear()} ${BRAND} · Made in India</div></footer><script src="/install.js" defer></script></body></html>`;
 }
 const faqBlock = (faq) => `<section class="blk"><div class="wrap mk-narrow"><h2>Frequently asked questions</h2><div class="hfaq">${faq.map(([q, a]) => `<details class="hfaq-i"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</div></div></section>`;
 const faqLd = (faq) => ({ "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) });
@@ -298,7 +298,7 @@ router.get("/guides/:slug", (req, res) => send(guidePage(req.params.slug))(req, 
 router.get("/help/:slug", (req, res) => send(articlePage(req.params.slug))(req, res));
 
 const PUBLIC_PATHS = () => ["/", "/flipkart-bulk-listing", "/amazon-listing-generator", "/ai-product-description-generator", "/pricing", "/guides",
-  ...Object.values(GUIDES).map(g => "/guides/" + g.slug), ...Object.keys(ARTICLES).map(s => "/help/" + s), "/about", "/download", "/book-demo", "/tools/crop-pdf"];
+  ...Object.values(GUIDES).map(g => "/guides/" + g.slug), ...Object.keys(ARTICLES).map(s => "/help/" + s), "/about", "/download", "/book-demo", "/contact", "/terms", "/privacy", "/refund-policy", "/shipping-policy", "/tools/crop-pdf"];
 router.get("/sitemap.xml", (req, res) => {
   const urls = PUBLIC_PATHS().map(p => {
     const key = Object.keys(GUIDES).find(k => "/guides/" + GUIDES[k].slug === p), v = key && require("./tutorials").builtin(key);
@@ -401,5 +401,5 @@ function landingHtml(html) {
   if (!isOpen()) h = h.replace(/href="\/signup">[^<]*</g, 'href="/early-access">Join early access<').replace(/Create your first AI listing in the next two minutes — free\./, "We're in private testing. Join the list and we'll invite you first.");
   return h;
 }
-const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest|download|offline\.html|book-demo)\/?$/;
-module.exports = { router, landingHtml, MARKETING_RE, PUBLIC_PATHS, llms, ARTICLES };
+const MARKETING_RE = /^\/(pricing|flipkart-bulk-listing|amazon-listing-generator|ai-product-description-generator|about|early-access|guides(\/[a-z0-9-]+)?|help\/[a-z0-9-]+|robots\.txt|sitemap\.xml|llms(-full)?\.txt|tools\/crop-pdf|og\.png|favicon\.svg|site\.webmanifest|download|offline\.html|book-demo|terms|privacy|refund-policy|shipping-policy|contact|refunds|terms-and-conditions|privacy-policy)\/?$/;
+module.exports = { router, landingHtml, MARKETING_RE, PUBLIC_PATHS, llms, ARTICLES, page };

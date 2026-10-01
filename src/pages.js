@@ -137,6 +137,7 @@ ${require("./heromock").marketStrip()}
   <p>Create your first AI listing in the next two minutes — free.</p>
   <div class="cta-row"><a class="btn lg cta-white" href="/signup">Get started free →</a><a class="btn lg cta-ghost" href="/book-demo">📞 Book a demo</a></div></div></section>
 
+<div class="wrap sfoot-legal"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund-policy">Refunds</a><a href="/shipping-policy">Delivery</a><a href="/contact">Contact</a><a href="mailto:support@autolistai.in">support@autolistai.in</a></div>
 <div class="wrap sfoot"><span class="logo" style="font-size:15px"><span class="mark" style="width:24px;height:24px"></span> AutoList <em class="lai">AI</em></span><span>One catalog. Every marketplace. AI-powered automation.</span></div>
 <script>
 (function(){
@@ -178,6 +179,7 @@ function authPage(mode, error) {
     <div class="field"><label>Email</label><input name="email" type="email" required placeholder="you@business.com"></div>
     <div class="field"><label>Password</label><input name="password" type="password" required minlength="6" placeholder="At least 6 characters"></div>
     <button class="btn pri lg" style="width:100%;justify-content:center" type="submit">${su ? "Create account" : "Log in"}</button>
+    ${su ? '<p class="consent">By creating an account you agree to our <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>' : ""}
     <p style="text-align:center;color:var(--soft);font-size:13px;margin-top:18px">${su
       ? 'Already have an account? <a style="color:var(--accent);font-weight:600" href="/login">Log in</a>'
       : 'New here? <a style="color:var(--accent);font-weight:600" href="/signup">Create account</a><br><a style="color:var(--soft);display:inline-block;margin-top:10px" href="/forgot-password">Forgot password?</a>'}</p>

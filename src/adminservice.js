@@ -74,6 +74,7 @@ function alerts() {
   const h = health();
   if (h.database !== "healthy") out.push({ level: "critical", text: "Database connectivity problem." });
   if (h.storage !== "healthy") out.push({ level: "critical", text: "Storage is not writable." });
+  try { const m = require("./legal").missing(require("./legal").info()); if (m.length) out.push({ level: "warning", text: "Legal pages need your business details (" + m.length + " missing) — Control centre → Business details. Razorpay checks these." }); } catch {}
   try { const b = require("./backup").health(); if (b.state === "critical") out.push({ level: "critical", text: "Last database backup is over 12 hours old — check Admin → Backups." }); else if (b.state === "warning") out.push({ level: "warning", text: (b.s && b.s.last_error) ? "Latest backup failed: " + b.s.last_error : "No database backup yet — it runs 2 minutes after the server starts." }); } catch {}
   if (h.worker !== "healthy") out.push({ level: "warning", text: "A background job appears stalled." });
   if (!out.length) out.push({ level: "ok", text: "No active alerts. All systems normal." });

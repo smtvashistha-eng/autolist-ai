@@ -21,6 +21,14 @@ function controlPage(layout, user, q) {
     return `<tr><td><b>${esc(p.name)}</b><small>${esc(p.id)}</small></td>${cell("price", p.price)}${cell("listings", p.listings)}${cell("images", p.images)}${cell("aiImages", p.aiImages || 0)}</tr>`;
   }).join("");
   const siteOpen = require("./sitegate").isOpen(), paidOpen = !require("./paidlock").isLocked();
+  const L = require("./legal"), bi = L.info(), miss = L.missing(bi);
+  const fld = (k, label, ph, wide) => `<label class="dfl"${wide ? ' style="grid-column:1/-1"' : ""}><span>${label}</span><input class="input" name="${k}" value="${esc(bi[k] || "")}" placeholder="${ph || ""}"></label>`;
+  const bizCard = `<form class="card pad" method="POST" action="/admin/control/business" data-no-progress style="margin-top:16px">
+    <div class="cardhead" style="padding:0 0 8px"><h3>Business details <span class="muted" style="font-weight:500">— shown on Terms, Privacy, Refunds, Contact</span></h3>${miss.length ? `<span class="sp-st sp-open">${miss.length} missing</span>` : `<span class="sp-st sp-resolved">complete</span>`}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">${fld("legalName", "Legal business name", "e.g. TRUSTIN ONLINE (proprietor Sumit …)", true)}${fld("address", "Registered address", "Building, street, area", true)}${fld("city", "City", "Jaipur")}${fld("state", "State", "Rajasthan")}${fld("pincode", "PIN code", "302001")}
+      ${fld("phone", "Support phone / WhatsApp", "+91 …")}${fld("email", "Support email", "support@autolistai.in")}${fld("hours", "Support hours")}${fld("grievanceName", "Grievance Officer name", "Name of the person")}${fld("grievanceEmail", "Grievance Officer email")}${fld("gstin", "GSTIN (when you have it)", "optional")}
+      ${fld("refundDays", "Refund window (days)", "7")}${fld("refundListings", "Refund if fewer than … listings used", "20")}</div>
+    <div class="formfoot"><span class="muted">Pages: <a href="/terms" target="_blank">Terms</a> · <a href="/privacy" target="_blank">Privacy</a> · <a href="/refund-policy" target="_blank">Refunds</a> · <a href="/shipping-policy" target="_blank">Delivery</a> · <a href="/contact" target="_blank">Contact</a></span><button class="btn pri">Save business details</button></div></form>`;
   return page(layout, user, "/admin/control", "Control centre", "Switch features, talk to sellers and change plans — no code, no deploy.", `
   <div class="cc-status">
     <a class="cc-pill ${siteOpen ? "ok" : "warn"}" href="/admin">${siteOpen ? "🟢 Site live" : "🔒 Private mode"}</a>
@@ -49,7 +57,7 @@ function controlPage(layout, user, q) {
     <div class="cardhead" style="padding:0 0 8px"><h3>Plans &amp; limits</h3><span class="muted">Monthly price (₹) and limits. Applies to all sellers on that plan immediately.</span></div>
     <div class="tscroll"><table class="cc-plans"><thead><tr><th>Plan</th><th>Price ₹/month</th><th>AI listings</th><th>Hosted photos</th><th>AI image credits</th></tr></thead><tbody>${plans}</tbody></table></div>
     <div class="formfoot"><span class="muted">Tip: to give one seller more, use Users → the seller → Bonus credits.</span><button class="btn pri">Save plans</button></div>
-  </form>`, q);
+  </form>${bizCard}`, q);
 }
 
 function aiUsagePage(layout, user) {

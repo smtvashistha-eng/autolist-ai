@@ -119,6 +119,16 @@ async function waitJob(cookie, id) {
     const badV = await req("POST", "/admin/videos", { cookie: ADM, form: { wizard: "https://evil.example.com/x.mp4" } });
     ok("only YouTube links accepted", /err=/.test(badV.location || ""));
 
+    console.log("Legal pages:");
+    for (const p of ["/terms", "/privacy", "/refund-policy", "/shipping-policy", "/contact"]) ok("public legal page " + p, (await req("GET", p)).status === 200);
+    ok("privacy names a Grievance Officer and the DPDP Act", /Grievance Officer/.test((await req("GET", "/privacy")).text) && /Digital Personal Data Protection Act, 2023/.test((await req("GET", "/privacy")).text));
+    ok("signup shows the Terms + Privacy consent", /agree to our <a href="\/terms"/.test((await req("GET", "/signup")).text));
+    await req("POST", "/admin/control/business", { cookie: ADM, form: { legalName: "Test Traders", address: "12 MG Road", city: "Jaipur", state: "Rajasthan", pincode: "302001", phone: "+91 90000 12345", grievanceName: "R. Sharma", refundDays: "7", refundListings: "20" } });
+    const ct = (await req("GET", "/contact")).text;
+    ok("business details from Admin appear on the Contact page", /Test Traders/.test(ct) && /12 MG Road, Jaipur, Rajasthan, 302001/.test(ct) && /R\. Sharma/.test(ct));
+    ok("refund window from Admin appears on the Refund page", /within <b>7 days<\/b>/.test((await req("GET", "/refund-policy")).text));
+    ok("sellers can't change business details", (await req("POST", "/admin/control/business", { cookie: A, form: { legalName: "Hacker" } })).status === 403);
+
     console.log("Account: forgot / reset password, verify email:");
     ok("login page has 'Forgot password?'", /href="\/forgot-password"/.test((await req("GET", "/login")).text));
     ok("forgot-password page opens", /Forgot your password/.test((await req("GET", "/forgot-password")).text));
