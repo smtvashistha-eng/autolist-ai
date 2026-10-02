@@ -1234,6 +1234,7 @@ function bulkProScript() {
     "  if(j.status==='CANCELLED'){ $('bp-summary').textContent='Cancelled. '+(r.generated||0)+' generated before stopping.'; }",
     "  else { var why=[];",
     "    if(!r.total) why.push('Your sheet had <b>no product rows</b> \u2014 check that row 1 has column names (sku, name, price\u2026) and products start on row 2.');",
+    "    if(r.skipped) why.push('<b>'+r.skipped+' rows were skipped</b> \u2014 no product name or SKU found. Columns we saw: <i>'+esc((r.columns||[]).join(', '))+'</i>. Add a column called <b>name</b> (or <b>sku</b>), or skip the sheet and upload only photos named by product.');",
     "    if(r.hitLimit) why.push('You reached your plan\\'s monthly AI listing limit \u2014 <a href=\"/app/billing\">see Billing</a>.');",
     "    if(r.total&&!r.generated&&r.failed) why.push('The AI couldn\\'t write these listings ('+r.failed+' failed). Please try again in a minute.');",
     "    if(r.exportBlocked) why.push('Listings were written, but the marketplace file is waiting on missing details \u2014 see the list below, or fill <a href=\"/app/brand/defaults\">Marketplace defaults</a>.');",

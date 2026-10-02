@@ -16,14 +16,16 @@ const yield_ = () => new Promise(r => setImmediate(r));
 // create a product + draft and generate AI content for one row; returns the draft id (or null)
 function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
   const input = bulk.rowToInput(row, map);
+  // no name column: fall back to model / SKU so photo-matched rows still become listings
+  if (!input.productName) { const k = Object.keys(row).find(c => /model|designed ?for|description|item/i.test(c) && String(row[c]).trim().length > 2); input.productName = (k && String(row[k]).trim()) || (input.sku ? String(input.sku).replace(/[_-]+/g, " ").trim() : ""); }
   if (!input.productName) return null;
   input.extra = row;                                   // R5: keep every original column — the seller's values always win
   if (!input.designedFor) input.designedFor = require("./attributes").designedFor(input.productName);
   { const pm = String(input.productName).match(/\b(?:pack|set)\s*of\s*(\d{1,3})\b/i); if (pm && !input.packOf) input.packOf = pm[1]; }
   // R2: attach hosted image links from the uploaded ZIP, matched by SKU (sheet links win)
   if (imgMap && (!input.images || !input.images.length)) {
-    const k = String(input.sku || "").trim().toLowerCase();
-    if (k && imgMap[k]) { input.images = imgMap[k]; imgMap.__matched.add(k); }
+    const k = [input.sku, input.productName].map(v => String(v || "").trim().toLowerCase()).find(v => v && imgMap[v]);
+    if (k) { input.images = imgMap[k]; imgMap.__matched.add(k); }
   }
   const now = nowISO();
   const productId = rid("p_");
@@ -126,7 +128,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
 
   const prev = JSON.parse(job.result_json || "null") || {};
   let draftIds = prev.draftIds || [];
-  let completed = job.completed_items || 0, failed = job.failed_items || 0, hitLimit = false;
+  let completed = job.completed_items || 0, failed = job.failed_items || 0, hitLimit = false, skipped = 0;
   const provider = getTextProvider();
 
   ctx.stage("Generating content");
@@ -140,7 +142,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
     if (!meter.canUse(biz, "listings")) { hitLimit = true; ctx.warn("Plan listing limit reached — stopping generation."); break; }
     try {
       const productId = generateOneFromRow(biz, rows[i], map, marketplace, provider, imgMap);
-      if (!productId) { ctx.item("row", `row${i + 1}`, "skipped", "no product name"); }
+      if (!productId) { skipped++; ctx.item("row", `row${i + 1}`, "skipped", "no product name"); }
       else {
         const p = db.prepare("SELECT * FROM products WHERE id=?").get(productId);
         const conf = JSON.parse(p.normalized_data_json || "{}");
@@ -197,7 +199,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   }
   const quality = qualities.length ? { by: "jev", avg: Math.round(qualities.reduce((a, q) => a + q.score, 0) / qualities.length), low: qualities.filter(q => q.score < 50).slice(0, 50) } : null;
   const imageMatch = imgMap ? { skusWithImages: Object.keys(imgMap).length, matched: imgMap.__matched.size, unmatchedSkus: Object.keys(imgMap).filter(k => !imgMap.__matched.has(k)).slice(0, 50) } : null;
-  return { generated: completed, failed, hitLimit, total: rows.length, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality, alreadyLive };
+  return { generated: completed, failed, hitLimit, total: rows.length, skipped, columns: Object.keys(rows[0] || {}).slice(0, 12), nameColumn: (map.productName || {}).column || null, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality, alreadyLive };
 });
 
 // ---- image_zip (R2): unzip product photos -> validate -> host publicly -> record SKU links ----

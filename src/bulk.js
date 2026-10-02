@@ -5,9 +5,24 @@ function parseUpload(buffer, filename) {
   let wb;
   try { wb = XLSX.read(buffer, { type: "buffer" }); }
   catch { throw new Error("Couldn't read that file. Please upload a valid Excel or CSV."); }
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  if (!ws) throw new Error("That file has no data sheet.");
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: "" }); // array of {header: value}
+  if (!wb.SheetNames.length) throw new Error("That file has no data sheet.");
+  // marketplace templates keep instructions on sheet 1 and headers on row 2-6 — find the sheet + row that
+  // looks most like column titles (most matches to known fields, must include a name/SKU/title column)
+  let best = { score: -1, sheet: wb.SheetNames[0], header: 0 };
+  for (const sn of wb.SheetNames) {
+    if (/^(index|instruction|help|read ?me|guide|valid|dropdown|lookup)/i.test(sn.trim())) continue;
+    const grid = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", blankrows: true }).slice(0, 12);
+    grid.forEach((row, i) => {
+      const cells = row.map(norm).filter(Boolean);
+      const hits = Object.values(FIELDS).filter(syn => cells.some(c => syn.includes(c) || syn.some(s => s.length > 3 && c.includes(s)))).length;
+      const key = cells.some(c => /name|title|sku|model/.test(c)) ? 2 : 0;
+      if (hits + key > best.score) best = { score: hits + key, sheet: sn, header: i };
+    });
+  }
+  const ws = wb.Sheets[best.sheet];
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1"); range.s.r += best.header;
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: "", range }) // array of {header: value}
+    .filter(r => Object.values(r).filter(v => String(v).trim()).length >= 1 && !Object.values(r).every(v => /^(mandatory|optional|recommended|desired)$/i.test(String(v).trim()) || !String(v).trim()));
   if (!rows.length) throw new Error("No product rows found. Row 1 should be column titles, with products below.");
   const columns = Object.keys(rows[0]);
   if (!columns.length) throw new Error("Couldn't find any columns. Add a header row (e.g. product_name, price).");
