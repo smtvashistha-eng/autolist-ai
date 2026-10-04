@@ -54,6 +54,7 @@ function wizardPage(user) {
         <option value="remove_bg"${img.canRemoveBg() ? "" : " disabled"}>AI background removal${img.canRemoveBg() ? "" : " (needs image AI key)"}</option>
       </select>
       <button class="btn ghost" id="wz-zip-pick">Choose images ZIP</button>
+      <button type="button" class="btn ghost" onclick="openCommonImages()" title="Back of box, feature card… added to every product">+ Back &amp; extra images (all products)</button>
       <input type="file" id="wz-zip" accept=".zip,application/zip" hidden>
     </div>
     <div class="wz-bar" id="wz-zip-bar" hidden><span></span></div>
@@ -91,7 +92,7 @@ function wizardPage(user) {
       <span><a class="btn pri" id="wz-dl" hidden>Download marketplace file</a> <button class="btn pri" id="wz-go" disabled>Start AI fill</button></span></div>`)}
 
   ${alertBox("info", "Next: upload the downloaded file in Seller Central (Amazon: Add Products via Upload · Flipkart: Add Listings in Bulk → Manual-filling Excel Template → Upload filled template → Send to QC). Don't rename the file — Flipkart rejects renamed templates; we keep its original name for you. Rows that need a fix are listed so you can correct them in Drafts.")}
-  <script>${script()}</script>`;
+  <script src="/commonimg.js" defer></script><script>${script()}</script>`;
   return shell(user, "/app/wizard", body);
 }
 
@@ -139,7 +140,7 @@ function script() {
     "  upload(f,'application/zip').then(function(fid){ return api('POST','/api/jobs',{type:'image_zip',input:{fileId:fid,prep:$('wz-prep').value}}); })",
     "  .then(function(j){ return watch(j.job.id,'wz-zip-bar',function(x){msg('wz-zip-msg',esc(x.currentStage||'Working')+' \\u00b7 '+(x.completedItems||0)+' / '+(x.totalItems||0));}).then(function(x){ return {id:j.job.id,job:x}; }); })",
     "  .then(function(o){ if(o.job.status==='FAILED')throw new Error(o.job.error||'Image upload failed.');",
-    "    return api('GET','/api/image-assets?jobId='+o.id).then(function(a){ S.imgJobId=o.id; S.zipCount=a.total;",
+    "    return api('GET','/api/image-assets?jobId='+o.id).then(function(a){ S.imgJobId=o.id; S.zipCount=a.total; if(window.openCommonImages)openCommonImages({auto:true});",
     "     msg('wz-zip-msg','\\u2705 <b>'+a.total+' images</b> for <b>'+a.skus+' SKUs</b>'+(o.job.failedItems?(' \\u00b7 \\u26A0 '+o.job.failedItems+' could not be used'):'')+'. Check a few, then confirm.');",
     "     $('wz-thumbs').innerHTML=a.assets.slice(0,24).map(function(x){return '<a href=\"'+esc(x.url)+'\" target=\"_blank\" rel=\"noopener\" title=\"'+esc((x.sku||'?')+' \\u00b7 '+x.filename)+'\"><img loading=\"lazy\" src=\"'+esc(x.url)+'\" alt=\"'+esc(x.sku||'')+'\"></a>';}).join('');",
     "     $('wz-zip-okwrap').hidden=false; }); })",
@@ -201,6 +202,7 @@ function script() {
     "       +(nF?'<div style=\"margin-top:10px\"><label style=\"font-weight:600;font-size:13px\">Features \u2014 tap the ones true for your product</label><div id=\"wz-chips\" style=\"display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;max-height:150px;overflow:auto\">Loading Flipkart\u2019s list\u2026</div></div>':'')",
     "       +'<button class=\"btn pri\" id=\"wz-fill-go\" style=\"margin-top:10px\">Save &amp; build my file</button> <span id=\"wz-fill-msg\" style=\"font-size:13px\"></span></div>'; }",
     "     h+='<div style=\"font-size:13px;margin-top:6px\">Or fix: add the value to your <b>defaults</b> (step 4) or as a column in your <b>product sheet</b>, add <b>photos</b> (step 3) for image columns \\u2014 then press <b>Back</b> and run again.</div>'; }",
+    "   var why=[]; if((r.dupes||[]).length) why.push('⚠ <b>Possible duplicates for Flipkart QC</b> — same screen model listed twice: '+esc(r.dupes.slice(0,6).map(function(d){return d.sku+' = '+d.sameAs;}).join(', '))+'. Keep one row per screen model.'); if((r.photoMismatch||[]).length) why.push('⚠ <b>Photo does not match its name</b> (checked by Jev): '+esc(r.photoMismatch.slice(0,5).map(function(m){return m.name+' looks like '+m.seen;}).join('; '))+'. We kept your file name — please check those photos.'); if(why.length)h+='<div style=\"margin-top:10px;font-size:13px;color:#b45309\">'+why.join('<br>')+'</div>';",
     "   if(r.imageMatch&&r.imageMatch.unmatchedSkus.length)h+='<br><small style=\"color:var(--soft)\">Photo SKUs not in your sheet: '+esc(r.imageMatch.unmatchedSkus.slice(0,10).join(', '))+'</small>';",
     "   var fx=r.needsFix||[]; if(fx.length)h+='<table class=\"tbl\" style=\"margin-top:10px\"><tr><th>SKU</th><th>What to fix</th></tr>'+fx.map(function(f){return '<tr><td>'+esc(f.sku||'-')+'</td><td>'+esc((f.errors||[]).join('; '))+'</td></tr>';}).join('')+'</table><a href=\"/app/listings\">Fix in Drafts \\u2192</a>';",
     "   msg('wz-run-msg',''); $('wz-done').hidden=false; $('wz-done').innerHTML=h; if($('wz-fill'))wireFill(r);",

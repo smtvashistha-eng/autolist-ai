@@ -23,8 +23,8 @@ function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
   input.extra = row;
   if (vis) {
     input.photoRead = vis;
-    if (!input.size && vis.screenInch) input.size = vis.screenInch + " inch";
-    if (!input.designedFor && vis.model && vis.confidence >= 0.6) input.designedFor = [vis.brand, vis.model].filter(Boolean).join(" ").slice(0, 120);
+    // the seller's file name decides the model; the photo only adds the screen size when the name has none
+    if (!input.size && vis.screenInch && !require("./ai/vision").sizeFromText(input.productName)) input.size = vis.screenInch + " inch";
   }
   // price from the seller's size table (Marketplace defaults) when the row has none
   if (!input.price) {
@@ -41,6 +41,8 @@ function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
     const k = [row.photokey, input.sku, input.productName].map(v => String(v || "").trim().toLowerCase()).find(v => v && imgMap[v]);
     if (k) { input.images = imgMap[k]; imgMap.__matched.add(k); }
   }
+  // seller's common images (back, features, box) go after this product's own photos
+  { const ci = require("./commonimages"); if (ci.list(biz).length) input.images = ci.merge(input.images, biz, marketplace); }
   const now = nowISO();
   const productId = rid("p_");
   db.prepare(`INSERT INTO products(id,business_id,sku,name,brand,category,status,source_data_json,normalized_data_json,created_at,updated_at)
@@ -155,7 +157,8 @@ queue.register("bulk_pipeline", async (job, ctx) => {
 
   const prev = JSON.parse(job.result_json || "null") || {};
   let draftIds = prev.draftIds || [];
-  let completed = job.completed_items || 0, failed = job.failed_items || 0, hitLimit = false, skipped = 0;
+  let completed = job.completed_items || 0, failed = job.failed_items || 0, hitLimit = false, skipped = 0, photoMismatch = null;
+  const seenFor = {}, dupes = [];   // same "Designed For" twice in one batch = Flipkart duplicate rejection
   const provider = getTextProvider();
 
   ctx.stage("Generating content");
@@ -170,13 +173,17 @@ queue.register("bulk_pipeline", async (job, ctx) => {
     try {
       if (imgMap && rows[i].photokey && !rows[i]._vision) {   // AI reads the main photo: device, model, screen size
         const urls = imgMap[String(rows[i].photokey).toLowerCase()] || [];
-        if (urls[0]) { ctx.stage("Reading photos"); rows[i]._vision = await require("./ai/vision").readPhoto(urls[0], rows[i].name, biz); ctx.stage("Generating content"); }
+        if (urls[0]) { ctx.stage("Reading photos"); rows[i]._vision = await require("./ai/vision").readPhoto(urls[0], rows[i].name, biz); 
+          const v = rows[i]._vision, seen = v && [v.brand, v.model].filter(Boolean).join(" ");
+          if (seen) { const same = await require("./ai/jev").photoMatchesName(rows[i].name, seen, biz); if (same !== null && same < 0.4) { ctx.warn("Photo for " + rows[i].name + " looks like " + seen + " — kept your file name; please check the photo."); (photoMismatch = photoMismatch || []).push({ sku: rows[i].sku, name: rows[i].name, seen }); } }
+          ctx.stage("Generating content"); }
       }
       const productId = generateOneFromRow(biz, rows[i], map, marketplace, provider, imgMap);
       if (!productId) { skipped++; ctx.item("row", `row${i + 1}`, "skipped", "no product name"); }
       else {
         const p = db.prepare("SELECT * FROM products WHERE id=?").get(productId);
         const conf = JSON.parse(p.normalized_data_json || "{}");
+        { const k = String(conf.designedFor || "").toLowerCase().replace(/\s+/g, " ").trim(); if (k) { if (seenFor[k]) dupes.push({ sku: p.sku, sameAs: seenFor[k], designedFor: conf.designedFor }); else seenFor[k] = p.sku; } }
         if (tplAllowed) {
           const pk = await attributes.pick(conf, tplAllowed, biz);
           conf.picks = pk.values; conf.picksSource = pk.source;
@@ -230,7 +237,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   }
   const quality = qualities.length ? { by: "jev", avg: Math.round(qualities.reduce((a, q) => a + q.score, 0) / qualities.length), low: qualities.filter(q => q.score < 50).slice(0, 50) } : null;
   const imageMatch = imgMap ? { skusWithImages: Object.keys(imgMap).length, matched: imgMap.__matched.size, unmatchedSkus: Object.keys(imgMap).filter(k => !imgMap.__matched.has(k)).slice(0, 50) } : null;
-  return { generated: completed, failed, hitLimit, total: rows.length, skipped, tplNote, templateId, columns: Object.keys(rows[0] || {}).slice(0, 12), nameColumn: (map.productName || {}).column || null, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality, alreadyLive };
+  return { generated: completed, failed, hitLimit, total: rows.length, skipped, tplNote, templateId, photoMismatch, dupes: dupes.slice(0, 50), columns: Object.keys(rows[0] || {}).slice(0, 12), nameColumn: (map.productName || {}).column || null, ready: readyIds.length, needsFixCount: needsFix.length, needsFix: needsFix.slice(0, 50), exportId, exportBlocked, exportIssues, draftIds, imageMatch, quality, alreadyLive };
 });
 
 // ---- image_zip (R2): unzip product photos -> validate -> host publicly -> record SKU links ----

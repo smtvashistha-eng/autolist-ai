@@ -89,4 +89,24 @@ router.post("/support/ticket", auth.requireAuth, (req, res) => {
   res.status(201).json({ ticket: id });
 });
 
+// images added to EVERY product (back of the box, feature card…): upload once, or paste links
+router.get("/image/common", auth.requireAuth, (req, res) => res.json({ urls: require("../commonimages").list(req.user.business_id) }));
+router.put("/image/common", auth.requireAuth, (req, res) => {
+  const urls = require("../commonimages").save(req.user.business_id, Array.isArray((req.body || {}).urls) ? req.body.urls : []);
+  audit.record({ businessId: req.user.business_id, userId: req.user.id, action: "images.common", resourceType: "images", resourceId: "common", metadata: { count: urls.length }, ip: audit.ipOf(req) });
+  res.json({ urls });
+});
+router.post("/image/common", auth.requireAuth, express.json({ limit: "16mb" }), async (req, res) => {
+  const biz = req.user.business_id, m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(String((req.body || {}).imageBase64 || ""));
+  if (!m) return res.status(400).json({ error: "Choose a JPG, PNG or WEBP image." });
+  const buf = Buffer.from(m[2], "base64");
+  if (buf.length > 10 * 1024 * 1024) return res.status(413).json({ error: "Image is too large (max 10 MB)." });
+  const ci = require("../commonimages");
+  if (ci.list(biz).length >= 8) return res.status(400).json({ error: "Up to 8 common images — remove one first." });
+  try {
+    const up = await require("../imagehost").upload(buf, m[1] === "jpeg" ? "jpg" : m[1], biz, "common");
+    res.status(201).json({ url: up.url, urls: ci.save(biz, [...ci.list(biz), up.url]) });
+  } catch (e) { res.status(500).json({ error: "Couldn't host the image — please try again." }); }
+});
+
 module.exports = router;

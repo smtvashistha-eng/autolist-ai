@@ -48,7 +48,9 @@ const ruleApplied = (t) => /front (and|&) back/.test(t) ? "Front & Back" : (/\bb
 // allowed: { type:[...], features:[...], suitablefor:[...], appliedon:[...] } (normalized header keys)
 async function pick(product, allowed, biz = null) {
   if (!allowed || !Object.keys(allowed).length) return {};
-  const text = lc([product.productName, product.category, ...(product.features || []), product.description].filter(Boolean).join(" \n "));
+  // the seller's own description of their product (Brand Memory) counts as stated — e.g. "matte anti-glare guard"
+  let sellerSays = ""; try { const bp = biz ? require("./brand").getProfile(biz) : null; if (bp) sellerSays = [bp.sells, bp.instructions].filter(Boolean).join(" "); } catch {}
+  const text = lc([product.productName, product.category, ...(product.features || []), product.description, sellerSays].filter(Boolean).join(" \n "));
   const designed = product.designedFor || designedFor(product.productName);
   const out = {}, src = {};
   if (allowed.type) { out.type = snap(allowed.type, ruleType(text)); src.type = "rule"; }
@@ -65,9 +67,9 @@ async function pick(product, allowed, biz = null) {
     choice("type", "Which product type is this, based only on the product text?");
     choice("suitablefor", "Which device is this screen guard for?");
     choice("appliedon", "Which side of the device is it applied on?");
-    if (allowed.features && !out.features.length) q.features = { type: "choice", instructions: "Which ONE feature is explicitly stated in the product text?", criteria: Object.fromEntries([...allowed.features.slice(0, 253).map(v => [v, v]), ["none", "No listed feature is stated in the text"]]) };
+    if (allowed.features && !out.features.length) q.features = { type: "choice", instructions: "Which ONE feature is explicitly stated in the product text or in how the seller describes their product?", criteria: Object.fromEntries([...allowed.features.slice(0, 253).map(v => [v, v]), ["none", "No listed feature is stated in the text"]]) };
     if (Object.keys(q).length) {
-      const a = await jev.ask({ product: { name: product.productName, features: product.features || [], designedFor: designed } }, q, biz);
+      const a = await jev.ask({ product: { name: product.productName, features: product.features || [], designedFor: designed, sellerDescribesProductAs: sellerSays.slice(0, 600) } }, q, biz);
       if (a) for (const k of Object.keys(q)) {
         const ans = a[k]; if (!ans || !ans.choice || (ans.confidence ?? 0) < 0.6) continue;
         const v = snap(allowed[k], ans.choice); if (!v) continue;

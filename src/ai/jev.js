@@ -43,6 +43,10 @@ async function review(result, { marketplace = "amazon", product = {}, categories
     quality: { type: "score", instructions: `How good is this ${marketplace} product listing for a shopper and for the marketplace's listing rules?`, criteria: QUALITY_LEVELS },
     risky_claim: { type: "noul", instructions: "Does the listing make a superlative or unverifiable claim (e.g. best, No.1, 100%, guaranteed, lifetime, medical/safety claims) or state a fact not present in product?",
       criteria: { true: "Contains a superlative, guarantee or unsupported factual claim", false: "Only neutral, supported statements" } },
+    qc_risk: { type: "score", instructions: `How likely is ${marketplace} catalog QC to REJECT this listing (wrong or vague title format, product type unclear, missing compatibility, spammy text)?`,
+      criteria: ["Very unlikely to be rejected", "Unlikely", "Possible", "Likely", "Very likely to be rejected"] },
+    keyword_stuffing: { type: "noul", instructions: "Are the title or keywords stuffed (same words repeated many times, unrelated search terms, or other brands listed as if they were this product's brand)?",
+      criteria: { true: "Stuffed or misleading keywords", false: "Clean, relevant keywords" } },
     title_matches_product: { type: "noul", instructions: "Is the listing title about the same product as product.name?",
       criteria: { true: "Same product", false: "Different or unrelated product" } },
   };
@@ -58,10 +62,22 @@ async function review(result, { marketplace = "amazon", product = {}, categories
     result.quality = { score: Math.round(a.quality.score / (QUALITY_LEVELS.length - 1) * 100), confidence: a.quality.confidence ?? null, by: "jev" };
     if (result.quality.score < 50) result.warnings.push(`Quality check: this listing scored ${result.quality.score}/100 — consider regenerating or adding product details.`);
   }
+  if (a.qc_risk && typeof a.qc_risk.score === "number") {
+    result.qcRisk = Math.round(a.qc_risk.score / 4 * 100);
+    if (result.qcRisk >= 75) result.warnings.push("QC check: this listing has a high chance of QC rejection (" + result.qcRisk + "%) — review the title and product type.");
+  }
+  if (a.keyword_stuffing && a.keyword_stuffing.noul >= 0.7) result.warnings.push("QC check: keywords look stuffed or mention other brands as yours — marketplaces penalise this.");
   if (a.risky_claim && a.risky_claim.noul >= 0.7) result.warnings.push("Quality check: the text may contain a superlative or unsupported claim that marketplaces reject — please review.");
   if (a.title_matches_product && a.title_matches_product.noul <= 0.3) result.warnings.push("Quality check: the title may not match this product — please review before exporting.");
   if (a.category && a.category.choice && a.category.choice !== "other" && (a.category.confidence ?? 1) >= 0.6) result.suggestedCategory = a.category.choice;
   return result;
 }
 
-module.exports = { enabled, ask, review, QUALITY_LEVELS };
+// does what the AI saw in the photo match the product the seller named? (the seller's name always wins)
+async function photoMatchesName(name, seen, biz = null) {
+  if (!enabled() || !seen) return null;
+  const a = await ask({ fileName: String(name).slice(0, 160), photoShows: seen }, { same: { type: "noul", instructions: "Is the device seen in the photo the same model family as the file name (ignore RAM/storage/colour)?", criteria: { true: "Same device / model", false: "Different device or model" } } }, biz);
+  return a && a.same && typeof a.same.noul === "number" ? a.same.noul : null;
+}
+
+module.exports = { enabled, ask, review, photoMatchesName, QUALITY_LEVELS };

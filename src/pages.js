@@ -1104,6 +1104,7 @@ function bulkPro(user) {
           <option value="remove_bg"${require("./ai/imageAIProvider").canRemoveBg() ? "" : " disabled"}>AI background removal${require("./ai/imageAIProvider").canRemoveBg() ? "" : " (needs image AI key)"}</option>
         </select>
         <button type="button" class="btn ghost" id="bp-zip-pick">${ic("M12 16V4M8 8l4-4 4 4M4 20h16")} Upload images ZIP</button>
+        <button type="button" class="btn ghost" onclick="openCommonImages()" title="Back of box, feature card… added to every product">+ Back &amp; extra images (all products)</button>
         <span id="bp-zip-status" style="font-size:13px;color:var(--soft)">Name photos by SKU: <b>SK-1_1.jpg, SK-1_2.jpg</b> … or one folder per SKU. We host them and put the links in your file.</span>
         <input type="file" id="bp-zip" accept=".zip,application/zip" hidden>
       </div>
@@ -1156,7 +1157,7 @@ function bulkPro(user) {
       <table style="margin-top:8px"><thead><tr><th>SKU</th><th>What to fix</th></tr></thead><tbody id="bp-fixes"></tbody></table>
     </div>
   </div>
-  <script>${bulkProScript()}</script>`;
+  <script src="/commonimg.js" defer></script><script>${bulkProScript()}</script>`;
   return shell(user, "/app/bulk", body);
 }
 function bulkProScript() {
@@ -1216,7 +1217,7 @@ function bulkProScript() {
     "   $('bp-zip-result').hidden=false;",
     "   $('bp-zip-summary').innerHTML='\\u2705 <b>'+a.total+' images</b> hosted for <b>'+a.skus+' SKUs</b>'+(j.failedItems?(' \\u00b7 \\u26A0 '+j.failedItems+' could not be used'):'')+'. Check the thumbnails, then tick the box.';",
     "   $('bp-zip-thumbs').innerHTML=a.assets.slice(0,30).map(function(x){return '<a href=\"'+esc(x.url)+'\" target=\"_blank\" rel=\"noopener\" title=\"'+esc(x.filename)+'\" style=\"display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff\"><img src=\"'+esc(x.url)+'\" alt=\"'+esc(x.sku)+'\" loading=\"lazy\" style=\"width:100%;height:80px;object-fit:contain\"><div style=\"font-size:10.5px;padding:3px 6px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">'+esc(x.sku)+(x.position?(' #'+x.position):'')+'</div></a>';}).join('');",
-    "   imgJobId=id; zstat('Images ready and hosted.'); if(!fileId){ $('bp-go').disabled=false; setStatus('Photos ready. No sheet needed \u2014 click Generate and each photo name becomes a product.'); } });",
+    "   imgJobId=id; zstat('Images ready and hosted.'); if(window.openCommonImages)openCommonImages({auto:true}); if(!fileId){ $('bp-go').disabled=false; setStatus('Photos ready. No sheet needed \u2014 click Generate and each photo name becomes a product.'); } });",
     "}",
     "$('bp-go').onclick=function(){ if((!fileId&&!imgJobId)||busy)return;",
     "  var mkt=(document.querySelector('input[name=bpmkt]:checked')||{}).value||'amazon';",
@@ -1249,6 +1250,7 @@ function bulkProScript() {
     "  else { var why=[];",
     "    if(!r.total) why.push('Your sheet had <b>no product rows</b> \u2014 check that row 1 has column names (sku, name, price\u2026) and products start on row 2.');",
     "    if(r.tplNote&&r.tplNote.indexOf('photos')>-1) why.unshift('\u2139\uFE0F Your sheet was a <b>blank template</b> \u2014 we saved it and made one product per photo, filled into your own template file.');",
+    "    if((r.dupes||[]).length) why.push('⚠ <b>Possible duplicates for Flipkart QC</b> — same screen model listed twice: '+esc(r.dupes.slice(0,6).map(function(d){return d.sku+' = '+d.sameAs;}).join(', '))+'. Keep one row per screen model.'); if((r.photoMismatch||[]).length) why.push('⚠ <b>Photo does not match its name</b> (checked by Jev): '+esc(r.photoMismatch.slice(0,5).map(function(m){return m.name+' looks like '+m.seen;}).join('; '))+'. We kept your file name — please check those photos.');",
     "    if(r.skipped) why.push('<b>'+r.skipped+' rows were skipped</b> \u2014 no product name or SKU found. Columns we saw: <i>'+esc((r.columns||[]).join(', '))+'</i>. Add a column called <b>name</b> (or <b>sku</b>), or skip the sheet and upload only photos named by product.');",
     "    if(r.hitLimit) why.push('You reached your plan\\'s monthly AI listing limit \u2014 <a href=\"/app/billing\">see Billing</a>.');",
     "    if(r.total&&!r.generated&&r.failed) why.push('The AI couldn\\'t write these listings ('+r.failed+' failed). Please try again in a minute.');",
