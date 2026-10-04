@@ -147,14 +147,14 @@ const anthropicProvider = {
         res._provider = out.provider; res._model = out.model;
         // CHECK with Jev; rewrite once, only when it finds a concrete problem
         await jev.review(res, { marketplace: input.marketplace, product: input.product || {}, categories: (input.brandProfile && input.brandProfile.categories) || [], biz });
-        best = res;
+        if (!best || ((res.quality && res.quality.score) || 0) >= ((best.quality && best.quality.score) || 0)) best = res;
         const found = [];
-        if (res.quality && res.quality.score < 50) found.push("quality is low: be more specific about the product and its use");
+        if (res.quality && res.quality.score < 70) found.push("quality is " + res.quality.score + "/100: name the exact device in the title, give specific benefits for that device, and use the search words shoppers type");
         for (const w of res.warnings || []) {
           if (/unsupported claim|superlative/i.test(w)) found.push("remove any superlative or unsupported claim");
           if (/title may not match/i.test(w)) found.push("the title must clearly name this exact product");
         }
-        if (!found.length || attempt === 1) return res;
+        if (!found.length || attempt === 1) return best;
         issues = [...new Set(found)];
         lastErr = "jev: " + issues.join("; ");
       } catch (e) { lastErr = String(e.message || e); }

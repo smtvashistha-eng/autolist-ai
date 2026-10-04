@@ -19,7 +19,19 @@ function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
   // no name column: fall back to model / SKU so photo-matched rows still become listings
   if (!input.productName) { const k = Object.keys(row).find(c => /model|designed ?for|description|item/i.test(c) && String(row[c]).trim().length > 2); input.productName = (k && String(row[k]).trim()) || (input.sku ? String(input.sku).replace(/[_-]+/g, " ").trim() : ""); }
   if (!input.productName) return null;
-  input.extra = row;                                   // R5: keep every original column — the seller's values always win
+  const vis = row._vision || null; delete row._vision;
+  input.extra = row;
+  if (vis) {
+    input.photoRead = vis;
+    if (!input.size && vis.screenInch) input.size = vis.screenInch + " inch";
+    if (!input.designedFor && vis.model && vis.confidence >= 0.6) input.designedFor = [vis.brand, vis.model].filter(Boolean).join(" ").slice(0, 120);
+  }
+  // price from the seller's size table (Marketplace defaults) when the row has none
+  if (!input.price) {
+    const V = require("./ai/vision"), d = require("./listingDefaults").get(biz, marketplace).values || {};
+    const pr = V.priceForSize(d.priceBySize, (vis && vis.screenInch) || V.sizeFromText(input.size) || V.sizeFromText(input.productName));
+    if (pr) { input.price = String(pr.price); if (!input.mrp) input.mrp = String(pr.mrp); input.priceRule = pr.size + " inch row"; }
+  }                                   // R5: keep every original column — the seller's values always win
   if (!input.designedFor) input.designedFor = require("./attributes").designedFor(input.productName);
   // photo named just by device ("Apple MacBook Air M1") in an accessory category → that device is what it's designed for
   if (!input.designedFor && /guard|glass|protector|case|cover|skin|film/i.test(input.category || "") && !/guard|glass|protector|case|cover|skin|film/i.test(input.productName)) input.designedFor = String(input.productName).slice(0, 120);
@@ -156,6 +168,10 @@ queue.register("bulk_pipeline", async (job, ctx) => {
     if (ctx.cancelled()) break;
     if (!meter.canUse(biz, "listings")) { hitLimit = true; ctx.warn("Plan listing limit reached — stopping generation."); break; }
     try {
+      if (imgMap && rows[i].photokey && !rows[i]._vision) {   // AI reads the main photo: device, model, screen size
+        const urls = imgMap[String(rows[i].photokey).toLowerCase()] || [];
+        if (urls[0]) { ctx.stage("Reading photos"); rows[i]._vision = await require("./ai/vision").readPhoto(urls[0], rows[i].name, biz); ctx.stage("Generating content"); }
+      }
       const productId = generateOneFromRow(biz, rows[i], map, marketplace, provider, imgMap);
       if (!productId) { skipped++; ctx.item("row", `row${i + 1}`, "skipped", "no product name"); }
       else {

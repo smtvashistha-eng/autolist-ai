@@ -12,11 +12,12 @@ const PROVIDERS = {
   claude: {
     key: () => process.env.ANTHROPIC_API_KEY,
     model: () => process.env.ANTHROPIC_MODEL || "claude-sonnet-5",
-    async call({ system, user, maxTokens }) {
+    async call({ system, user, maxTokens, images }) {
+      const content = images && images.length ? [...images.map(im => ({ type: "image", source: { type: "base64", media_type: im.mime, data: im.b64 } })), { type: "text", text: user }] : user;
       const r = await fetch((process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com") + "/v1/messages", {
         method: "POST", signal: AbortSignal.timeout(90000),
         headers: { "content-type": "application/json", "x-api-key": this.key(), "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: this.model(), max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
+        body: JSON.stringify({ model: this.model(), max_tokens: maxTokens, system, messages: [{ role: "user", content }] }),
       });
       if (!r.ok) throw new Error("Claude HTTP " + r.status);
       const d = await r.json();
@@ -27,13 +28,13 @@ const PROVIDERS = {
   gemini: {
     key: () => process.env.GEMINI_API_KEY,
     model: () => process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    async call({ system, user, maxTokens, json }) {
+    async call({ system, user, maxTokens, json, images }) {
       const r = await fetch(`${process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com"}/v1beta/models/${encodeURIComponent(this.model())}:generateContent`, {
         method: "POST", signal: AbortSignal.timeout(90000),
         headers: { "content-type": "application/json", "x-goog-api-key": this.key() },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: user }] }],
+          contents: [{ role: "user", parts: [...(images || []).map(im => ({ inline_data: { mime_type: im.mime, data: im.b64 } })), { text: user }] }],
           generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 }, ...(json ? { responseMimeType: "application/json" } : {}) },
         }),
       });
@@ -56,14 +57,14 @@ function available() {
 const enabled = () => available().length > 0;
 
 // returns { text, provider, model } or throws with the last error when every provider failed
-async function chat({ system, user, maxTokens = 1500, json = true, biz = null }) {
+async function chat({ system, user, maxTokens = 1500, json = true, biz = null, images = null }) {
   const list = available();
   if (!list.length) throw new Error("No text AI key set.");
   let last = null;
   for (const name of list) {
     const p = PROVIDERS[name];
     try {
-      const out = await p.call({ system, user, maxTokens, json });
+      const out = await p.call({ system, user, maxTokens, json, images });
       const [pi, po] = PRICE[name];
       logCost(biz, name, "text:" + out.inTok + "/" + out.outTok, (out.inTok * pi + out.outTok * po) / 1e6);
       return { text: out.text, provider: name, model: p.model() };

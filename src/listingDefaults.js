@@ -6,6 +6,7 @@ const { db, nowISO } = require("./db");
 
 const FIELDS = {
   flipkart: [
+    { key: "priceBySize", label: "Price by screen size", cols: [], long: true, hint: "One per line: size:selling price:MRP — e.g. 14:199:699. We read the size from the photo or name and use the nearest row" },
     { key: "defaultPrice", label: "Default selling price (₹)", cols: ["yoursellingpriceinr"], type: "number", hint: "Used only when a product has no price of its own (e.g. photos-only listings)" },
     { key: "defaultMrp", label: "Default MRP (₹)", cols: ["mrpinr"], type: "number", hint: "Used only when a product has no MRP of its own" },
     { key: "defaultType", label: "Default type", cols: ["type"], hint: "Exactly as in Flipkart's list, e.g. Screen Guard — used when the product text doesn't say" },
