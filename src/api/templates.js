@@ -63,7 +63,7 @@ router.get("/templates", auth.requireAuth, (req, res) => {
 router.get("/templates/:id", auth.requireAuth, (req, res) => {
   const t = own(req, req.params.id);
   if (!t) return res.status(404).json({ error: "Template not found." });
-  res.json({ template: shape(t), fields: fields(t.id) });
+  res.json({ template: shape(t), fields: fields(t.id), allowed: (JSON.parse(t.schema_json || "{}") || {}).allowed || {} });
 });
 
 router.get("/templates/:id/schema", auth.requireAuth, (req, res) => {

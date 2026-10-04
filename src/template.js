@@ -149,6 +149,12 @@ function valueFor(headerName, L, allowed) {
   else if (n === "weight" || n === "itemweight") v = i.weight || "";
   else if (has("countryoforigin")) v = i.countryOfOrigin || "";
   if (v !== undefined && v !== null && String(v).trim() !== "") return done(v);
+  // 3a) price / MRP from the seller's "Price by screen size" table
+  if (has("sellingprice", "yoursellingprice", "mrp") && d.defaults && d.defaults.priceBySize) {
+    const V = require("./ai/vision");
+    const pr = V.priceForSize(d.defaults.priceBySize, V.sizeFromText(i.size) || V.sizeFromText(i.productName) || V.sizeFromText(i.designedFor));
+    if (pr) return done(String(has("mrp") ? pr.mrp : pr.price));
+  }
   // 3) seller's saved marketplace defaults (stock, HSN, package size, manufacturer …)
   const dv = require("./listingDefaults").valueForColumn(mk, d.defaults, n);
   if (dv !== undefined) return done(dv);

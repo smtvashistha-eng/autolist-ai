@@ -1137,6 +1137,20 @@ function bulkPro(user) {
       <a class="btn ghost" id="bp-images-dl" hidden>Download images ZIP</a>
       <button class="btn ghost" id="bp-again">Start another</button>
     </div>
+    <div id="bp-fill" hidden class="card" style="margin-top:16px;padding:16px;border:1.5px solid var(--brand,#2563eb);border-radius:12px">
+      <b style="font-size:15px">Fill these once — we save them and build your file</b>
+      <p class="muted" style="margin:4px 0 12px;font-size:13px">Saved to your Marketplace defaults, so next time it's automatic.</p>
+      <div id="bp-fill-price" hidden style="margin-bottom:12px">
+        <label style="font-weight:600;font-size:13.5px">Price by screen size <span class="muted" style="font-weight:400">— one per line: size:selling price:MRP</span></label>
+        <textarea id="bp-pbs" rows="5" style="width:100%;margin-top:6px;font-family:monospace" placeholder="13:199:699&#10;14:199:699&#10;15.6:239:899&#10;16:249:899"></textarea>
+        <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap"><label style="font-size:13px">Or one price for all: ₹ <input id="bp-dp" type="number" min="1" style="width:90px" placeholder="price"></label><label style="font-size:13px">MRP ₹ <input id="bp-dm" type="number" min="1" style="width:90px" placeholder="MRP"></label></div>
+      </div>
+      <div id="bp-fill-feat" hidden style="margin-bottom:12px">
+        <label style="font-weight:600;font-size:13.5px">Features <span class="muted" style="font-weight:400">— tap the ones true for your product (from Flipkart's list)</span></label>
+        <div id="bp-feat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:150px;overflow:auto"></div>
+      </div>
+      <button class="btn pri" id="bp-fill-go">Save &amp; build my file</button> <span id="bp-fill-msg" style="font-size:13px;margin-left:8px"></span>
+    </div>
     <div id="bp-fixwrap" hidden style="margin-top:16px">
       <b style="font-size:14px">Rows that need a fix</b>
       <table style="margin-top:8px"><thead><tr><th>SKU</th><th>What to fix</th></tr></thead><tbody id="bp-fixes"></tbody></table>
@@ -1247,9 +1261,32 @@ function bulkProScript() {
     "  if(r.exportId){ fetch('/api/exports/'+r.exportId).then(function(x){return x.json();}).then(function(e){ var ex=e.export||{};",
     "     if(ex.downloadUrl){var a=$('bp-download');a.href=ex.downloadUrl;a.hidden=false;}",
     "     if(ex.imagesUrl){var b=$('bp-images-dl');b.href=ex.imagesUrl;b.hidden=false;} }); }",
+    "  showFill(r);",
     "  var fixes=r.needsFix||[]; if(fixes.length){ $('bp-fixwrap').hidden=false; $('bp-fixes').innerHTML=fixes.map(function(f){return '<tr><td>'+esc(f.sku||'-')+'</td><td style=\"color:var(--soft)\">'+esc((f.errors||[]).join('; '))+'</td></tr>';}).join(''); }",
     "}",
-    "$('bp-again').onclick=function(){ fileId=null;jobId=null; $('bp-file').value=''; $('bp-file-name').textContent='Drag & drop your file here'; $('bp-go').disabled=true; $('bp-prog').hidden=true; $('bp-result').hidden=true; $('bp-fixwrap').hidden=true; $('bp-download').hidden=true; $('bp-images-dl').hidden=true; imgJobId=null; $('bp-zip').value=''; $('bp-zip-result').hidden=true; $('bp-zip-bar').hidden=true; $('bp-links-ok').checked=false; zstat('Name photos by SKU: SK-1_1.jpg, SK-1_2.jpg \\u2026 or one folder per SKU.'); setStatus('Choose a file to begin.'); };",
+    "var lastR=null, featPick={};",
+    "function showFill(r){ lastR=r; var errs=[].concat(r.needsFix||[],r.exportIssues||[]).map(function(f){return (f.errors||[]).join(' ');}).join(' ');",
+    "  var needPrice=/MRP|selling price/i.test(errs), needFeat=/\"Features\"/.test(errs); if(!(needPrice||needFeat)||!r.draftIds||!r.draftIds.length){$('bp-fill').hidden=true;return;}",
+    "  $('bp-fill').hidden=false; $('bp-fill-price').hidden=!needPrice; $('bp-fill-feat').hidden=!needFeat; $('bp-fill-msg').textContent='';",
+    "  if(needFeat&&r.templateId) fetch('/api/templates/'+r.templateId).then(function(x){return x.json();}).then(function(t){ var list=((t.allowed||{}).features||[]).slice(0,80);",
+    "    $('bp-feat-chips').innerHTML=list.map(function(v){return '<button type=\"button\" class=\"chip\" data-v=\"'+esc(v)+'\" style=\"padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12.5px;cursor:pointer\">'+esc(v)+'</button>';}).join('')||'<input id=\"bp-feat-txt\" placeholder=\"e.g. Scratch Resistant::Anti Glare\" style=\"width:100%\">';",
+    "    [].forEach.call(document.querySelectorAll('#bp-feat-chips .chip'),function(b){ b.onclick=function(){ var v=b.getAttribute('data-v'); featPick[v]=!featPick[v]; b.style.background=featPick[v]?'var(--brand,#2563eb)':'#fff'; b.style.color=featPick[v]?'#fff':''; }; }); }); }",
+    "$('bp-fill-go').onclick=function(){ var r=lastR; if(!r)return; var mkt=(document.querySelector('input[name=bpmkt]:checked')||{}).value||'flipkart';",
+    "  var feats=Object.keys(featPick).filter(function(k){return featPick[k];}).join('::')||(($('bp-feat-txt')||{}).value||'');",
+    "  var pbs=$('bp-pbs').value.trim(), dp=$('bp-dp').value, dm=$('bp-dm').value;",
+    "  if(!$('bp-fill-price').hidden&&!pbs&&!(dp&&dm)){ $('bp-fill-msg').textContent='Add the size price list, or one price + MRP.'; return; }",
+    "  if(!$('bp-fill-feat').hidden&&!feats){ $('bp-fill-msg').textContent='Pick at least one feature.'; return; }",
+    "  $('bp-fill-go').disabled=true; $('bp-fill-msg').textContent='Saving and building your file\u2026';",
+    "  fetch('/api/listing-defaults/'+mkt).then(function(x){return x.json();}).then(function(cur){ var v=Object.assign({},cur.values||{});",
+    "    if(pbs)v.priceBySize=pbs; if(dp)v.defaultPrice=dp; if(dm)v.defaultMrp=dm; if(feats)v.defaultFeatures=feats;",
+    "    return fetch('/api/listing-defaults/'+mkt,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(v)}); })",
+    "  .then(function(){ return fetch('/api/exports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({draftIds:r.draftIds,marketplace:mkt,templateId:r.templateId||null})}); })",
+    "  .then(function(x){return x.json().then(function(j){return {s:x.status,j:j};});}).then(function(x){ $('bp-fill-go').disabled=false;",
+    "    if(x.s===201&&x.j.export){ $('bp-fill').hidden=true; $('bp-fixwrap').hidden=true; var a=$('bp-download'); a.href=x.j.export.downloadUrl||('/api/exports/'+x.j.export.id+'/download'); a.hidden=false; $('bp-summary').innerHTML='\u2705 <b>'+r.draftIds.length+' listings ready</b> \u2014 your file is built. Click <b>Download marketplace file</b>.'; return; }",
+    "    var items=((x.j.report||{}).items||[]).filter(function(i){return !i.valid;}); var left={}; items.forEach(function(i){(i.blockingErrors||[]).forEach(function(e){left[e.message]=1;});});",
+    "    $('bp-fill-msg').innerHTML='<span style=\"color:var(--err)\">Still missing: '+esc(Object.keys(left).slice(0,4).join(' '))+' \u2014 fill it in <a href=\"/app/brand/defaults\">Marketplace defaults</a>.</span>'; })",
+    "  .catch(function(e){ $('bp-fill-go').disabled=false; $('bp-fill-msg').textContent=e.message; }); };",
+    "$('bp-again').onclick=function(){ $('bp-fill').hidden=true; fileId=null;jobId=null; $('bp-file').value=''; $('bp-file-name').textContent='Drag & drop your file here'; $('bp-go').disabled=true; $('bp-prog').hidden=true; $('bp-result').hidden=true; $('bp-fixwrap').hidden=true; $('bp-download').hidden=true; $('bp-images-dl').hidden=true; imgJobId=null; $('bp-zip').value=''; $('bp-zip-result').hidden=true; $('bp-zip-bar').hidden=true; $('bp-links-ok').checked=false; zstat('Name photos by SKU: SK-1_1.jpg, SK-1_2.jpg \\u2026 or one folder per SKU.'); setStatus('Choose a file to begin.'); };",
     "})();"
   ].join("\n");
 }
