@@ -6,6 +6,10 @@ const { db, nowISO } = require("./db");
 
 const FIELDS = {
   flipkart: [
+    { key: "defaultPrice", label: "Default selling price (₹)", cols: ["yoursellingpriceinr"], type: "number", hint: "Used only when a product has no price of its own (e.g. photos-only listings)" },
+    { key: "defaultMrp", label: "Default MRP (₹)", cols: ["mrpinr"], type: "number", hint: "Used only when a product has no MRP of its own" },
+    { key: "defaultType", label: "Default type", cols: ["type"], hint: "Exactly as in Flipkart's list, e.g. Screen Guard — used when the product text doesn't say" },
+    { key: "defaultFeatures", label: "Default features", cols: ["features"], hint: "From Flipkart's list, separate with :: e.g. Scratch Resistant::Anti Glare" },
     { key: "listingStatus", label: "Listing status", cols: ["listingstatus"], required: true, options: ["Active", "Inactive"], def: "Active" },
     { key: "fulfilmentBy", label: "Fulfilment by", cols: ["fullfilmentby", "fulfilmentby", "fulfillmentby"], required: true, options: ["Seller", "FA", "SellerSmart"], def: "Seller", hint: "Seller = you ship · FA = Flipkart Assured" },
     { key: "procurementType", label: "Procurement type", cols: ["procurementtype"], def: "instock", hint: "instock or express" },
@@ -47,7 +51,7 @@ function get(biz, marketplace) {
   const saved = r ? (JSON.parse(r.data_json || "{}") || {}) : {};
   const out = {};
   for (const f of fieldsFor(marketplace)) {
-    let v = saved[f.key] !== undefined ? saved[f.key] : (f.def || "");
+    let v = saved[f.key] !== undefined && String(saved[f.key]).trim() !== "" ? saved[f.key] : (f.def || "");   // blank → sensible default
     if (v && f.options) v = f.options.find(o => o.toLowerCase() === String(v).toLowerCase()) || v;   // old "SELLER" → "Seller"
     out[f.key] = v;
   }

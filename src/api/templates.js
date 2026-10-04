@@ -21,13 +21,9 @@ function saveFields(templateId, biz, list) {
 }
 
 // upload = reference an already-uploaded (Phase 2) xlsx/xls file, analyze it, store schema
-router.post("/templates/upload", auth.requireAuth, (req, res) => {
-  try {
-    const { fileId, marketplace, category } = req.body || {};
-    if (!marketplace) return res.status(400).json({ error: "marketplace is required." });
-    const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get(fileId, req.user.business_id);
-    if (!f) return res.status(400).json({ error: "Upload the template file first (a stored fileId you own)." });
-    if (!["xlsx", "xls"].includes(f.ext)) return res.status(400).json({ error: "Template must be an .xlsx or .xls file." });
+function registerTemplate({ biz, userId, file: f, marketplace, category = null, ip = null }) {
+    if (!["xlsx", "xls"].includes(f.ext)) throw new Error("Template must be an .xlsx or .xls file.");
+    const req = { user: { business_id: biz, id: userId } };
     const buf = storage.readBuffer(f.storage_key);
     const a = analyze(buf, marketplace);
     // R5: allowed dropdown values shipped inside the template + the marketplace's mandatory columns
@@ -42,8 +38,18 @@ router.post("/templates/upload", auth.requireAuth, (req, res) => {
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(id, req.user.business_id, marketplace, category || null, f.id, f.original_name, f.storage_key, a.sheet, a.headerRow, a.dataStart, "1", JSON.stringify({ sheet: a.sheet, allowed }), 1, now, now);
     saveFields(id, req.user.business_id, a.fields);
-    audit.record({ businessId: req.user.business_id, userId: req.user.id, action: "template.upload", resourceType: "template", resourceId: id, metadata: { marketplace, fields: a.fields.length }, ip: audit.ipOf(req) });
-    res.status(201).json({ template: shape(own(req, id)), fields: fields(id), allowed });
+    audit.record({ businessId: biz, userId, action: "template.upload", resourceType: "template", resourceId: id, metadata: { marketplace, fields: a.fields.length }, ip });
+    return id;
+}
+router.post("/templates/upload", auth.requireAuth, (req, res) => {
+  try {
+    const { fileId, marketplace, category } = req.body || {};
+    if (!marketplace) return res.status(400).json({ error: "marketplace is required." });
+    const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get(fileId, req.user.business_id);
+    if (!f) return res.status(400).json({ error: "Upload the template file first (a stored fileId you own)." });
+    const id = registerTemplate({ biz: req.user.business_id, userId: req.user.id, file: f, marketplace, category, ip: audit.ipOf(req) });
+    const t = own(req, id), allowed = JSON.parse(t.schema_json || "{}").allowed || {};
+    res.status(201).json({ template: shape(t), fields: fields(id), allowed });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -99,3 +105,4 @@ router.delete("/templates/:id", auth.requireAuth, (req, res) => {
 });
 
 module.exports = router;
+module.exports.registerTemplate = registerTemplate;

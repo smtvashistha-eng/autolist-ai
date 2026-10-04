@@ -133,7 +133,7 @@ function valueFor(headerName, L, allowed) {
   if (has("itemname", "producttitle", "productname") || n === "title") v = r.fields.title?.value || i.productName || "";
   else if (n === "brand" || n === "brandname" || n === "vendor") v = i.brand || "";
   else if (has("description", "bodyhtml")) v = r.fields.description?.value || "";
-  else if (has("sellerskuid", "itemsku", "contributionsku", "handle") || n === "sku") v = i.sku || L.id;
+  else if (has("sellerskuid", "itemsku", "contributionsku", "handle") || n === "sku") v = i.sku || require("./photorows").skuSlug(i.productName || "") || L.id;
   else if (has("sellingprice", "standardprice", "ourprice", "variantprice", "yoursellingprice") || n === "price") v = i.price || "";
   else if (has("mrp", "listprice", "maximumretailprice", "maxretailprice")) v = i.mrp || "";
   else if (has("keyfeature")) v = bullets.join(sep);

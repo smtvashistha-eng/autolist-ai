@@ -55,11 +55,11 @@ router.post("/listings/from-photos", auth.requireAuth, (req, res) => {
   const job = db.prepare("SELECT * FROM processing_jobs WHERE id=? AND business_id=? AND type='image_zip' AND status IN ('COMPLETED','PARTIALLY_COMPLETED')").get(String(b.imageJobId || ""), biz);
   if (!job) return res.status(400).json({ error: "Upload your photo ZIP first and wait until it finishes." });
   const marketplace = ["amazon", "flipkart", "meesho", "shopify"].includes(b.marketplace) ? b.marketplace : "flipkart";
-  const skus = db.prepare("SELECT DISTINCT sku FROM image_assets WHERE job_id=? AND business_id=? AND sku IS NOT NULL AND sku!=''").all(job.id, biz).map(r => r.sku);
+  const prows = require("../photorows").photoRows(job.id, biz), skus = prows.map(r => r.photokey);
   if (!skus.length) return res.status(400).json({ error: "No product names found — name each photo after its product, e.g. hp-pavilion-14-screen-guard_1.jpg" });
   if (skus.length > 1000) return res.status(400).json({ error: "Up to 1000 products at a time." });
   const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
-  const csv = "sku,name\n" + skus.map(s => q(s) + "," + q(humanize(s))).join("\n") + "\n";
+  const csv = "sku,name,photokey\n" + prows.map(r => q(r.sku) + "," + q(r.name) + "," + q(r.photokey)).join("\n") + "\n";
   const fileId = require("../exporter").storeFile(biz, req.user.id, Buffer.from(csv), "csv", "text/csv", "photos-" + job.id.slice(-6) + ".csv", "upload");
   let templateId = b.templateId || null;
   if (!templateId) { const t = db.prepare("SELECT id FROM marketplace_templates WHERE business_id=? AND marketplace=? ORDER BY created_at DESC LIMIT 1").get(biz, marketplace); templateId = t ? t.id : null; }

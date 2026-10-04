@@ -22,8 +22,8 @@ function parseUpload(buffer, filename) {
   const ws = wb.Sheets[best.sheet];
   const range = XLSX.utils.decode_range(ws["!ref"] || "A1"); range.s.r += best.header;
   const rows = XLSX.utils.sheet_to_json(ws, { defval: "", range }) // array of {header: value}
-    .filter(r => Object.values(r).filter(v => String(v).trim()).length >= 1 && !Object.values(r).every(v => /^(mandatory|optional|recommended|desired)$/i.test(String(v).trim()) || !String(v).trim()));
-  if (!rows.length) throw new Error("No product rows found. Row 1 should be column titles, with products below.");
+    .filter(r => !require("./photorows").isHelpRow(r));
+  if (!rows.length) { const e = new Error("No product rows found. Row 1 should be column titles, with products below."); e.code = "NO_ROWS"; throw e; }
   const columns = Object.keys(rows[0]);
   if (!columns.length) throw new Error("Couldn't find any columns. Add a header row (e.g. product_name, price).");
   return { columns, rows };
