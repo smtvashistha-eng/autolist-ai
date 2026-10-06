@@ -233,7 +233,7 @@ function defaultsPage(user, marketplace, note, err) {
         : `<input class="input" name="${f.key}" value="${esc(v)}"${f.type === "number" ? ' inputmode="decimal"' : ""}>`;
     return `<label class="dfl${f.long ? " wide" : ""}"><span>${esc(f.label)}${f.required ? ' <i class="req">*</i>' : ""}</span>${input}${f.hint ? `<small>${esc(f.hint)}</small>` : ""}</label>`;
   };
-  const mks = ["flipkart"].map(x => `<a class="fchip ${x === m ? "on" : ""}" href="/app/brand/defaults?m=${x}">${mk(x)}</a>`).join("") + `<span class="fchip dis" title="Coming next">Amazon · soon</span>`;
+  const mks = ["flipkart", "amazon"].map(x => `<a class="fchip ${x === m ? "on" : ""}" href="/app/brand/defaults?m=${x}">${mk(x)}</a>`).join("");
   return shell(user, "/app/brand", `<div class="phead"><div><h1>Brand &amp; defaults</h1><p>Facts you enter once and reuse on every listing — stock, package size, HSN, tax, manufacturer. We never guess these.</p></div></div>
     ${tabs(BRAND_TABS, "/app/brand/defaults")}
     ${note ? `<div class="alert al-good mb"><span>${esc(note)}</span></div>` : ""}${err ? `<div class="alert al-err mb"><span>${esc(err)}</span></div>` : ""}
