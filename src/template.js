@@ -124,7 +124,8 @@ function valueFor(headerName, L, allowed) {
   if (/image|photo|picture/.test(n)) {
     if (/swatch/.test(n)) return undefined;               // leave variation swatch cells untouched
     if (/main|front|primary|cover/.test(n)) return images[0] || "";
-    const num = n.match(/(\d+)/);
+    const plain = raw.replace(/\[[^\]]*\]/g, "");
+    const num = plain.match(/locator_(\d+)/i) || plain.match(/(\d+)\s*$/) || n.match(/(\d+)/);
     if (/other|additional|secondary|sub/.test(n)) return images[num ? +num[1] : 1] || "";
     if (num) return images[(+num[1]) - 1] || "";
     return images[0] || "";                                 // bare "image" / "image url"

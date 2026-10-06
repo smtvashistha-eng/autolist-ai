@@ -122,7 +122,16 @@ function assemble(j, input) {
   const L = (input.limits && input.limits.title) || TITLE_MAX[input.marketplace] || 200;
   let title = clean(j.t); if (title.length > L) title = truncate(title, L);
   const bullets = (Array.isArray(j.b) ? j.b : String(j.b || "").split("\n")).map(clean).filter(Boolean).slice(0, 7);
-  const kw = (Array.isArray(j.k) ? j.k : String(j.k || "").split(",")).map(x => clean(x).toLowerCase()).filter(Boolean).slice(0, 12);
+  let kw = (Array.isArray(j.k) ? j.k : String(j.k || "").split(",")).map(x => clean(x).toLowerCase()).filter(Boolean).slice(0, 12);
+  if (String(input.marketplace || "").toLowerCase() === "amazon") {
+    // Amazon suppresses listings whose search terms carry other brands' names (trademark) — keep them brand-free,
+    // and name the device only as "Compatible with …" in the title
+    const own = String(p.brand || "").toLowerCase();
+    const TM = /\b(apple|macbook|ipad|iphone|hp|dell|lenovo|thinkpad|asus|acer|samsung|galaxy|msi|lg|gram|infinix|microsoft|surface|google|pixel|xiaomi|redmi|realme|oneplus|motorola|moto|huawei|honor|avita|nokia|sony|vivo|oppo|poco|chromebook|omen|pavilion|envy|spectre|ideapad|legion|yoga|zenbook|vivobook|rog|tuf|inspiron|latitude|xps|alienware|aspire|nitro|predator)\b/g;
+    kw = [...new Set(kw.map(k => k.replace(TM, "").replace(/d+(.d+)?(?!s*(inch|in|"))/g, "").replace(/\s+/g, " ").trim()).filter(k => k.length > 3 && k !== own))];
+    if (!kw.length) kw = ["screen protector", "anti glare screen guard", "matte screen film"];
+    if (p.designedFor && !/compatible with/i.test(title)) title = title.replace(/\s(for|fits)\s/i, " Compatible with ");
+  }
   const fields = [], missingFields = [], warnings = [];
   if (p.brand) fields.push(field("brand", String(p.brand), "provided", 1, false)); else { fields.push(field("brand", "", "missing", 0, true)); missingFields.push("brand"); }
   fields.push(field("title", title, "ai_generated", 0.9, false));

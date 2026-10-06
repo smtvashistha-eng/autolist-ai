@@ -71,6 +71,7 @@ FIELDS.amazon = [
   { key: "includedComponents", label: "Included components", cols: ["includedcomponents1value"], def: "1 Screen Protector, Cleaning Wipe, Dust-Removal Sticker, Applicator Card" },
   { key: "unitCount", label: "Unit count / items / packs", cols: ["unitcount1value", "numberofitems1value", "numberofpacks1value", "masterpacklayersperpalletquantity1value", "masterpacksperlayerquantity1value"], type: "number", def: "1" },
   { key: "unitType", label: "Unit count type", cols: ["unitcount1typevalue"], def: "count" },
+  { key: "shippingGroup", label: "Shipping template", cols: ["merchantshippinggroup1value"], required: true, def: "Migrated Template", hint: "Exactly as in Seller Central → Shipping settings (Amazon's default is \"Migrated Template\")" },
   { key: "fulfilment", label: "Fulfilment channel", cols: ["fulfillmentavailability1fulfillmentchannelcode"], required: true, def: "Fulfillment by Merchant (Default)" },
   { key: "stock", label: "Stock per SKU", cols: ["fulfillmentavailability1quantity"], required: true, type: "number", def: "50" },
   { key: "handlingDays", label: "Handling time (days)", cols: ["fulfillmentavailability1leadtimetoshipmaxdays"], required: true, type: "number", def: "2", hint: "2 days keeps late-dispatch low" },
