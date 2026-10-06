@@ -99,8 +99,11 @@ function valueFor(headerName, L, allowed) {
   const keywords = r.fields.keywords?.value || [];
   const raw = String(headerName);
   const images = i.images || [];
-  const n = norm(raw);
-  const list = allowed && allowed[n];
+  // Amazon attribute keys end in "#1.value" (brand[marketplace_id=…]#1.value → "brand1value"): compare on "brand",
+  // but keep the full key (n0) for defaults + dropdown lists
+  const n0 = norm(raw);
+  const n = /#1\.value$/.test(raw) ? n0.replace(/1value$/, "") : n0;
+  const list = allowed && (allowed[n0] || allowed[n]);
   const done = (v) => (list && v !== undefined ? snapAllowed(v, list) : v);
   if (MARKETPLACE_OWNED.has(n)) return undefined;
   // 1) the seller's sheet already has this exact column -> theirs wins
@@ -114,8 +117,9 @@ function valueFor(headerName, L, allowed) {
     }
   }
   // indexed columns
-  let mm = raw.match(/bullet[_ ]?point.*?#?(\d+)/i); if (mm) return bullets[(+mm[1]) - 1] || "";
-  mm = raw.match(/(generic[_ ]?keyword|search[_ ]?term).*?#?(\d+)/i); if (mm) return keywords[(+mm[2]) - 1] || "";
+  const idx = (re) => { if (!re.test(raw)) return null; const h = raw.match(/#(\d+)\./) || raw.replace(/\[[^\]]*\]/g, "").match(/(\d+)\s*$/) || raw.replace(/\[[^\]]*\]/g, "").match(/(\d+)/); return h ? +h[1] : 1; };
+  let mm = idx(/bullet[_ ]?point/i); if (mm) return bullets[mm - 1] || "";
+  mm = idx(/generic[_ ]?keyword|search[_ ]?term/i); if (mm) return keywords[mm - 1] || "";
   // image columns: main/front -> images[0]; other/additional #N -> images[N]; image N -> images[N-1]
   if (/image|photo|picture/.test(n)) {
     if (/swatch/.test(n)) return undefined;               // leave variation swatch cells untouched
@@ -132,7 +136,7 @@ function valueFor(headerName, L, allowed) {
   let v;
   if (has("itemname", "producttitle", "productname") || n === "title") v = r.fields.title?.value || i.productName || "";
   else if (n === "brand" || n === "brandname" || n === "vendor") v = i.brand || "";
-  else if (has("description", "bodyhtml")) v = r.fields.description?.value || "";
+  else if ((has("description", "bodyhtml")) && !has("warranty", "surface", "tnc", "steps", "material", "size", "color")) v = r.fields.description?.value || "";
   else if (has("sellerskuid", "itemsku", "contributionsku", "handle") || n === "sku") v = i.sku || require("./photorows").skuSlug(i.productName || "") || L.id;
   else if (has("sellingprice", "standardprice", "ourprice", "variantprice", "yoursellingprice") || n === "price") v = i.price || "";
   else if (has("mrp", "listprice", "maximumretailprice", "maxretailprice")) v = i.mrp || "";
@@ -141,7 +145,13 @@ function valueFor(headerName, L, allowed) {
   else if (n === "designedfor") v = designed;
   else if (n === "packof") v = i.packOf || "";
   else if (n === "modelnumber") v = i.modelNumber || i.sku || "";
-  else if (n === "modelname") v = i.modelName || (designed ? ((picks.type || "Screen Guard") + " for " + designed).slice(0, 100) : "");
+  else if (n === "modelname") v = i.modelName || (designed ? (mk === "amazon" ? (i.category || "Screen Protector") + " Compatible with " + designed : (picks.type || "Screen Guard") + " for " + designed).slice(0, 100) : "");
+  else if (n === "producttype") v = d.productType || "";
+  else if (n === "partnumber") v = i.sku || "";
+  else if (n === "compatibledevices" || n === "compatiblephonemodels") v = designed || "";
+  else if (n === "setname") v = designed ? designed + " " + (i.category || "Screen Protector") : "";
+  else if (n0 === "display1size1value") { const V = require("./ai/vision"); v = V.sizeFromText(i.size) || V.sizeFromText(i.productName) || ""; }
+  else if (n0 === "display1size1unit") { const V = require("./ai/vision"); v = (V.sizeFromText(i.size) || V.sizeFromText(i.productName)) ? "inches" : ""; }
   else if (n in picks) v = Array.isArray(picks[n]) ? picks[n].join("::") : picks[n];
   else if (n === "color" || n === "colour" || n === "colorname") v = i.color || "";
   else if (n === "size") v = i.size || "";
@@ -156,14 +166,16 @@ function valueFor(headerName, L, allowed) {
     if (pr) return done(String(has("mrp") ? pr.mrp : pr.price));
   }
   // 3) seller's saved marketplace defaults (stock, HSN, package size, manufacturer …)
-  const dv = require("./listingDefaults").valueForColumn(mk, d.defaults, n);
+  const dv = require("./listingDefaults").valueForColumn(mk, d.defaults, n0);
   if (dv !== undefined) return done(dv);
   return v === undefined ? undefined : done(v); // "" for known-but-empty; undefined leaves the seller's cell untouched
 }
 
 // ---- fill the template, preserving everything else ----
-function fillTemplate(buffer, listings, marketplace) {
+function fillTemplate(buffer, listings, marketplace, opts = {}) {
   const { wb, sheetName, headerRow, dataStart, headers } = detectStructure(buffer, marketplace);
+  const isXlsm = /\.xlsm$/i.test(opts.fileName || "") || (Buffer.isBuffer(buffer) && buffer.includes("xl/vbaProject.bin"));
+  if (isXlsm) { try { const v = XLSX.read(buffer, { type: "buffer", bookVBA: true }); if (v.vbaraw) wb.vbaraw = v.vbaraw; } catch {} }
   const allowed = parseAllowed(wb, sheetName, headers);
   // rules learned from marketplace QC error files (e.g. Fullfilment by ∈ FA|seller|SellerSmart) — exact spelling wins
   try { const learned = require("./qcLearn").rulesFor(marketplace); for (const k of Object.keys(learned)) allowed[k] = learned[k]; } catch {}
@@ -185,8 +197,8 @@ function fillTemplate(buffer, listings, marketplace) {
   ws["!ref"] = XLSX.utils.encode_range(range);
   // keep the marketplace's own format: legacy .xls (OLE2 signature D0 CF 11 E0) stays .xls
   const isXls = Buffer.isBuffer(buffer) && buffer.length > 4 && buffer.readUInt32BE(0) === 0xd0cf11e0;
-  const out = XLSX.write(wb, { type: "buffer", bookType: isXls ? "biff8" : "xlsx" });
-  return { buffer: out, ext: isXls ? "xls" : "xlsx", sheetName, headerRow, dataStart, columns: headers.length, filledCols, rows: listings.length, allowed };
+  const out = XLSX.write(wb, { type: "buffer", bookType: isXls ? "biff8" : isXlsm ? "xlsm" : "xlsx", bookVBA: isXlsm });
+  return { buffer: out, ext: isXls ? "xls" : isXlsm ? "xlsm" : "xlsx", sheetName, headerRow, dataStart, columns: headers.length, filledCols, rows: listings.length, allowed };
 }
 
 module.exports = { detectStructure, fillTemplate, valueFor, parseAllowed, snapAllowed, norm };

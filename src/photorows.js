@@ -15,4 +15,14 @@ const isHelpRow = (row) => {
   if (v.some(x => /check summary sheet|approved \/ disapproved|to be filled by|fast validate|ctrl\+shift/i.test(x))) return true;
   return !v.length || v.filter(x => HELP.test(x)).length >= Math.min(2, v.length);
 };
-module.exports = { humanize, skuSlug, photoRows, isHelpRow };
+// what the product is, for photo-only rows: the seller's own item type (Amazon defaults) > the category sheet's name
+// (Flipkart "screen_guard") > the template's file name (Amazon "SCREEN_PROTECTOR.xlsm" — its sheet is just "Template")
+function categoryFor(biz, templateId, marketplace) {
+  const t = templateId && db.prepare("SELECT sheet, file_name FROM marketplace_templates WHERE id=? AND business_id=?").get(templateId, biz);
+  try { const d = require("./listingDefaults").get(biz, marketplace).values || {}; if (d.itemTypeName) return String(d.itemTypeName); } catch {}
+  if (!t) return "";
+  if (t.sheet && !/^template$/i.test(t.sheet)) return humanize(String(t.sheet).toLowerCase());
+  const m = /^([A-Za-z][A-Za-z0-9_]{2,})/.exec(String(t.file_name || ""));
+  return m ? humanize(m[1].toLowerCase()) : "";
+}
+module.exports = { humanize, skuSlug, photoRows, isHelpRow, categoryFor };

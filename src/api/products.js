@@ -87,7 +87,7 @@ router.post("/products/import", auth.requireAuth, (req, res) => {
   try {
     const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=?").get((req.body || {}).fileId, req.user.business_id);
     if (!f || f.status !== "stored") return res.status(404).json({ error: "Uploaded file not found. Upload and complete it first." });
-    if (!["xlsx", "xls", "csv"].includes(f.ext)) return res.status(400).json({ error: "Import needs an .xlsx, .xls or .csv file." });
+    if (!["xlsx", "xlsm", "xls", "csv"].includes(f.ext)) return res.status(400).json({ error: "Import needs an .xlsx, .xls or .csv file." });
     const { rows } = bulk.parseUpload(storage.readBuffer(f.storage_key), f.original_name);
     if (rows.length > 1000) return res.status(413).json({ error: "That file has over 1000 rows. Large imports run as a background job (coming in Phase 5)." });
     const map = bulk.autoMap(Object.keys(rows[0]));

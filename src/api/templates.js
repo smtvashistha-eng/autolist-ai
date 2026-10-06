@@ -22,7 +22,7 @@ function saveFields(templateId, biz, list) {
 
 // upload = reference an already-uploaded (Phase 2) xlsx/xls file, analyze it, store schema
 function registerTemplate({ biz, userId, file: f, marketplace, category = null, ip = null }) {
-    if (!["xlsx", "xls"].includes(f.ext)) throw new Error("Template must be an .xlsx or .xls file.");
+    if (!["xlsx", "xlsm", "xls"].includes(f.ext)) throw new Error("Template must be an .xlsx, .xlsm or .xls file.");
     const req = { user: { business_id: biz, id: userId } };
     const buf = storage.readBuffer(f.storage_key);
     const a = analyze(buf, marketplace);
@@ -32,7 +32,11 @@ function registerTemplate({ biz, userId, file: f, marketplace, category = null, 
     try { const st = tmpl.detectStructure(buf, marketplace); allowed = tmpl.parseAllowed(st.wb, st.sheet || st.sheetName, st.headers); } catch {}
     const REQ = { flipkart: ["sellerskuid", "mrpinr", "yoursellingpriceinr", "brand", "designedfor", "type", "features", "suitablefor", "modelnumber", "modelname", "mainimageurl"] };
     const must = new Set([...(REQ[marketplace] || []), ...require("../listingDefaults").requiredCols(marketplace)]);
-    a.fields = a.fields.map(fl => ({ ...fl, required: fl.required || must.has(tmpl.norm(fl.fieldName)) }));
+    // Amazon attribute-key templates: name guesses ("…_sku", "…_price") would mark variation/discount columns required —
+    // use Amazon's core required attributes + the seller's required defaults instead
+    const AMZ = ["contributionsku1value", "producttype1value", "itemname1value", "brand1value", "amzn1voltcaproductidtype", "productdescription1value", "bulletpoint1value", "mainproductimagelocator1medialocation", "purchasableoffer1ourprice1schedule1valuewithtax", "purchasableoffer1maximumretailprice1schedule1valuewithtax"];
+    const amzKeys = marketplace === "amazon" && a.fields.some(fl => /#1.value$/.test(fl.fieldName));
+    a.fields = a.fields.map(fl => ({ ...fl, required: amzKeys ? (AMZ.includes(tmpl.norm(fl.fieldName)) || must.has(tmpl.norm(fl.fieldName))) : (fl.required || must.has(tmpl.norm(fl.fieldName))) }));
     const id = rid("mt_"), now = nowISO();
     db.prepare(`INSERT INTO marketplace_templates(id,business_id,marketplace,category,file_id,file_name,storage_key,sheet,header_row,data_start,version,schema_json,active,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)

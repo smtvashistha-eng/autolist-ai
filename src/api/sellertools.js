@@ -62,8 +62,7 @@ router.post("/listings/from-photos", auth.requireAuth, (req, res) => {
   let templateId = b.templateId || null;
   if (!templateId) { const t = db.prepare("SELECT id FROM marketplace_templates WHERE business_id=? AND marketplace=? ORDER BY created_at DESC LIMIT 1").get(biz, marketplace); templateId = t ? t.id : null; }
   // the template's category (e.g. screen_guard) tells the writer what the product is — "Screen Guard for <photo name>"
-  const tsheet = templateId && (db.prepare("SELECT sheet FROM marketplace_templates WHERE id=? AND business_id=?").get(templateId, biz) || {}).sheet;
-  const cat = tsheet ? require("../photorows").humanize(tsheet) : "";
+  const cat = require("../photorows").categoryFor(biz, templateId, marketplace);
   const csv = "sku,name,photokey,category\n" + prows.map(r => q(r.sku) + "," + q(r.name) + "," + q(r.photokey) + "," + q(cat)).join("\n") + "\n";
   const fileId = require("../exporter").storeFile(biz, req.user.id, Buffer.from(csv), "csv", "text/csv", "photos-" + job.id.slice(-6) + ".csv", "upload");
   const queue = require("../queue");

@@ -3,6 +3,8 @@ const MB = 1024 * 1024;
 
 const TYPES = {
   xlsx: { ext: ["xlsx"], mimes: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"], maxSize: 25 * MB, magic: b => b.slice(0, 4).toString("hex") === "504b0304" },
+  // Amazon category templates are macro-enabled workbooks (.xlsm) — same zip container as .xlsx
+  xlsm: { ext: ["xlsm"], mimes: ["application/vnd.ms-excel.sheet.macroEnabled.12", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"], maxSize: 25 * MB, magic: b => b.slice(0, 4).toString("hex") === "504b0304" },
   xls:  { ext: ["xls"], mimes: ["application/vnd.ms-excel", "application/octet-stream"], maxSize: 25 * MB, magic: b => b.slice(0, 8).toString("hex") === "d0cf11e0a1b11ae1" },
   csv:  { ext: ["csv"], mimes: ["text/csv", "application/vnd.ms-excel", "text/plain", "application/octet-stream"], maxSize: 25 * MB, magic: () => true },
   zip:  { ext: ["zip"], mimes: ["application/zip", "application/octet-stream"], maxSize: 50 * MB, magic: b => b.slice(0, 4).toString("hex") === "504b0304" || b.slice(0, 4).toString("hex") === "504b0506" },
@@ -14,7 +16,7 @@ const TYPES = {
 const EXT_TO_TYPE = {};
 for (const [t, def] of Object.entries(TYPES)) for (const e of def.ext) EXT_TO_TYPE[e] = t;
 
-const contentType = { xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", xls: "application/vnd.ms-excel", csv: "text/csv", zip: "application/zip", pdf: "application/pdf", jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
+const contentType = { xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", xls: "application/vnd.ms-excel", csv: "text/csv", zip: "application/zip", pdf: "application/pdf", jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
 function extOf(name) { const m = /\.([a-z0-9]+)$/i.exec(String(name || "")); return m ? m[1].toLowerCase() : ""; }
 

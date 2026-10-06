@@ -85,7 +85,8 @@ async function createExport({ biz, userId, draftIds, marketplace, templateId, in
   // build listings
   const drafts = draftIds.map(id => db.prepare("SELECT * FROM listing_drafts WHERE id=? AND business_id=?").get(id, biz)).filter(Boolean);
   const defaults = require("./listingDefaults").get(biz, marketplace).values;
-  const legacy = drafts.map(d => { const L = toLegacy(d, d.product_id ? db.prepare("SELECT * FROM products WHERE id=?").get(d.product_id) : null); L.data.defaults = defaults; return L; });
+  const ptype = tpl && /^([A-Z][A-Z0-9_]{2,})(?:[ _(-].*)?\.xls[xm]?$/.exec(String(tpl.file_name || "")) ? RegExp.$1 : "";
+  const legacy = drafts.map(d => { const L = toLegacy(d, d.product_id ? db.prepare("SELECT * FROM products WHERE id=?").get(d.product_id) : null); L.data.defaults = defaults; if (ptype) L.data.productType = ptype; return L; });
   const allowed = Object.assign({}, tpl ? (JSON.parse(tpl.schema_json || "{}").allowed || {}) : {}, require("./qcLearn").rulesFor(marketplace));
 
   // template required-field check via the ACTUAL fill logic (concept-aware), not raw names
@@ -102,7 +103,7 @@ async function createExport({ biz, userId, draftIds, marketplace, templateId, in
     });
   }
   if (!report.valid) return { blocked: true, report };
-  const out = await provider.generateExport({ listings: legacy, templateBuffer });
+  const out = await provider.generateExport({ listings: legacy, templateBuffer, templateName: tpl && tpl.file_name });
   // marketplaces (Flipkart) reject a filled template whose file name was changed — keep the seller's original name
   const outName = tpl && tpl.file_name && out.ext !== "csv" ? tpl.file_name.replace(/[\\/:*?"<>|]/g, "_") : `autolist_${marketplace}.${out.ext}`;
   const fileId = storeFile(biz, userId, out.buffer, out.ext, out.mime, outName, "export");

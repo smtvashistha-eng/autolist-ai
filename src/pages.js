@@ -1091,7 +1091,7 @@ function bulkPro(user) {
       <b id="bp-file-name">Drag &amp; drop your file here</b><span>or</span>
       <button type="button" class="btn pri" id="bp-pick">Choose file</button>
       <p class="cr-limits">Columns like: name, sku, price, mrp, image_url, features</p>
-      <input type="file" id="bp-file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
+      <input type="file" id="bp-file" accept=".xlsx,.xlsm,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
     </div>
     <div style="margin-top:16px"><label class="cr-optlbl">Marketplace</label>
       <div class="seg-row">${seg("amazon", "Amazon")}${seg("flipkart", "Flipkart")}${seg("meesho", "Meesho")}${seg("shopify", "Shopify")}</div></div>
@@ -1176,8 +1176,8 @@ function bulkProScript() {
     "$('bp-drop').addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)upload(f);});",
     "$('bp-file').addEventListener('change',function(){if(this.files[0])upload(this.files[0]);});",
     "function upload(file){",
-    "  if(busy)return; var okext=/\\.(xlsx|xls|csv)$/i.test(file.name);",
-    "  if(!okext){setStatus('Please choose an .xlsx, .xls or .csv file.',1);return;}",
+    "  if(busy)return; var okext=/\\.(xlsx|xlsm|xls|csv)$/i.test(file.name);",
+    "  if(!okext){setStatus('Please choose an .xlsx, .xlsm, .xls or .csv file.',1);return;}",
     "  if(file.size>25*1024*1024){setStatus('File is over 25 MB.',1);return;}",
     "  busy=true; setStatus('Uploading '+file.name+'\\u2026');",
     "  fetch('/api/files/presign',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fileName:file.name,mime:file.type||'text/csv',size:file.size})})",

@@ -39,7 +39,7 @@ app.use("/api", (req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true }));
 const jsonBody = express.json({ limit: "2mb", verify: (req, res, buf) => { req.rawBody = buf; } }); // rawBody for webhook signatures
-app.use((req, res, next) => (req.path === "/api/image/ai" || req.path === "/api/image/accept" ? next() : jsonBody(req, res, next)));   // studio photos parse larger bodies on their own routes
+app.use((req, res, next) => (req.path === "/api/image/ai" || req.path === "/api/image/accept" || (req.path === "/api/image/common" && req.method === "POST") ? next() : jsonBody(req, res, next)));   // studio photos parse larger bodies on their own routes
 app.use(express.static(path.join(__dirname, "..", "public"), { redirect: false }));   // no /guides → /guides/ folder redirect (that URL is a page)
 app.use(auth.attachUser);
 app.use(require("./sitegate").middleware);

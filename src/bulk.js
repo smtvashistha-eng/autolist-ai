@@ -8,6 +8,19 @@ function parseUpload(buffer, filename) {
   if (!wb.SheetNames.length) throw new Error("That file has no data sheet.");
   // marketplace templates keep instructions on sheet 1 and headers on row 2-6 — find the sheet + row that
   // looks most like column titles (most matches to known fields, must include a name/SKU/title column)
+  // Amazon flat file: A1 of "Template" holds settings=…labelRow=4&attributeRow=5&dataRow=7 — products start at dataRow
+  // (the row above is Amazon's own "ABC123" example, never a product)
+  for (const sn of wb.SheetNames) {
+    const a1 = String((wb.Sheets[sn]["A1"] || {}).v || "");
+    const lr = a1.match(/labelRow=(\d+)/), dr = a1.match(/dataRow=(\d+)/);
+    if (!/^settings=/.test(a1) || !lr || !dr) continue;
+    const grid = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", blankrows: true });
+    const labels = (grid[+lr[1] - 1] || []).map((h, i) => String(h).trim() || "col" + i);
+    const rows = grid.slice(+dr[1] - 1).filter(r => r.some(v => String(v).trim()))
+      .map(r => Object.fromEntries(labels.map((h, i) => [h, r[i] === undefined ? "" : r[i]])));
+    if (!rows.length) { const e = new Error("No product rows found."); e.code = "NO_ROWS"; throw e; }
+    return { columns: labels, rows };
+  }
   let best = { score: -1, sheet: wb.SheetNames[0], header: 0 };
   for (const sn of wb.SheetNames) {
     if (/^(index|instruction|help|read ?me|guide|valid|dropdown|lookup)/i.test(sn.trim())) continue;

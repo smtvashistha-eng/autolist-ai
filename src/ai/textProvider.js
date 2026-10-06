@@ -38,7 +38,11 @@ const templateProvider = {
     // bullets from provided features/attributes
     const feats = Array.isArray(p.features) ? p.features.filter(Boolean) : [];
     const attrBits = [p.color && `Color: ${p.color}`, p.size && `Size: ${p.size}`].filter(Boolean);
-    const bullets = [...feats, ...attrBits].slice(0, 5);
+    // photo-only products have no features yet: use only facts we hold — what it fits, its category, and the
+    // seller's own description of their product (Brand Memory), split into short points
+    const sellerSays = String((input.brandProfile && input.brandProfile.sells) || "").split(/[,;\n]+/).map(s => s.trim()).filter(s => s.length > 3);
+    const facts = [p.designedFor && `Compatible with ${p.designedFor}`, p.category && !feats.length && `${p.category}${p.designedFor ? " made for the " + p.designedFor : ""}`, ...(!feats.length ? sellerSays : [])].filter(Boolean);
+    const bullets = [...new Set([...feats, ...facts, ...attrBits])].slice(0, 5);
     if (bullets.some(b => CLAIMY.test(b))) warnings.push("A bullet contains a promotional claim that some marketplaces reject.");
     fields.push(field("bullets", bullets.join("\n"), bullets.length ? "generated_from_confirmed_data" : "ai_generated", bullets.length ? 0.85 : 0.6, false));
 

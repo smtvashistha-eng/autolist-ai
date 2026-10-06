@@ -46,6 +46,49 @@ const FIELDS = {
   ],
 };
 
+// Amazon category flat file (new attribute-key format, e.g. SCREEN_PROTECTOR). cols = template.norm(attribute key).
+FIELDS.amazon = [
+  { key: "priceBySize", label: "Price by screen size", cols: [], long: true, hint: "One per line: size:selling price:MRP — e.g. 14:289:599" },
+  { key: "defaultPrice", label: "Default selling price (₹)", cols: ["purchasableoffer1ourprice1schedule1valuewithtax"], type: "number", hint: "Used only when a product has no price of its own" },
+  { key: "defaultMrp", label: "Default MRP (₹)", cols: ["purchasableoffer1maximumretailprice1schedule1valuewithtax"], type: "number" },
+  { key: "productIdType", label: "Product ID type", cols: ["amzn1voltcaproductidtype"], required: true, options: ["GTIN Exempt", "EAN", "UPC", "ASIN"], def: "GTIN Exempt", hint: "GTIN Exempt needs an approved exemption for your brand" },
+  { key: "browseNode", label: "Browse node", cols: ["recommendedbrowsenodes1value"], required: true, hint: "Laptop screen protectors 13753170311 · Tablet 13753320311" },
+  { key: "manufacturer", label: "Manufacturer (name)", cols: ["manufacturer1value"], required: true },
+  { key: "manufacturerContact", label: "Manufacturer contact (name + address)", cols: ["rtipmanufacturercontactinformation1value"], required: true, long: true },
+  { key: "packerContact", label: "Packer contact (name + address)", cols: ["packercontactinformation1value"], required: true, long: true },
+  { key: "importerContact", label: "Importer contact", cols: ["importercontactinformation1value"], long: true, hint: "Made in India? Use your own name + address" },
+  { key: "hsn", label: "HSN code", cols: ["externalproductinformation1value"], required: true, hint: "From your GST records — we never guess this" },
+  { key: "hsnEntity", label: "HSN entity", cols: ["externalproductinformation1entity"], def: "HSN Code" },
+  { key: "taxCode", label: "Product tax code", cols: ["producttaxcode1value"], def: "A_GEN_TAX" },
+  { key: "itemTypeName", label: "Item type name", cols: ["itemtypename1value"], required: true, hint: "e.g. Laptop Screen Protector" },
+  { key: "platform", label: "Platform for display", cols: ["platformfordisplay1value"], hint: "Laptop or Tablet" },
+  { key: "style", label: "Style", cols: ["style1value"], def: "Matte" },
+  { key: "material", label: "Material", cols: ["material1value"], def: "PET" },
+  { key: "finish", label: "Finish / screen surface", cols: ["finishtype1value", "screensurfacedescription1value"], def: "Matte" },
+  { key: "color", label: "Colour", cols: ["color1value"], def: "Transparent" },
+  { key: "orientation", label: "Orientation", cols: ["orientation1value"], def: "Landscape" },
+  { key: "condition", label: "Condition", cols: ["conditiontype1value", "productgrade1value"], def: "New" },
+  { key: "includedComponents", label: "Included components", cols: ["includedcomponents1value"], def: "1 Screen Protector, Cleaning Wipe, Dust-Removal Sticker, Applicator Card" },
+  { key: "unitCount", label: "Unit count / items / packs", cols: ["unitcount1value", "numberofitems1value", "numberofpacks1value", "masterpacklayersperpalletquantity1value", "masterpacksperlayerquantity1value"], type: "number", def: "1" },
+  { key: "unitType", label: "Unit count type", cols: ["unitcount1typevalue"], def: "count" },
+  { key: "fulfilment", label: "Fulfilment channel", cols: ["fulfillmentavailability1fulfillmentchannelcode"], required: true, def: "Fulfillment by Merchant (Default)" },
+  { key: "stock", label: "Stock per SKU", cols: ["fulfillmentavailability1quantity"], required: true, type: "number", def: "50" },
+  { key: "handlingDays", label: "Handling time (days)", cols: ["fulfillmentavailability1leadtimetoshipmaxdays"], required: true, type: "number", def: "2", hint: "2 days keeps late-dispatch low" },
+  { key: "pkgLength", label: "Package length (cm)", cols: ["itempackagedimensions1lengthvalue"], required: true, type: "number" },
+  { key: "pkgWidth", label: "Package width (cm)", cols: ["itempackagedimensions1widthvalue"], required: true, type: "number" },
+  { key: "pkgHeight", label: "Package height (cm)", cols: ["itempackagedimensions1heightvalue"], required: true, type: "number" },
+  { key: "pkgDimUnit", label: "Package size unit", cols: ["itempackagedimensions1lengthunit", "itempackagedimensions1widthunit", "itempackagedimensions1heightunit"], def: "centimeters" },
+  { key: "pkgWeight", label: "Package weight (g)", cols: ["itempackageweight1value"], required: true, type: "number" },
+  { key: "itemWeight", label: "Item weight (g)", cols: ["itemweight1value"], type: "number", def: "20" },
+  { key: "weightUnit", label: "Weight unit", cols: ["itempackageweight1unit", "itemweight1unit"], def: "grams" },
+  { key: "countryOfOrigin", label: "Country of origin", cols: ["countryoforigin1value"], required: true, def: "India" },
+  { key: "warranty", label: "Warranty description", cols: ["warrantydescription1value"], def: "6 months replacement warranty against manufacturing defects." },
+  { key: "batteries", label: "Batteries required / included", cols: ["batteriesrequired1value", "batteriesincluded1value"], def: "No" },
+  { key: "dg", label: "Dangerous goods regulation", cols: ["supplierdeclareddghzregulation1value"], def: "Not Applicable" },
+  { key: "vehicle", label: "Compatible vehicle type", cols: ["compatiblewithvehicletype1value"], def: "Not Applicable" },
+  { key: "defaultFeatures", label: "Default style keywords", cols: [], hint: "Optional" },
+];
+
 const fieldsFor = (m) => FIELDS[m] || [];
 function get(biz, marketplace) {
   const r = db.prepare("SELECT data_json FROM listing_defaults WHERE business_id=? AND marketplace=?").get(biz, marketplace);

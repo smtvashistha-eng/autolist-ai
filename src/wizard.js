@@ -69,7 +69,7 @@ function wizardPage(user) {
       ${["amazon:Amazon", "flipkart:Flipkart", "meesho:Meesho", "shopify:Shopify"].map((m, i) => { const [v, n] = m.split(":"); return `<label class="seg"><input type="radio" name="wzmkt" value="${v}" ${i ? "" : "checked"}><span>${n}</span></label>`; }).join("")}
     </div>
     <div style="margin-top:14px"><b style="font-size:13.5px">Marketplace sample file</b> <span style="font-size:13px;color:var(--soft)">(.xlsx/.xls from Seller Central — we fill it natively; skip for a clean CSV)</span><br>
-      <button class="btn ghost" id="wz-tpl-pick" style="margin-top:6px">Attach sample file</button><input type="file" id="wz-tpl" accept=".xlsx,.xls" hidden>
+      <button class="btn ghost" id="wz-tpl-pick" style="margin-top:6px">Attach sample file</button><input type="file" id="wz-tpl" accept=".xlsx,.xlsm,.xls" hidden>
       <div class="wz-msg" id="wz-tpl-msg"></div></div>
     <div id="wz-defs-wrap" hidden style="margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:14px">
       <b style="font-size:13.5px" id="wz-defs-title">Marketplace defaults</b>
@@ -78,7 +78,7 @@ function wizardPage(user) {
       <div class="wz-msg" id="wz-defs-msg"></div>
     </div>
     <div style="margin-top:14px"><b style="font-size:13.5px">Product sheet</b> <span style="font-size:13px;color:var(--soft)">(.xlsx/.xls/.csv — name, sku, price, mrp, features…)</span><br>
-      <button class="btn ghost" id="wz-sheet-pick" style="margin-top:6px">Choose product sheet</button><input type="file" id="wz-sheet" accept=".xlsx,.xls,.csv" hidden>
+      <button class="btn ghost" id="wz-sheet-pick" style="margin-top:6px">Choose product sheet</button><input type="file" id="wz-sheet" accept=".xlsx,.xlsm,.xls,.csv" hidden>
       <div class="wz-msg" id="wz-sheet-msg"></div></div>
     <div class="wz-nav"><button class="btn ghost" data-back="3">Back</button><button class="btn pri" id="wz-n3" disabled>Review &amp; confirm</button></div>`)}
 
@@ -160,7 +160,7 @@ function script() {
     "  }).catch(function(e){msg('wz-tpl-msg',esc(e.message),1);}); };",
     "$('wz-sheet-pick').onclick=function(){$('wz-sheet').click();};",
     "$('wz-sheet').onchange=function(){ var f=this.files[0]; if(!f)return;",
-    "  if(!/\\.(xlsx|xls|csv)$/i.test(f.name)){msg('wz-sheet-msg','Please choose .xlsx, .xls or .csv.',1);return;}",
+    "  if(!/\\.(xlsx|xlsm|xls|csv)$/i.test(f.name)){msg('wz-sheet-msg','Please choose .xlsx, .xlsm, .xls or .csv.',1);return;}",
     "  if(f.size>25*1024*1024){msg('wz-sheet-msg','File is over 25 MB.',1);return;}",
     "  S.sheetId=null; $('wz-n3').disabled=true; msg('wz-sheet-msg','Uploading '+esc(f.name)+'\\u2026');",
     "  upload(f).then(function(fid){ S.sheetId=fid; S.sheetName=f.name; msg('wz-sheet-msg','\\u2705 '+esc(f.name)+' ready.'); $('wz-n3').disabled=false; }).catch(function(e){msg('wz-sheet-msg',esc(e.message),1);}); };",

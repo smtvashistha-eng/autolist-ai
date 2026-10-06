@@ -34,7 +34,12 @@ function generateOneFromRow(biz, row, map, marketplace, provider, imgMap) {
   }                                   // R5: keep every original column — the seller's values always win
   if (!input.designedFor) input.designedFor = require("./attributes").designedFor(input.productName);
   // photo named just by device ("Apple MacBook Air M1") in an accessory category → that device is what it's designed for
-  if (!input.designedFor && /guard|glass|protector|case|cover|skin|film/i.test(input.category || "") && !/guard|glass|protector|case|cover|skin|film/i.test(input.productName)) input.designedFor = String(input.productName).slice(0, 120);
+  if (!input.designedFor && /guard|glass|protector|case|cover|skin|film/i.test(input.category || "") && !/guard|glass|protector|case|cover|skin|film/i.test(input.productName)) {
+    // a trailing screen size is not part of the device name: "HP 15 (2026) 15.6" → "HP 15 (2026)", "HP Pavilion 14 14" → "HP Pavilion 14"
+    let df = String(input.productName); const t = df.match(/\s+(\d{1,2}(?:\.\d)?)$/);
+    if (t && (t[1].includes(".") || new RegExp("\\b" + t[1] + "$").test(df.slice(0, -t[0].length).trim()))) { if (!input.size) input.size = t[1] + " inch"; df = df.slice(0, -t[0].length).trim(); }
+    input.designedFor = df.slice(0, 120);
+  }
   { const pm = String(input.productName).match(/\b(?:pack|set)\s*of\s*(\d{1,3})\b/i); if (pm && !input.packOf) input.packOf = pm[1]; }
   // R2: attach hosted image links from the uploaded ZIP, matched by SKU (sheet links win)
   if (imgMap && (!input.images || !input.images.length)) {
@@ -56,7 +61,7 @@ queue.register("product_import", async (job, ctx) => {
   const { fileId } = job.input || {};
   const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get(fileId, job.business_id);
   if (!f) throw new Error("Uploaded file not found or not completed.");
-  if (!["xlsx", "xls", "csv"].includes(f.ext)) throw new Error("Import needs an .xlsx, .xls or .csv file.");
+  if (!["xlsx", "xlsm", "xls", "csv"].includes(f.ext)) throw new Error("Import needs an .xlsx, .xls or .csv file.");
   ctx.stage("Reading file");
   const { rows } = bulk.parseUpload(storage.readBuffer(f.storage_key), f.original_name);
   ctx.setTotal(rows.length);
@@ -134,7 +139,7 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   const biz = job.business_id;
   const f = db.prepare("SELECT * FROM files WHERE id=? AND business_id=? AND status='stored'").get(fileId, biz);
   if (!f) throw new Error("Uploaded file not found or not completed.");
-  if (!["xlsx", "xls", "csv"].includes(f.ext)) throw new Error("Bulk needs an .xlsx, .xls or .csv file.");
+  if (!["xlsx", "xlsm", "xls", "csv"].includes(f.ext)) throw new Error("Bulk needs an .xlsx, .xls or .csv file.");
 
   ctx.stage("Reading file");
   let rows = [];
@@ -142,11 +147,11 @@ queue.register("bulk_pipeline", async (job, ctx) => {
   // a BLANK marketplace template (no products yet): keep it as the seller's template so the export comes out
   // in their exact file format, and use the uploaded photos as the products
   let tplNote = null;
-  if (!rows.length && ["xlsx", "xls"].includes(f.ext)) {
+  if (!rows.length && ["xlsx", "xlsm", "xls"].includes(f.ext)) {
     if (!templateId) { try { templateId = require("./api/templates").registerTemplate({ biz, userId: job.user_id, file: f, marketplace }); tplNote = "saved"; } catch (e) { ctx.warn("Couldn't read the template: " + e.message); } }
     if (!imageJobId) throw new Error("This is a blank " + marketplace + " template with no products in it. We saved it as your template — now add a photo ZIP (photos named by product) or a sheet with your products.");
     rows = require("./photorows").photoRows(imageJobId, biz);
-    { const t = templateId && db.prepare("SELECT sheet FROM marketplace_templates WHERE id=?").get(templateId); const cat = t && t.sheet ? require("./photorows").humanize(t.sheet) : ""; if (cat) rows.forEach(r => { r.category = cat; }); }
+    { const cat = require("./photorows").categoryFor(biz, templateId, marketplace); if (cat) rows.forEach(r => { r.category = cat; }); }
     tplNote = (tplNote || "used") + "+photos";
     ctx.warn("Your sheet is a blank " + marketplace + " template — saved it and used your " + rows.length + " photos as the products.");
   }
