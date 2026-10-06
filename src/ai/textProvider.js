@@ -128,7 +128,7 @@ function assemble(j, input) {
     // and name the device only as "Compatible with …" in the title
     const own = String(p.brand || "").toLowerCase();
     const TM = /\b(apple|macbook|ipad|iphone|hp|dell|lenovo|thinkpad|asus|acer|samsung|galaxy|msi|lg|gram|infinix|microsoft|surface|google|pixel|xiaomi|redmi|realme|oneplus|motorola|moto|huawei|honor|avita|nokia|sony|vivo|oppo|poco|chromebook|omen|pavilion|envy|spectre|ideapad|legion|yoga|zenbook|vivobook|rog|tuf|inspiron|latitude|xps|alienware|aspire|nitro|predator)\b/g;
-    kw = [...new Set(kw.map(k => k.replace(TM, "").replace(/\b\d+(\.\d+)?\b(?!\s*(inch|in\b|"))/g, "").replace(/\s+/g, " ").trim()).filter(k => k.length > 3 && k !== own))];
+    kw = [...new Set(kw.map(k => k.replace(TM, "").replace(/(?<![\d.])\d+(\.\d+)?(?![\d.])(?!\s*(inch|in\b|"))/g, "").replace(/\s+/g, " ").trim()).filter(k => k.length > 3 && k !== own))];
     if (!kw.length) kw = ["screen protector", "anti glare screen guard", "matte screen film"];
     if (p.designedFor && !/compatible with/i.test(title)) title = title.replace(/\s(for|fits)\s/i, " Compatible with ");
   }
