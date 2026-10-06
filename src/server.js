@@ -126,6 +126,16 @@ for (const [part, col] of [["report", "report_file_id"], ["images", "image_zip_f
 }
 app.get("/app/jobs", (req, res) => res.send(ux.jobsPage(req.user)));
 app.get("/app/images/hosted", (req, res) => res.send(ux.hostedPhotos(req.user, req.query)));
+// every hosted photo link as a sheet (sku, photo #, file, link) — to paste links into any marketplace file
+app.get("/app/images/hosted.csv", auth.requireAuth, (req, res) => {
+  const args = [req.user.business_id]; let where = "business_id=?";
+  if (req.query.job) { where += " AND job_id=?"; args.push(String(req.query.job)); }
+  const rows = db.prepare(`SELECT sku, position, filename, url, created_at FROM image_assets WHERE ${where} ORDER BY created_at DESC, sku, COALESCE(position,999) LIMIT 20000`).all(...args);
+  const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="hosted_photo_links.csv"');
+  res.send("sku,photo,file,link,uploaded\n" + rows.map(r => [r.sku, r.position || "", r.filename, r.url, r.created_at].map(q).join(",")).join("\n"));
+});
 app.get("/app/brand/defaults", (req, res) => res.send(ux.defaultsPage(req.user, String(req.query.m || "flipkart"), req.query.ok, req.query.err)));
 app.post("/app/brand/defaults", (req, res) => {
   const m = String(req.query.m || "flipkart");
